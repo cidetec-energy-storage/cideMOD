@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+from PXD.helpers.config_parser import CellParser
+from PXD.mesh.gmsh_adapter import GmshMesher
+from pathlib import Path
+from mpi4py import MPI
+import argparse
+
+assert MPI.COMM_WORLD.size == 1, "Mesh cannot be created in parallel"
+
+def create_mesh(file_path, mode, x,y,z):
+    params = Path(file_path)
+    options = {
+        'mode': mode,
+        'N_x': x,
+        'N_y': y,
+        'N_z': z,
+    }
+
+    cell = CellParser(str(params.absolute()),str(params.parent.absolute()), log=False)
+    mesher = GmshMesher(options, cell)
+    created = mesher.prepare_mesh()
+    if created:
+        print('New Mesh created succesfully.', flush=True)
+    else:
+        print('Using cached mesh.', flush=True)
+
+if __name__=="__main__":
+    parser = argparse.ArgumentParser(description='Generate battery geometry and mesh. Should allways be run in serial')
+    parser.add_argument('params_file', type=str, nargs=1, help='Path to cell params file')
+    parser.add_argument('mode', type=str, nargs=1, choices=('P3D', 'P4D'), help='Type of mesh')
+    parser.add_argument('N_x', type=int, nargs=1, default=30, help='number of discretization elements in x direction')
+    parser.add_argument('N_y', type=int, nargs=1, default=30, help='number of discretization elements in x direction')
+    parser.add_argument('N_z', type=int, nargs=1, default=30, help='number of discretization elements in x direction')
+    args = parser.parse_args()
+    create_mesh(
+        file_path=args.params_file[0],
+        mode=args.mode[0],
+        x=args.N_x[0],
+        y=args.N_y[0],
+        z=args.N_z[0]
+    )
