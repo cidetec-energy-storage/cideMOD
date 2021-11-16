@@ -67,9 +67,8 @@ Authors
 Projects
 ---------
 
-.. |defacto_image| image:: https://github.com/cidetec-energy-storage/PXD/blob/main/defacto.png?raw=true
-  :width: 30
+ - DEFACTO; Grant Agreement Nº 875247 |defacto_image|
+ 
+ .. |defacto_image| image:: https://github.com/cidetec-energy-storage/PXD/blob/main/defacto.png
+  :width: 40
   :alt: DEFACTO Logo
-
-
- - DEFACTO; Grant Agreement Nº XXXX  |defacto_image|
