@@ -27,9 +27,9 @@ Authors
 Projects
 ============
 
-.. |defacto_image| image:: path/filename.png
-  :width: 400
-  :alt: Alternative text
+.. |defacto_image| image:: defacto.png
+  :width: 30
+  :alt: DEFACTO Logo
 
 
  - DEFACTO; Grant Agreement Nº XXXX |defacto_image|
