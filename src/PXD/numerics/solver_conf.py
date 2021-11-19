@@ -4,7 +4,8 @@ petsc_options = {
 
 snes_options = {
     # 'snes_type': 'newtonls',
-    'snes_atol': 1e-6,
+    # 'snes_atol': 1e-5,
+    # 'snes_rtol': 1e-7,
     'snes_divergence_tolerance': 1e6,
     'snes_line_search_type': 'basic',
     'snes_lag_jacobian': 1,
