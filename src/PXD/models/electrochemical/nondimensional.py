@@ -85,7 +85,7 @@ class ElectrochemicalModel(BaseModel):
         
         phi_s_a_ref = max([get_ocv(material.openCircuitPotential, material.stoichiometry1) for material in self.cell.negative_electrode.active_materials] + [get_ocv(material.openCircuitPotential, material.stoichiometry0) for material in self.cell.negative_electrode.active_materials]) 
 
-        phi_s_c_ref = max([get_ocv(material.openCircuitPotential, material.stoichiometry1) for material in self.cell.negative_electrode.active_materials] + [get_ocv(material.openCircuitPotential, material.stoichiometry0) for material in self.cell.positive_electrode.active_materials]) 
+        phi_s_c_ref = max([get_ocv(material.openCircuitPotential, material.stoichiometry1) for material in self.cell.positive_electrode.active_materials] + [get_ocv(material.openCircuitPotential, material.stoichiometry0) for material in self.cell.positive_electrode.active_materials]) 
 
         self.phi_s_ref = max(phi_s_a_ref, phi_s_c_ref)[0]
 

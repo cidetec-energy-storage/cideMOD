@@ -691,6 +691,7 @@ class Problem:
             except TriggerSurpassed as e:
                 timer.stop()
                 new_tstep = e.new_tstep(self.get_timestep())
+                block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
                 errorcode = self.adaptive_timestep(i_app, v_app, new_tstep, new_tstep, t_max, triggers=triggers)
                 return errorcode
             except TriggerDetected as e:
