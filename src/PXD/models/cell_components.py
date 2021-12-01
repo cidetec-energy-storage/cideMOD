@@ -303,7 +303,7 @@ class Electrode(PorousComponent):
         self.k_t = self.get_value(self.config.thermalConductivity)
         self.rho = self.get_value(self.config.density)
         self.c_p = self.get_value(self.config.specificHeat)
-        self.tortuosity_s = self.get_value(self.config.tortuosity)
+        self.tortuosity_s = self.get_value(self.config.tortuosity_s)
         
         # Build active material
         for material in self.active_material:

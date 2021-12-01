@@ -112,6 +112,7 @@ class electrode(parser):
         self.density = self._parse_value('density')
         self.bruggeman = self._parse_value('bruggeman')
         self.tortuosity = self._parse_value('tortuosity')
+        self.tortuosity_s = self._parse_value('tortuosity_s')
         self.electronicConductivity = self._parse_value('electronicConductivity')
         self.thermalConductivity = self._parse_value('thermalConductivity')
         self.specificHeat = self._parse_value('specificHeat')
