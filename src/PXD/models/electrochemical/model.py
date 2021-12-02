@@ -1,5 +1,7 @@
-from .equations import *
 from dolfin import grad
+
+from .equations import *
+
 
 class ElectrochemicalModel:
     def fields(self, domains):

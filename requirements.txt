@@ -1,3 +1,5 @@
 black
 isort
+Sphinx
+sphinx-rtd-theme
 -e .

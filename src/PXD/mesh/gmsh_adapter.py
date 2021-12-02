@@ -63,9 +63,11 @@ class GmshConverter(BaseMesher):
     def mesh_updated(self, current_params):
         # Check if mesh exists
         mesh_files = [
+            self._mesh_store('log'),
             self._mesh_store('mesh.xml'),
             self._mesh_store('mesh_facet_region.xml'),
-            self._mesh_store('mesh_physical_region.xml')
+            self._mesh_store('mesh_physical_region.xml'),
+            self._mesh_store('mesh_interface_region.xml')
         ]
         for mf in mesh_files:
             if not os.path.exists(mf):

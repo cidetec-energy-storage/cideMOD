@@ -1,5 +1,6 @@
-from dolfin import inner, conditional, lt
-from ufl.operators import sinh, exp
+from dolfin import conditional, inner, lt
+
+from ufl.operators import exp, sinh
 
 
 def phi_e_equation(phi_e, test, dx, c_e, j_Li, kappa, kappa_D, domain_grad=None, L=None, scale_factor=1):
