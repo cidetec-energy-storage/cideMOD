@@ -1,16 +1,14 @@
-import pygmsh
-import meshio
-import gmsh
-import os
 import tempfile
-import numpy as np
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
+import gmsh
+import meshio
+import numpy as np
+import pygmsh
+
 
 class GmshGenerator:
     def __init__(self):
         self.geom = pygmsh.geo.Geometry()
-        self.save_path = os.path.join(dir_path, 'meshes')
         self.labels = {
             'a': 'anode',
             's': 'separator',

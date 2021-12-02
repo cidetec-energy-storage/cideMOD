@@ -1,10 +1,13 @@
 from dolfin import *
-from ufl.coefficient import Coefficient
-import numpy
-from numpy.polynomial.legendre import *
+
 from typing import List
 
+import numpy
+from numpy.polynomial.legendre import *
+from ufl.coefficient import Coefficient
+
 from PXD.models.base.base_particle_models import StrongCoupledPM
+
 
 class SpectralLegendreModel(StrongCoupledPM):
     """Particle Intercalation resolved with Legendre Polinomials.

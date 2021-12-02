@@ -1,10 +1,13 @@
-from PXD.models.base.base_nondimensional import BaseModel
-from PXD.helpers.config_parser import electrode
-from dolfin import exp, interpolate, Constant
+from dolfin import Constant, exp, interpolate
 from multiphenics import assign
+
 import numpy
 from numpy.polynomial.polynomial import *
+
+from PXD.helpers.config_parser import electrode
 from PXD.helpers.miscellaneous import Lagrange
+from PXD.models.base.base_nondimensional import BaseModel
+
 
 class SolventLimitedSEIModel(BaseModel):
     def _unscale_sei_variables(self, variables_dict):

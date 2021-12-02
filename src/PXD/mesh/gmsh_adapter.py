@@ -1,18 +1,25 @@
 from dolfin import *
 from multiphenics import *
+
+import json
+import os
+import shutil
+from pathlib import Path
+
+import appdirs
+import meshio
 from dolfin_utils.meshconvert.meshconvert import convert2xml
+
 from PXD.mesh.base_mesher import BaseMesher
 from PXD.mesh.gmsh_generator import GmshGenerator
-from PXD.mesh.restrictions_functions import _generate_interface_mesh_function, _subdomain_restriction, _boundary_restriction, _interface_restriction
-from pathlib import Path
-import meshio
-import os, shutil
-import json
+from PXD.mesh.restrictions_functions import (
+    _boundary_restriction,
+    _generate_interface_mesh_function,
+    _interface_restriction,
+    _subdomain_restriction,
+)
 
-
-dir_path = Path(__file__)
-while not dir_path.exists() or not dir_path.is_dir():
-    dir_path = dir_path.parent
+dir_path = Path(appdirs.user_data_dir('PXD',False))
 os.makedirs(os.path.join(dir_path,'meshes','templates'), exist_ok=True)
 os.makedirs(os.path.join(dir_path,'meshes','current'), exist_ok=True)
 comm = MPI.comm_world

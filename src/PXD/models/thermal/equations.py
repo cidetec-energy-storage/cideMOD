@@ -1,5 +1,7 @@
 from dolfin import inner
-from PXD.models.cell_components import Electrode, Separator, CurrentColector
+
+from PXD.models.cell_components import CurrentColector, Electrode, Separator
+
 
 def electrolyte_ohmic_heat_equation(kappa, kappa_D, phi_e, c_e, test, dx, grad, L, eps):
     F_q = 0

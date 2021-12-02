@@ -1,14 +1,17 @@
-from PXD.pxD import Problem, NDProblem
-from PXD.helpers.config_parser import CellParser
-from PXD.helpers.miscellaneous import init_results_folder
-from PXD.helpers.error_check import ErrorCheck
+import json
+import os
 from pathlib import Path
-from typing import Union, IO
-from PXD.bms.inputs import CurrentInput, VoltageInput, Rest, Cycle, execute_step
-from PXD.bms.triggers import Trigger, TriggerDetected, TriggerSurpassed
-from PXD.models.model_options import ModelOptions
+from typing import IO, Union
+
 import numpy as np
-import os, json
+
+from PXD.bms.inputs import CurrentInput, Cycle, Rest, VoltageInput, execute_step
+from PXD.bms.triggers import Trigger, TriggerDetected, TriggerSurpassed
+from PXD.helpers.config_parser import CellParser
+from PXD.helpers.error_check import ErrorCheck
+from PXD.helpers.miscellaneous import init_results_folder
+from PXD.models.model_options import ModelOptions
+from PXD.pxD import NDProblem, Problem
 
 current_dict = {'A':1, 'mA':1e-3}
 voltage_dict = {'V':1, 'mV':1e-3}

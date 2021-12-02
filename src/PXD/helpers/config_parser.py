@@ -1,5 +1,8 @@
-import os, json
+import json
+import os
+
 from mpi4py import MPI
+
 
 def _print(*args, **kwargs):
     if MPI.COMM_WORLD.rank == 0:

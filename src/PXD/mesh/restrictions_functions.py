@@ -1,6 +1,7 @@
 from dolfin import MeshFunction, Timer, cells, entities, facets
 from multiphenics import MeshRestriction
 
+
 def _subdomain_restriction_old(subdomains_names, mesh, subdomains, field_data):
         if not isinstance(subdomains_names, (tuple, list)):
             subdomains_names = [subdomains_names]

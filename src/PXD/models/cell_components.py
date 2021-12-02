@@ -6,10 +6,13 @@ _Date: 16/09/2020_
 _Author: Clara Ganuza_
 
 """
-import numpy
 from dolfin import *
+
+import numpy
 from ufl.core.operator import Operator
+
 from PXD.helpers.miscellaneous import *
+
 
 def get_arr(Ea, T_ref, problem):
         '''

@@ -1,7 +1,8 @@
-from .electrochemical.nondimensional import ElectrochemicalModel
-from .thermal.nondimensional import ThermalModel
-from .mechanical.nondimensional import MechanicModel
 from .degradation.nondimensional import SolventLimitedSEIModel
+from .electrochemical.nondimensional import ElectrochemicalModel
+from .mechanical.nondimensional import MechanicModel
+from .thermal.nondimensional import ThermalModel
+
 
 class NondimensionalModel(ThermalModel, MechanicModel, SolventLimitedSEIModel, ElectrochemicalModel):
     def physical_variables(self, problem):

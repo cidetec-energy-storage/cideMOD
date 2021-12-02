@@ -11,15 +11,20 @@ get_spline(data, spline_type = "not-a-knot")
 """
 import dolfin as df
 import multiphenics as mph
-import os, pathlib, shutil, json
-from scipy.interpolate import CubicSpline
-from scipy.sparse import csr_matrix
-import numpy
+
 import glob
+import json
+import os
+import pathlib
+import shutil
 import time
 
-from numpy.polynomial.polynomial import *
 import matplotlib.pyplot as plt
+import numpy
+from numpy.polynomial.polynomial import *
+from scipy.interpolate import CubicSpline
+from scipy.sparse import csr_matrix
+
 
 def get_spline(data, spline_type = "not-a-knot", return_fenics = True):
     """This function adapts the CubicSpline of scipy package to

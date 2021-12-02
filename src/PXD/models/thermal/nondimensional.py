@@ -1,6 +1,8 @@
-from dolfin import inner, grad
-from PXD.models.cell_components import Electrode, Separator, CurrentColector
+from dolfin import grad, inner
+
 from PXD.models.base.base_nondimensional import BaseModel
+from PXD.models.cell_components import CurrentColector, Electrode, Separator
+
 
 class ThermalModel(BaseModel):
     def _scale_thermal_variables(self, variables_dict):

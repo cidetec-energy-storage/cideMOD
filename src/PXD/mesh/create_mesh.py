@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+import argparse
+from pathlib import Path
+
+from mpi4py import MPI
+
 from PXD.helpers.config_parser import CellParser
 from PXD.mesh.gmsh_adapter import GmshMesher
-from pathlib import Path
-from mpi4py import MPI
-import argparse
 
 assert MPI.COMM_WORLD.size == 1, "Mesh cannot be created in parallel"
 

@@ -1,10 +1,28 @@
-from dolfin import Point, RectangleMesh, BoxMesh, IntervalMesh, MeshFunction, Measure, DOLFIN_EPS, CompiledSubDomain, FunctionSpace, Timer, assemble, cells, Function
-from multiphenics import MeshRestriction, BlockFunctionSpace
+from dolfin import (
+    DOLFIN_EPS,
+    BoxMesh,
+    CompiledSubDomain,
+    Function,
+    FunctionSpace,
+    IntervalMesh,
+    Measure,
+    MeshFunction,
+    Point,
+    RectangleMesh,
+    Timer,
+    assemble,
+    cells,
+)
+from multiphenics import BlockFunctionSpace, MeshRestriction
+
 from collections import namedtuple
-from PXD.helpers.miscellaneous import inside_element_expression
+
+from numpy import array, concatenate, ndarray, zeros
+
 from PXD.helpers.config_parser import CellParser
+from PXD.helpers.miscellaneous import inside_element_expression
 from PXD.models.model_options import ModelOptions
-from numpy import concatenate, zeros, array, ndarray
+
 
 class SubdomainGenerator:
     def __init__(self):

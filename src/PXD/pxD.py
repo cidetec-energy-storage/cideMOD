@@ -1,11 +1,12 @@
+from dolfin import *
+from multiphenics import *
+
 import json
 import os
 import sys
 from collections import namedtuple
 
 import petsc4py
-from dolfin import *
-from multiphenics import *
 
 from PXD.bms.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
 from PXD.helpers.config_parser import CellParser
@@ -13,14 +14,13 @@ from PXD.helpers.miscellaneous import constant_expression, format_time
 from PXD.helpers.warehouse import Warehouse
 from PXD.mesh.base_mesher import DolfinMesher, SubdomainMapper
 from PXD.mesh.gmsh_adapter import GmshMesher
-from PXD.models.cell_components import (CurrentColector, Electrode,
-                                        Separator)
+from PXD.models.cell_components import CurrentColector, Electrode, Separator
 from PXD.models.degradation.equations import *
 from PXD.models.electrochemical.equations import *
 from PXD.models.mechanical import mechanical_model
+from PXD.models.model_options import ModelOptions
 from PXD.models.particle_models import *
 from PXD.models.thermal.equations import *
-from PXD.models.model_options import ModelOptions
 from PXD.numerics import solver_conf
 from PXD.numerics.time_scheme import TimeScheme
 

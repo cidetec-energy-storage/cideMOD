@@ -1,6 +1,7 @@
 from PXD.bms.triggers import SolverCrashed, Trigger, TriggerDetected
 from PXD.helpers.miscellaneous import format_time
 
+
 def execute_step(step, problem):
     status = step.execute(problem)
     if isinstance( status, TriggerDetected ):

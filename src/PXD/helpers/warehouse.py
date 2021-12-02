@@ -1,9 +1,23 @@
-import os, shutil
-from dolfin import XDMFFile, MPI, Function, FunctionSpace, project, timings, TimingClear, TimingType, Timer, Constant
+from dolfin import (
+    MPI,
+    Constant,
+    Function,
+    FunctionSpace,
+    Timer,
+    TimingClear,
+    TimingType,
+    XDMFFile,
+    project,
+    timings,
+)
+
+import os
+import shutil
 from array import array as pyarray
-from numpy import savetxt, array, concatenate, newaxis
-from sys import getsizeof
 from itertools import chain
+from sys import getsizeof
+
+from numpy import array, concatenate, newaxis, savetxt
 
 
 class Warehouse:

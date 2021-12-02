@@ -1,10 +1,13 @@
-from ufl.operators import sinh, exp
 from dolfin import *
+
+from typing import List
+
 import numpy
 from numpy.polynomial.legendre import *
-from typing import List
+
 # from PXD.helpers.miscellaneous import Lagrange
 from numpy.polynomial.polynomial import *
+from ufl.operators import exp, sinh
 
 __all__= [
     "SEI",

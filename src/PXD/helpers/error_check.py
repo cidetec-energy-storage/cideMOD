@@ -1,7 +1,9 @@
-from dolfin import project, MPI
+from dolfin import MPI, project
 from multiphenics import block_assign
-from numpy import ndarray, array
+
 import os
+
+from numpy import array, ndarray
 
 comm =MPI.comm_world
 

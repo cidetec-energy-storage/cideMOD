@@ -1,9 +1,12 @@
 from dolfin import *
 from multiphenics import *
+
 from typing import List
+
 import numpy
 
 from PXD.models.base.base_particle_models import WeakCoupledPM
+
 
 class Center(SubDomain):
     def inside(self, x, on_boundary):
