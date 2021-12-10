@@ -48,7 +48,7 @@ DEFAULT_EVENT = {
 DEFAULT_INPUT = {
     'name': 'Discharge',
     'type': 'Current', # 'Current' or 'Voltage' or 'CC' or 'CV' or Rest
-    'value': '1', # Must be float, int or string
+    'value': '-1', # Must be float, int or string
     'unit': 'C', # One of 'A', 'V', 'mA', 'mV', C
     't_max': {'value': 60, 'unit': 'min'},
     'store_delay': 2,
@@ -115,7 +115,7 @@ class BMS:
         if test_plan is None:
             plan = DEFAULT_TEST_PLAN
         if isinstance(test_plan, str):
-            assert os.path.exists(test_plan), "Path to test plan '{}' doesn't exists".format(cell_data)
+            assert os.path.exists(test_plan), "Path to test plan doesn't exists"
             with open(test_plan, 'r') as f:
                 plan = json.load(f)
         if isinstance(test_plan, dict):

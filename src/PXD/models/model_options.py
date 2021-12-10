@@ -62,7 +62,7 @@ class ModelOptions(BaseModel):
     N_p: int = 20
     particle_order: int = 2
     time_scheme: str = "euler_implicit"
-    clean_on_exit: bool = True
+    clean_on_exit: bool = False
 
     @validator("mode")
     def validate_mode(cls, v):
