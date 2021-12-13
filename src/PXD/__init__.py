@@ -14,7 +14,8 @@
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.#
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 r"""The PXD library contains a suite of modules needed to simulate a battery"""
 
 from PXD.bms import BMS, DEFAULTS, SolverCrashed, Trigger, TriggerDetected

@@ -14,7 +14,8 @@
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.#
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 from ufl.core.expr import Expr
 from ufl.core.ufl_type import ufl_type
 from ufl.operators import _mathfunction

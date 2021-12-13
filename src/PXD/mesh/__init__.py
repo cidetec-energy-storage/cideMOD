@@ -14,6 +14,7 @@
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.#
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 """This module provides the logic needed to create, store, and reuse battery meshes.
 This module is not intended to interact with users directly, the Problem class automatically handle the meshing process."""
