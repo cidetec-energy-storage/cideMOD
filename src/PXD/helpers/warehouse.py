@@ -14,7 +14,8 @@
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.#
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 from dolfin import (
     MPI,
     Constant,
@@ -35,7 +36,7 @@ from itertools import chain
 from sys import getsizeof
 
 from numpy import array, concatenate, newaxis, savetxt
-
+from PXD.helpers.extract_fom_info import store_results
 
 class Warehouse:
     def __init__(self, save_path, problem, delay = 1):
@@ -150,12 +151,25 @@ class Warehouse:
 
     def store(self, time, force = False):
         self._store_globals(time)
-        if self.delay>=0:
+        self._store_2_rom()
+        if isinstance(self.delay, list):
+            if time in self.delay or any(k<time and k>self.counter for k in self.delay):
+                self._post_process()
+                self._store_internals(time)
+                self.counter = time
+            else:
+                self.counter=time
+        elif self.delay>=0:
             self.counter += 1
             if self.counter >= self.delay or force:
                 self._post_process()
                 self._store_internals(time)
                 self.counter = 0
+
+
+    def _store_2_rom(self):
+        # Save current time step solution
+        store_results(self.problem, 'unscaled' if hasattr(self.problem,'nd_model') else 'scaled')
 
     def write_globals(self, clean=True):
         if MPI.rank(self.comm) == 0:

@@ -14,13 +14,15 @@
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.#
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 from dolfin import *
 from multiphenics import *
 
 import json
 import os
 import sys
+import numpy as np
 from collections import namedtuple
 
 import petsc4py
@@ -40,6 +42,7 @@ from PXD.models.particle_models import *
 from PXD.models.thermal.equations import *
 from PXD.numerics import solver_conf
 from PXD.numerics.time_scheme import TimeScheme
+from PXD.helpers.extract_fom_info import get_mesh_info
 
 # petsc4py.init(
 #     ['-log_view',
@@ -79,6 +82,8 @@ class Problem:
         self.SOC_ini = 1
         self.WH = Warehouse(self.save_path, self)
         self.ready = False
+
+        self._init_rom_dict()
 
     def set_cell_state(self, SOC, T_ext:float = 298.15, T_ini=None):
         if T_ini is None:
@@ -150,6 +155,174 @@ class Problem:
 
         _print(' - Initializing state - Done ')
 
+    def _init_rom_dict(self):
+        # Initilize dictionaries that will stores the simulation results and information for ROM model
+        self.fom2rom = dict()
+        self.fom2rom['results'] = dict()
+
+        # Define variable subscript dictionary
+        self.fom2rom['subscriptsDict'] = {'ce': 0, 'cs': 1, 'phie': 2, 'phis': 3, 'jLi': 4}
+
+    def reset2rom(self, t_i, var_ini):
+        self.time = t_i
+
+        _print('\r - Initializing state ... ', end='\r')
+        # Get subdomain dofs
+        dofs_anode   = self.fom2rom['mesh']['subdomain_dofs']['anode']
+        dofs_cathode = self.fom2rom['mesh']['subdomain_dofs']['cathode']
+        if self.fom2rom['areCC']:
+            dofs_positiveCC = self.fom2rom['mesh']['subdomain_dofs']['positiveCC']
+            dofs_negativeCC = self.fom2rom['mesh']['subdomain_dofs']['negativeCC']
+            dofs_phis_cc = np.unique(np.concatenate((dofs_negativeCC, dofs_positiveCC)))
+        dofs_phis = np.unique(np.concatenate((dofs_anode, dofs_cathode)))
+
+        if not hasattr(self, 'nd_model'): # problem with dimensions
+
+            ######################## ce ########################
+            self.f_0.c_e.vector().set_local(var_ini['ce'])
+
+            ######################## phie ########################
+            self.f_0.phi_e.vector().set_local(var_ini['phie'])
+
+            ######################## phis ########################
+            phis_ini    = np.zeros(var_ini['phis'].shape[0])
+            phis_cc_ini = np.zeros(var_ini['phis'].shape[0])
+            phis_ini[dofs_phis]       = var_ini['phis'][dofs_phis]
+            phis_cc_ini[dofs_phis_cc] = var_ini['phis'][dofs_phis_cc]
+
+            self.f_0.phi_s.vector().set_local(phis_ini)
+            self.f_0.phi_s_cc.vector().set_local(phis_cc_ini)
+
+            ######################## jLi ########################
+            self.f_0.j_Li_a0.vector().set_local(self.anode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_anode])
+            self.f_0.j_Li_c0.vector().set_local(self.cathode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_cathode])
+            # TODO: write in a generalized way for more than one material
+
+            ######################## cs ########################
+            fields = self.f_0._fields
+
+            # Get the number of mesh dofs
+            ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
+
+            # Initialize cs_surf variables
+            cs_a_surf = np.zeros(self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0])
+            cs_c_surf = np.zeros(self.f_0[fields.index("c_s_0_c0")].vector()[:].shape[0])
+            # TODO: write in a generalized way for more than one material
+
+            # Add values of the first coefficients to the cs_surf calculation
+            cs_0 = var_ini['cs'][:ndofs]
+
+            cs_a_surf[dofs_anode]   = cs_0[dofs_anode]
+            cs_c_surf[dofs_cathode] = cs_0[dofs_cathode]
+
+            # Loop through SGM order
+            for j in range(1, self.SGM.order):
+
+                idx_a = fields.index("c_s_"+str(j)+"_a0")
+                idx_c = fields.index("c_s_"+str(j)+"_c0")
+
+                cs_a = np.zeros(self.f_0[idx_a].vector()[:].shape[0])
+                cs_c = np.zeros(self.f_0[idx_c].vector()[:].shape[0])
+
+                cs_jth = var_ini['cs'][j*ndofs:(j+1)*ndofs]
+
+                # Save current coefficients in their corresponding variables
+                cs_a[dofs_anode]   = cs_jth[dofs_anode]
+                cs_c[dofs_cathode] = cs_jth[dofs_cathode]
+
+                self.f_0[fields.index("c_s_"+str(j)+"_a0")].vector().set_local(cs_a)
+                self.f_0[fields.index("c_s_"+str(j)+"_c0")].vector().set_local(cs_c)
+
+                # Add to the cs_surf variable
+                cs_a_surf += cs_a
+                cs_c_surf += cs_c
+
+            # cs_surf initialization
+            self.f_0[fields.index("c_s_0_a0")].vector().set_local(cs_a_surf)
+            self.f_0[fields.index("c_s_0_c0")].vector().set_local(cs_c_surf)
+
+        else: # adimensional problem
+
+            ######################## ce ########################
+            ce_adim = (var_ini['ce'] - self.nd_model.c_e_0)/self.nd_model.delta_c_e_ref
+            self.f_0.c_e.vector().set_local(ce_adim)
+
+            ######################## phie ########################
+            phie_adim = (var_ini['phie'] - self.nd_model.phi_e_ref)/self.nd_model.liquid_potential
+            self.f_0.phi_e.vector().set_local(phie_adim)
+
+            ######################## phis ########################
+            phis_ini    = np.zeros(var_ini['phis'].shape[0])
+            phis_cc_ini = np.zeros(var_ini['phis'].shape[0])
+            phis_ini[dofs_phis]       = var_ini['phis'][dofs_phis]
+            phis_cc_ini[dofs_phis_cc] = var_ini['phis'][dofs_phis_cc]
+
+            phis_ini_adim    = (phis_ini    - self.nd_model.phi_s_ref)/self.nd_model.solid_potential
+            phis_cc_ini_adim = (phis_cc_ini - self.nd_model.phi_s_ref)/self.nd_model.solid_potential
+
+            self.f_0.phi_s.vector().set_local(phis_ini_adim)
+            self.f_0.phi_s_cc.vector().set_local(phis_cc_ini_adim)
+
+            ######################## jLi ########################
+            self.f_0.j_Li_a0.vector().set_local(self.nd_model.L_0/self.nd_model.I_0*self.anode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_anode])
+            self.f_0.j_Li_c0.vector().set_local(self.nd_model.L_0/self.nd_model.I_0*self.cathode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_cathode])
+            # TODO: write in a generalized way for more than one material
+
+            ######################## cs ########################
+            fields = self.f_0._fields
+
+            # Get the number of mesh dofs
+            ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
+
+            # Initialize cs_surf variables
+            cs_a_surf = np.zeros(ndofs)
+            cs_c_surf = np.zeros(ndofs)
+            # TODO: write in a generalized way for more than one material
+
+            # Add values of the first coefficients to the cs_surf calculation
+            cs_0 = var_ini['cs'][:ndofs]
+
+            cs_a_surf[dofs_anode]   = cs_0[dofs_anode]/self.nd_model.c_s_a_max[0]
+            cs_c_surf[dofs_cathode] = cs_0[dofs_cathode]/self.nd_model.c_s_c_max[0]
+
+            # Loop through SGM order
+            for j in range(1, self.SGM.order):
+
+                idx_a = fields.index("c_s_"+str(j)+"_a0")
+                idx_c = fields.index("c_s_"+str(j)+"_c0")
+
+                cs_a = np.zeros(ndofs)
+                cs_c = np.zeros(ndofs)
+
+                cs_jth = var_ini['cs'][j*ndofs:(j+1)*ndofs]
+
+                # Save current coefficients in their corresponding variables
+                cs_a[dofs_anode]   = cs_jth[dofs_anode]/self.nd_model.c_s_a_max[0]
+                cs_c[dofs_cathode] = cs_jth[dofs_cathode]/self.nd_model.c_s_c_max[0]
+
+                self.f_0[fields.index("c_s_"+str(j)+"_a0")].vector().set_local(cs_a)
+                self.f_0[fields.index("c_s_"+str(j)+"_c0")].vector().set_local(cs_c)
+
+                # Add to the cs_surf variable
+                cs_a_surf += cs_a
+                cs_c_surf += cs_c
+
+            # cs_surf initialization
+            self.f_0[fields.index("c_s_0_a0")].vector().set_local(cs_a_surf)
+            self.f_0[fields.index("c_s_0_c0")].vector().set_local(cs_c_surf)
+
+        # Save mesh information to avoid obtain it again
+        mesh_  = self.fom2rom['mesh'].copy()
+        areCC_ = self.fom2rom['areCC']
+
+        self._init_rom_dict()
+
+        # Save older mesh information
+        self.fom2rom['mesh'] = mesh_
+        self.fom2rom['areCC'] = areCC_
+
+        _print(' - Initializing state - Done ')
+
     def _build_extra_models(self):
         #Extra models
         if not 'nd_model' in self.__dict__:
@@ -178,6 +351,18 @@ class Problem:
         self.build_transport_properties()
         if not self.c_s_implicit_coupling:
             self.build_explicit_sgm()
+
+        # Extract mesh info needed for ROM model
+        results_label = 'scaled' if not hasattr(self, 'nd_model') else 'unscaled'
+        if not 'mesh' in self.fom2rom.keys():
+            # Empty dictionary
+            get_mesh_info(self, results_label)
+
+        # Store 'Cs' SGM matrices
+        self.fom2rom['SGM'] = dict()
+        self.fom2rom['SGM']['M'] = self.SGM.M
+        self.fom2rom['SGM']['K'] = self.SGM.K
+        self.fom2rom['SGM']['P'] = self.SGM.P
 
         _print(' - Build cell parameters - Done ')
 
@@ -1388,6 +1573,9 @@ class Problem:
            self.i_app.assign(i/self.Q)
 
     def exit(self, errorcode):
+        self.fom2rom['results']['time']    = self.WH.global_var_arrays[0].copy()
+        v_index = [i+1 for i,v in enumerate(self.WH.global_vars.keys()) if v=='voltage'][0]
+        self.fom2rom['results']['voltage'] = self.WH.global_var_arrays[v_index].copy()
         self.WH.write_globals(self.model_options.clean_on_exit)
         if self.c_s_implicit_coupling:
             for i, _ in enumerate(self.c_s_surf_1_anode):
