@@ -157,6 +157,8 @@ class SubdomainMapper:
                 elif isinstance(source, (list,tuple,ndarray)):
                     if len(source) == len(out_array):
                         out_array[self.domain_dof_map[domain_name]] = source[self.domain_dof_map[domain_name]]
+                    elif len(source) == len(self.domain_dof_map[domain_name]):
+                        out_array[self.domain_dof_map[domain_name]] = source
                     elif len(source) == 1:
                         out_array[self.domain_dof_map[domain_name]] = source[0]
                     else:

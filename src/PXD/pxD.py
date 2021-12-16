@@ -160,42 +160,27 @@ class Problem:
         self.fom2rom = dict()
         self.fom2rom['results'] = dict()
 
-        # Define variable subscript dictionary
-        self.fom2rom['subscriptsDict'] = {'ce': 0, 'cs': 1, 'phie': 2, 'phis': 3, 'jLi': 4}
-
-    def reset2rom(self, t_i, var_ini):
-        self.time = t_i
-
+    def set_new_state(self, time, new_state):
+        self.time = time
+        assert all(k in new_state.keys() for k in ['ce', 'phie', 'phis', 'jLi', 'cs'])
         _print('\r - Initializing state ... ', end='\r')
-        # Get subdomain dofs
-        dofs_anode   = self.fom2rom['mesh']['subdomain_dofs']['anode']
-        dofs_cathode = self.fom2rom['mesh']['subdomain_dofs']['cathode']
-        if self.fom2rom['areCC']:
-            dofs_positiveCC = self.fom2rom['mesh']['subdomain_dofs']['positiveCC']
-            dofs_negativeCC = self.fom2rom['mesh']['subdomain_dofs']['negativeCC']
-            dofs_phis_cc = np.unique(np.concatenate((dofs_negativeCC, dofs_positiveCC)))
-        dofs_phis = np.unique(np.concatenate((dofs_anode, dofs_cathode)))
-
         if not hasattr(self, 'nd_model'): # problem with dimensions
 
             ######################## ce ########################
-            self.f_0.c_e.vector().set_local(var_ini['ce'])
+            assign(self.f_0.c_e, self.P1_map.generate_function({'anode':new_state['ce'],'separator':new_state['ce'],'cathode':new_state['ce']}))
 
             ######################## phie ########################
-            self.f_0.phi_e.vector().set_local(var_ini['phie'])
+            assign(self.f_0.phi_e, self.P1_map.generate_function({'anode':new_state['phie'],'separator':new_state['phie'],'cathode':new_state['phie']}))
 
             ######################## phis ########################
-            phis_ini    = np.zeros(var_ini['phis'].shape[0])
-            phis_cc_ini = np.zeros(var_ini['phis'].shape[0])
-            phis_ini[dofs_phis]       = var_ini['phis'][dofs_phis]
-            phis_cc_ini[dofs_phis_cc] = var_ini['phis'][dofs_phis_cc]
-
-            self.f_0.phi_s.vector().set_local(phis_ini)
-            self.f_0.phi_s_cc.vector().set_local(phis_cc_ini)
+            assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':new_state['phis'],'cathode':new_state['phis']}))
+            assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':new_state['phis'],'positiveCC':new_state['phis']}))
 
             ######################## jLi ########################
-            self.f_0.j_Li_a0.vector().set_local(self.anode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_anode])
-            self.f_0.j_Li_c0.vector().set_local(self.cathode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_cathode])
+            a_s_a = self.anode.active_material[0].a_s*self.F
+            a_s_c = self.cathode.active_material[0].a_s*self.F
+            assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':a_s_a*new_state['jLi']}))
+            assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':a_s_c*new_state['jLi']}))
             # TODO: write in a generalized way for more than one material
 
             ######################## cs ########################
@@ -204,68 +189,46 @@ class Problem:
             # Get the number of mesh dofs
             ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
 
-            # Initialize cs_surf variables
-            cs_a_surf = np.zeros(self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0])
-            cs_c_surf = np.zeros(self.f_0[fields.index("c_s_0_c0")].vector()[:].shape[0])
-            # TODO: write in a generalized way for more than one material
-
             # Add values of the first coefficients to the cs_surf calculation
-            cs_0 = var_ini['cs'][:ndofs]
-
-            cs_a_surf[dofs_anode]   = cs_0[dofs_anode]
-            cs_c_surf[dofs_cathode] = cs_0[dofs_cathode]
+            cs_0 = new_state['cs'][:ndofs]
 
             # Loop through SGM order
             for j in range(1, self.SGM.order):
 
                 idx_a = fields.index("c_s_"+str(j)+"_a0")
                 idx_c = fields.index("c_s_"+str(j)+"_c0")
+                cs_jth = new_state['cs'][j*ndofs:(j+1)*ndofs]
 
-                cs_a = np.zeros(self.f_0[idx_a].vector()[:].shape[0])
-                cs_c = np.zeros(self.f_0[idx_c].vector()[:].shape[0])
-
-                cs_jth = var_ini['cs'][j*ndofs:(j+1)*ndofs]
-
-                # Save current coefficients in their corresponding variables
-                cs_a[dofs_anode]   = cs_jth[dofs_anode]
-                cs_c[dofs_cathode] = cs_jth[dofs_cathode]
-
-                self.f_0[fields.index("c_s_"+str(j)+"_a0")].vector().set_local(cs_a)
-                self.f_0[fields.index("c_s_"+str(j)+"_c0")].vector().set_local(cs_c)
-
+                assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':cs_jth}))
+                assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':cs_jth}))
+                
                 # Add to the cs_surf variable
-                cs_a_surf += cs_a
-                cs_c_surf += cs_c
+                cs_0 += cs_jth
 
             # cs_surf initialization
-            self.f_0[fields.index("c_s_0_a0")].vector().set_local(cs_a_surf)
-            self.f_0[fields.index("c_s_0_c0")].vector().set_local(cs_c_surf)
-
+            assign(self.f_0[fields.index("c_s_"+str(j)+"_a0")], self.P1_map.generate_function({'anode':cs_0}))
+            assign(self.f_0[fields.index("c_s_"+str(j)+"_c0")], self.P1_map.generate_function({'cathode':cs_0}))
+            
         else: # adimensional problem
+            varnames = {'ce':'c_e', 'phie':'phi_e', 'phis':'phi_s', 'jLi':'j_Li', 'cs': 'cs'}
+            new_state = {varnames[key]:item for key, item in new_state.items()}
+            adim_state = self.nd_model.scale_variables(new_state)
 
             ######################## ce ########################
-            ce_adim = (var_ini['ce'] - self.nd_model.c_e_0)/self.nd_model.delta_c_e_ref
-            self.f_0.c_e.vector().set_local(ce_adim)
+            assign(self.f_0.c_e, self.P1_map.generate_function({'anode':adim_state['c_e'],'separator':adim_state['c_e'],'cathode':adim_state['c_e']}))
 
             ######################## phie ########################
-            phie_adim = (var_ini['phie'] - self.nd_model.phi_e_ref)/self.nd_model.liquid_potential
-            self.f_0.phi_e.vector().set_local(phie_adim)
+            assign(self.f_0.phi_e, self.P1_map.generate_function({'anode':adim_state['phi_e'],'separator':adim_state['phi_e'],'cathode':adim_state['phi_e']}))
 
             ######################## phis ########################
-            phis_ini    = np.zeros(var_ini['phis'].shape[0])
-            phis_cc_ini = np.zeros(var_ini['phis'].shape[0])
-            phis_ini[dofs_phis]       = var_ini['phis'][dofs_phis]
-            phis_cc_ini[dofs_phis_cc] = var_ini['phis'][dofs_phis_cc]
-
-            phis_ini_adim    = (phis_ini    - self.nd_model.phi_s_ref)/self.nd_model.solid_potential
-            phis_cc_ini_adim = (phis_cc_ini - self.nd_model.phi_s_ref)/self.nd_model.solid_potential
-
-            self.f_0.phi_s.vector().set_local(phis_ini_adim)
-            self.f_0.phi_s_cc.vector().set_local(phis_cc_ini_adim)
+            assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':adim_state['phi_s'],'cathode':adim_state['phi_s']}))
+            assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':adim_state['phi_s'],'positiveCC':adim_state['phi_s']}))
 
             ######################## jLi ########################
-            self.f_0.j_Li_a0.vector().set_local(self.nd_model.L_0/self.nd_model.I_0*self.anode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_anode])
-            self.f_0.j_Li_c0.vector().set_local(self.nd_model.L_0/self.nd_model.I_0*self.cathode.active_material[0].a_s*self.F*var_ini['jLi'][dofs_cathode])
+            a_s_a = self.anode.active_material[0].a_s*self.F
+            a_s_c = self.cathode.active_material[0].a_s*self.F
+            assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':a_s_a*adim_state['j_Li']}))
+            assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':a_s_c*adim_state['j_Li']}))
             # TODO: write in a generalized way for more than one material
 
             ######################## cs ########################
@@ -274,42 +237,29 @@ class Problem:
             # Get the number of mesh dofs
             ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
 
-            # Initialize cs_surf variables
-            cs_a_surf = np.zeros(ndofs)
-            cs_c_surf = np.zeros(ndofs)
-            # TODO: write in a generalized way for more than one material
-
             # Add values of the first coefficients to the cs_surf calculation
-            cs_0 = var_ini['cs'][:ndofs]
-
-            cs_a_surf[dofs_anode]   = cs_0[dofs_anode]/self.nd_model.c_s_a_max[0]
-            cs_c_surf[dofs_cathode] = cs_0[dofs_cathode]/self.nd_model.c_s_c_max[0]
-
+            cs_0 = new_state['cs'][:ndofs]
+            adim_cs_a = self.nd_model.scale_variables({'c_s_0_a0':cs_0})['c_s_0_a0']
+            adim_cs_c = self.nd_model.scale_variables({'c_s_0_c0':cs_0})['c_s_0_c0']
             # Loop through SGM order
             for j in range(1, self.SGM.order):
 
                 idx_a = fields.index("c_s_"+str(j)+"_a0")
                 idx_c = fields.index("c_s_"+str(j)+"_c0")
 
-                cs_a = np.zeros(ndofs)
-                cs_c = np.zeros(ndofs)
-
-                cs_jth = var_ini['cs'][j*ndofs:(j+1)*ndofs]
-
+                cs_jth = new_state['cs'][j*ndofs:(j+1)*ndofs]
+                adim_cs = self.nd_model.scale_variables({idx_a:cs_jth, idx_c:cs_jth})
                 # Save current coefficients in their corresponding variables
-                cs_a[dofs_anode]   = cs_jth[dofs_anode]/self.nd_model.c_s_a_max[0]
-                cs_c[dofs_cathode] = cs_jth[dofs_cathode]/self.nd_model.c_s_c_max[0]
-
-                self.f_0[fields.index("c_s_"+str(j)+"_a0")].vector().set_local(cs_a)
-                self.f_0[fields.index("c_s_"+str(j)+"_c0")].vector().set_local(cs_c)
+                assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':adim_cs[idx_a]}))
+                assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':adim_cs[idx_c]}))
 
                 # Add to the cs_surf variable
-                cs_a_surf += cs_a
-                cs_c_surf += cs_c
+                adim_cs_a += adim_cs[idx_a]
+                adim_cs_c += adim_cs[idx_c]
 
             # cs_surf initialization
-            self.f_0[fields.index("c_s_0_a0")].vector().set_local(cs_a_surf)
-            self.f_0[fields.index("c_s_0_c0")].vector().set_local(cs_c_surf)
+            assign(self.f_0[fields.index("c_s_"+str(j)+"_a0")], self.P1_map.generate_function({'anode':adim_cs_a}))
+            assign(self.f_0[fields.index("c_s_"+str(j)+"_c0")], self.P1_map.generate_function({'cathode':adim_cs_c}))
 
         # Save mesh information to avoid obtain it again
         mesh_  = self.fom2rom['mesh'].copy()

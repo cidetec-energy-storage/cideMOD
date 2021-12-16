@@ -42,8 +42,6 @@ def get_current_results(problem, label):
         print('[helpers/extract_fom_info/get_current_results] ERROR: Unrecognized label option.')
         exit()
 
-    subsDict = problem.fom2rom['subscriptsDict']
-
     # Get lists of dofs in the interfaces
     if not 'interfaces_dofs' in problem.fom2rom['mesh'].keys():
         # Empty dictionary
@@ -81,7 +79,7 @@ def get_current_results(problem, label):
     resultsDict = dict()
 
     # Fill results dictionary
-    for key in subsDict:
+    for key in ['ce', 'phie', 'phis', 'jLi', 'cs']:
         if   key == "ce":
             ce = problem.f_1.c_e.vector()[:]
             resultsDict[key] = np.zeros(ce.shape)
