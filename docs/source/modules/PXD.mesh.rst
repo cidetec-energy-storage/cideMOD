@@ -1,7 +1,7 @@
-PXD.mesh
+cideMOD.mesh
 ========
 
-.. automodule:: PXD.mesh
+.. automodule:: cideMOD.mesh
 
    
    

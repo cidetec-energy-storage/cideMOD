@@ -1,7 +1,7 @@
-PXD.helpers
+cideMOD.helpers
 ===========
 
-.. automodule:: PXD.helpers
+.. automodule:: cideMOD.helpers
 
    
    

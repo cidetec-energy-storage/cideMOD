@@ -1,7 +1,7 @@
-PXD.models
+cideMOD.models
 ==========
 
-.. automodule:: PXD.models
+.. automodule:: cideMOD.models
 
    
    

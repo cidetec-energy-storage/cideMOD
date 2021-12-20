@@ -1,7 +1,7 @@
-﻿PXD.bms
+﻿cideMOD.bms
 =======
 
-.. automodule:: PXD.bms
+.. automodule:: cideMOD.bms
 
    
    

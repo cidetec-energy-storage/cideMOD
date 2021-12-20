@@ -6,15 +6,15 @@ Usage
 Installation
 ------------
 
-The PXD model is based on the finite element platform **FEniCS** and the library **multiphenics**. 
+The cideMOD model is based on the finite element platform **FEniCS** and the library **multiphenics**. 
 From here we will assume that the user has a working environment with *FEniCS* and *multiphenics*.
 
-To use PXD, first install it using pip :
+To use cideMOD, first install it using pip :
 
 .. code-block:: console
     
-   $ git clone < repository_path >/PXD.git
-   $ cd PXD
+   $ git clone < repository_path >/cideMOD.git
+   $ cd cideMOD
    $ pip install -e .
 
 It is important using the **-e** option in the *install* command. This will create an editable install, which means that if we modify the source code at the cloned folder, we will have those changes the next time we import the library. 
@@ -54,7 +54,7 @@ The most simple way of using the library is to interact with the *BMS* object:
 
 .. code-block:: python
     
-   >>> from PXD import BMS, DEFAULTS
+   >>> from cideMOD import BMS, DEFAULTS
    >>> bms = BMS('params.json', DEFAULTS.SIMULATION_OPTIONS.value, name="first_run")
    >>> bms.read_test_plan(DEFAULTS.TEST_PLAN.value)
    >>> bms.run_test_plan()

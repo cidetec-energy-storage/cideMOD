@@ -17,7 +17,7 @@ sys.path.insert(0, pathlib.Path(__file__).parents[2].joinpath('src').resolve().a
 
 # -- Project information -----------------------------------------------------
 
-project = 'PXD'
+project = 'cideMOD'
 copyright = '2021, CIDETEC'
 author = 'Raul Ciria Aylagas'
 

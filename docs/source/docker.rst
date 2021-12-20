@@ -3,7 +3,7 @@ Use from docker
 
 .. _docker_instructions:
 
-Docker is the preferred platform to use the FEniCS, multiphenics and PXD packages on.
+Docker is the preferred platform to use the FEniCS, multiphenics and cideMOD packages on.
 
 Install Docker
 ---------------
@@ -59,15 +59,15 @@ Detailed instructions are given in the `Docker Webpage <https://docs.docker.com/
 4. Follow the `post-installation steps for Linux <https://docs.docker.com/engine/install/linux-postinstall/>`_ in order to configure properly permissions and background services.
 
 
-Set-up a PXD container
+Set-up a cideMOD container
 ------------------------
 
-If you have already loaded the pxd image in docker you can skip to step 3.
+If you have already loaded the cideMOD image in docker you can skip to step 3.
 
-0. Download the PXD image
+0. Download the cideMOD image
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The PXD is delivered as a Docker image in the `DEFACTO webpage <https://defacto-project.eu/documents/#download>`_. 
+The cideMOD is delivered as a Docker image in the `DEFACTO webpage <https://defacto-project.eu/documents/#download>`_. 
 Download it (notice it may take a while as the image size is 2.4 GB) and store it in a local folder.
 
 1. Start the docker daemon
@@ -80,16 +80,16 @@ To check if the daemon is running write :code:`docker images` in the Terminal.
 
 2. Load the downloaded image
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-From the Terminal use :code:`docker image load <path_to_downloaded_image>` to load the PXD image. When finished you can check if the image is correctly loaded using :code:`docker images`.
+From the Terminal use :code:`docker image load <path_to_downloaded_image>` to load the cideMOD image. When finished you can check if the image is correctly loaded using :code:`docker images`.
 
-3. Create a PXD container
+3. Create a cideMOD container
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Further instructions to create and use Docker containers can be found in the `Docker Webpage <https://docs.docker.com/get-started/>`_.
 To create a container use:
 
 .. code:: bash
     
-  $ docker run -ti --name <your_container_name> -v <local_shared_folder>:/home/fenics/shared/ pxd
+  $ docker run -ti --name <your_container_name> -v <local_shared_folder>:/home/fenics/shared/ cideMOD
 
 Substitute :code:`<your_container_name>` with an appropiate name of your election for this container. 
 To access the container files from outside the container (from your computer) the option :code:`-v <local_shared_folder>:/home/fenics/shared/` is added, where :code:`<local_shared_folder>` is a local directory of your computer that will be mapped to the container's shared folder.
@@ -109,10 +109,10 @@ To start a terminal on the started container, use:
   $ docker exec -ti <your_container_name> bash
 
 
-4. Run an example PXD simulation
+4. Run an example cideMOD simulation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In the PXD container terminal go to the path :code:`/home/fenics/PXD/examples` and run a 1C discharge with:
+In the cideMOD container terminal go to the path :code:`/home/fenics/cideMOD/examples` and run a 1C discharge with:
 
 .. code:: bash
     

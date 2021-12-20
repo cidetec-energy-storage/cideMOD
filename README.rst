@@ -2,21 +2,21 @@ cideMOD
 ===================
 cideMOD refers to the Doyle-Fuller-Newman model in which the physicochemical equations are solved by Finite Element methods using `FEniCS <https://fenicsproject.org/>`_ library. It enables doing physics-based battery simulations with a wide variety of use cases, from different drive cycles to characterization techniques such as GITT/PITT. 
 
-cideMOD is a PXD (pseudo X-dimensional) model that extends the original P2D (pseudo 2-dimensional) model, proposed by John Newman and co-workers, from 1D to 2D and 3D battery geometry. Therefore, charge balance, mass balance and reaction kinetics, as well as energy balance, are spatially resolved for the entire battery geometry, considering the inhomogeneity of battery state properties.
+cideMOD is a cideMOD (pseudo X-dimensional) model that extends the original P2D (pseudo 2-dimensional) model, proposed by John Newman and co-workers, from 1D to 2D and 3D battery geometry. Therefore, charge balance, mass balance and reaction kinetics, as well as energy balance, are spatially resolved for the entire battery geometry, considering the inhomogeneity of battery state properties.
 
 
 Installation
 ------------
 
-The PXD model is based on the finite element platform **FEniCS** and the library **multiphenics**. 
+The cideMOD model is based on the finite element platform **FEniCS** and the library **multiphenics**. 
 From here we will assume that the user has a working environment with *FEniCS* and *multiphenics*.
 
-To use PXD, first install it using pip :
+To use cideMOD, first install it using pip :
 
 .. code-block:: console
     
-   $ git clone < repository_path >/PXD.git
-   $ cd PXD
+   $ git clone < repository_path >/cideMOD.git
+   $ cd cideMOD
    $ pip install -e .
 
 It is important using the **-e** option in the *install* command. This will create an editable install, which means that if we modify the source code at the cloned folder, we will have those changes the next time we import the library. 

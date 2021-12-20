@@ -2,8 +2,8 @@ import os
 
 import numpy
 import pytest
-from PXD import *
-from PXD import (
+from cideMOD import *
+from cideMOD import (
     CellParser,
     ErrorCheck,
     NDProblem,

@@ -1,6 +1,6 @@
 import os
 
-from PXD import BMS, ErrorCheck, ModelOptions
+from cideMOD import BMS, ErrorCheck, ModelOptions
 
 SIMULATION_OPTIONS = ModelOptions(mode='P4D', solve_SEI=True)
 

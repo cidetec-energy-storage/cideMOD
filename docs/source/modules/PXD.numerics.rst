@@ -1,7 +1,7 @@
-PXD.numerics
+cideMOD.numerics
 ============
 
-.. automodule:: PXD.numerics
+.. automodule:: cideMOD.numerics
 
    
    
