@@ -22,10 +22,7 @@ from multiphenics import *
 import json
 import os
 import sys
-import numpy as np
 from collections import namedtuple
-
-import petsc4py
 
 from cideMOD.bms.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.config_parser import CellParser
@@ -43,11 +40,6 @@ from cideMOD.models.thermal.equations import *
 from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
 from cideMOD.helpers.extract_fom_info import get_mesh_info
-
-# petsc4py.init(
-#     ['-log_view',
-#      ]
-# )
 
 # Activate this only for production
 # set_log_active(False)
@@ -244,18 +236,18 @@ class Problem:
             # Loop through SGM order
             for j in range(1, self.SGM.order):
 
-                idx_a = fields.index("c_s_"+str(j)+"_a0")
-                idx_c = fields.index("c_s_"+str(j)+"_c0")
+                idx_a = fields.index(f"c_s_{j}_a0")
+                idx_c = fields.index(f"c_s_{j}_c0")
 
                 cs_jth = new_state['cs'][j*ndofs:(j+1)*ndofs]
-                adim_cs = self.nd_model.scale_variables({idx_a:cs_jth, idx_c:cs_jth})
+                adim_cs = self.nd_model.scale_variables({f"c_s_{j}_a0":cs_jth, f"c_s_{j}_c0":cs_jth})
                 # Save current coefficients in their corresponding variables
-                assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':adim_cs[idx_a]}))
-                assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':adim_cs[idx_c]}))
+                assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':adim_cs[f"c_s_{j}_a0"]}))
+                assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':adim_cs[f"c_s_{j}_c0"]}))
 
                 # Add to the cs_surf variable
-                adim_cs_a += adim_cs[idx_a]
-                adim_cs_c += adim_cs[idx_c]
+                adim_cs_a += adim_cs[f"c_s_{j}_a0"]
+                adim_cs_c += adim_cs[f"c_s_{j}_c0"]
 
             # cs_surf initialization
             assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':adim_cs_a}))
