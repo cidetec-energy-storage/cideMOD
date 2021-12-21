@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to cideMOD's documentation!
-===============================
+====================================
 
 **CIDETEC's cideMOD** is a X-D capable battery model based on the continuum *DFN* equations.
 
@@ -36,4 +36,5 @@ Contents
 
    intro
    usage
+   docker
    api

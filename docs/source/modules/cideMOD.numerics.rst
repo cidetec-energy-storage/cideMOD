@@ -1,5 +1,5 @@
-cideMOD.numerics
-============
+﻿cideMOD.numerics
+================
 
 .. automodule:: cideMOD.numerics
 

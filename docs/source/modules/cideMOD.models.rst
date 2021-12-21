@@ -1,5 +1,5 @@
-cideMOD.models
-==========
+﻿cideMOD.models
+==============
 
 .. automodule:: cideMOD.models
 

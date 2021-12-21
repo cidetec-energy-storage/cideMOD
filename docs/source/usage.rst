@@ -3,6 +3,8 @@ Usage
 
 .. _installation:
 
+A simple way to install cideMOD is detailed in :doc:`docker`.
+
 Installation
 ------------
 

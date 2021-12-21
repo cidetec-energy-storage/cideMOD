@@ -60,12 +60,12 @@ Detailed instructions are given in the `Docker Webpage <https://docs.docker.com/
 
 
 Set-up a cideMOD container
-------------------------
+---------------------------
 
 If you have already loaded the cideMOD image in docker you can skip to step 3.
 
 0. Download the cideMOD image
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The cideMOD is delivered as a Docker image in the `DEFACTO webpage <https://defacto-project.eu/documents/#download>`_. 
 Download it (notice it may take a while as the image size is 2.4 GB) and store it in a local folder.
@@ -83,7 +83,7 @@ To check if the daemon is running write :code:`docker images` in the Terminal.
 From the Terminal use :code:`docker image load <path_to_downloaded_image>` to load the cideMOD image. When finished you can check if the image is correctly loaded using :code:`docker images`.
 
 3. Create a cideMOD container
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Further instructions to create and use Docker containers can be found in the `Docker Webpage <https://docs.docker.com/get-started/>`_.
 To create a container use:
 
@@ -110,7 +110,7 @@ To start a terminal on the started container, use:
 
 
 4. Run an example cideMOD simulation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the cideMOD container terminal go to the path :code:`/home/fenics/cideMOD/examples` and run a 1C discharge with:
 

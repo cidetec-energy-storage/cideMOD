@@ -1,5 +1,5 @@
 ﻿cideMOD.bms
-=======
+===========
 
 .. automodule:: cideMOD.bms
 

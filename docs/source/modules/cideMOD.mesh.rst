@@ -1,5 +1,5 @@
-cideMOD.mesh
-========
+﻿cideMOD.mesh
+============
 
 .. automodule:: cideMOD.mesh
 
