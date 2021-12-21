@@ -206,8 +206,8 @@ class Problem:
                 cs_0 += cs_jth
 
             # cs_surf initialization
-            assign(self.f_0[fields.index("c_s_"+str(j)+"_a0")], self.P1_map.generate_function({'anode':cs_0}))
-            assign(self.f_0[fields.index("c_s_"+str(j)+"_c0")], self.P1_map.generate_function({'cathode':cs_0}))
+            assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':cs_0}))
+            assign(self.f_0[fields.index("c_s_0_c0")], self.P1_map.generate_function({'cathode':cs_0}))
             
         else: # adimensional problem
             varnames = {'ce':'c_e', 'phie':'phi_e', 'phis':'phi_s', 'jLi':'j_Li', 'cs': 'cs'}
@@ -258,9 +258,12 @@ class Problem:
                 adim_cs_c += adim_cs[idx_c]
 
             # cs_surf initialization
-            assign(self.f_0[fields.index("c_s_"+str(j)+"_a0")], self.P1_map.generate_function({'anode':adim_cs_a}))
-            assign(self.f_0[fields.index("c_s_"+str(j)+"_c0")], self.P1_map.generate_function({'cathode':adim_cs_c}))
+            assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':adim_cs_a}))
+            assign(self.f_0[fields.index("c_s_0_c0")], self.P1_map.generate_function({'cathode':adim_cs_c}))
 
+        block_assign(self.u_2, self.u_1)
+        block_assign(self.u_0, self.u_1)
+        
         # Save mesh information to avoid obtain it again
         mesh_  = self.fom2rom['mesh'].copy()
         areCC_ = self.fom2rom['areCC']
@@ -272,6 +275,7 @@ class Problem:
         self.fom2rom['areCC'] = areCC_
 
         _print(' - Initializing state - Done ')
+        self.WH.store(self.time)
 
     def _build_extra_models(self):
         #Extra models
@@ -359,8 +363,8 @@ class Problem:
         timer.stop()
         _print('Problem Setup finished.')
         _print("Problem has {} dofs.\n".format(MPI.sum(comm,len(self.u_2.block_vector()))))
-        
         self.ready=True
+        self.WH.store(self.time)
 
     def set_use_options(self, solver, pc='hypre', use_options=False):
         if use_options:
