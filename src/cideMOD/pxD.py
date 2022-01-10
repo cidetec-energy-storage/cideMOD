@@ -166,7 +166,8 @@ class Problem:
 
             ######################## phis ########################
             assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':new_state['phis'],'cathode':new_state['phis']}))
-            assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':new_state['phis'],'positiveCC':new_state['phis']}))
+            if self.fom2rom['areCC']:
+                assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':new_state['phis'],'positiveCC':new_state['phis']}))
 
             ######################## jLi ########################
             a_s_a = self.anode.active_material[0].a_s*self.F
@@ -214,7 +215,8 @@ class Problem:
 
             ######################## phis ########################
             assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':adim_state['phi_s'],'cathode':adim_state['phi_s']}))
-            assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':adim_state['phi_s'],'positiveCC':adim_state['phi_s']}))
+            if self.fom2rom['areCC']:
+                assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':adim_state['phi_s'],'positiveCC':adim_state['phi_s']}))
 
             ######################## jLi ########################
             a_s_a = self.anode.active_material[0].a_s*self.F
