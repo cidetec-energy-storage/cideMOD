@@ -20,21 +20,16 @@ Check out the :doc:`usage` section for further information, including how to
    :maxdepth: 2
    :caption: Contents:
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-Contents
---------
+   intro
+   install
+   usage
+   modeling
+   examples
+   references
 
 .. toctree::
+   :maxdepth: 2
+   :caption: API Reference:
 
-   intro
-   usage
-   docker
    api
+

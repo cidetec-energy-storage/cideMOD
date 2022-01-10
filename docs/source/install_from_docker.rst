@@ -1,5 +1,5 @@
-Use from docker
-================
+Install from docker
+^^^^^^^^^^^^^^^^^^^^
 
 .. _docker_instructions:
 
@@ -17,7 +17,7 @@ Windows
 
 Note: You need Windows 10 or higher
 
-Detailed instructions are given in the `Docker Webpage <https://docs.docker.com/desktop/windows/install/>`_
+Detailed instructions are given in the `Windows Docker Webpage <https://docs.docker.com/desktop/windows/install/>`_
 
 1. Set up the `WSL2 backend <https://docs.microsoft.com/en-us/windows/wsl/install>`_.
 2. Download the `Docker Desktop installer <https://docs.docker.com/desktop/windows/install/>`_.
@@ -26,12 +26,12 @@ Detailed instructions are given in the `Docker Webpage <https://docs.docker.com/
 Mac OS
 ~~~~~~~~
 
-Detailed instructions are given in the `Docker Webpage <https://docs.docker.com/desktop/mac/install/>`_.
+Detailed instructions are given in the `MacOS Docker Webpage <https://docs.docker.com/desktop/mac/install/>`_.
 
 Linux
 ~~~~~~
 
-Detailed instructions are given in the `Docker Webpage <https://docs.docker.com/engine/install/>`_.
+Detailed instructions are given in the `Docker engine Webpage <https://docs.docker.com/engine/install/>`_.
 
 1. Uninstall old versions if any :code:`sudo apt-get remove docker docker-engine docker.io containerd runc`
 2. Set-up the official Docker repository:
@@ -80,7 +80,7 @@ To check if the daemon is running write :code:`docker images` in the Terminal.
 
 2. Load the downloaded image
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-From the Terminal use :code:`docker image load <path_to_downloaded_image>` to load the cideMOD image. When finished you can check if the image is correctly loaded using :code:`docker images`.
+From the Terminal use :code:`docker image load -i <path_to_downloaded_image>` to load the cideMOD image. When finished you can check if the image is correctly loaded using :code:`docker images`.
 
 3. Create a cideMOD container
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
