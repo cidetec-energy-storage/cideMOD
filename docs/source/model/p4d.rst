@@ -1,11 +1,10 @@
-
 Nondimensional model
 ---------------------
 
 Scaling
 ~~~~~~~~
 
-The model has been rescaled to obtain nondimensional quantities and homogeneize truncation errors. The rescaled variables are obtained with the following relations:
+The model has been rescaled to obtain nondimensional quantities and homogeneize truncation errors, this scaling is inspired in :cite:t:`Ayerbe2020`. The rescaled variables are obtained with the following relations:
 
 -  Spatial and temporal dimensions:
 

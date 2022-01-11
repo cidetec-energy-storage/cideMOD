@@ -6,22 +6,26 @@ In the repository or docker image, several example use cases are included. Addit
 Datasets
 ---------
 
-- Chen et al (20202)
-- Ai et al (2020)
+- Chen_2020: Graphite-SiliconOxide vs NMC811 cell based on :cite:p:`Chen2020`
+- Ai_2020: Graphite vs LCO cell based on :cite:p:`Ai2020`
+- Safari_2009: Graphite vs LCO cell based on :cite:p:`Safari2009`
 
 Examples
 ---------
 
-Test discharge
-^^^^^^^^^^^^^^^^
+Single discharge
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This is one of the most basic use cases of cideMOD, to simulate a single discharge using the low-level Problem interface.
+
+.. literalinclude:: ../../examples/main.py
+
 
 Storage
 ^^^^^^^^
 
-Cycling
-^^^^^^^^^
+In this case, using the BMS interface, we can simulate the degradation under rest conditions.
 
-Drive cycle
-^^^^^^^^^^^^
+.. literalinclude:: ../../examples/storage.py
+    :lines: 1-14,46-56,64-
 
 

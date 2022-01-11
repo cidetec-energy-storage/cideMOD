@@ -33,7 +33,8 @@ release = '0.1'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'sphinx.ext.mathjax'
+    'sphinx.ext.mathjax',
+    'sphinxcontrib.bibtex'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -46,6 +47,12 @@ exclude_patterns = []
 
 # The master toctree document.
 master_doc = 'index'
+
+# Bibliography file
+bibtex_bibfiles = ['refs.bib']
+
+# Citations format
+bibtex_default_style = 'unsrt'
 
 
 # -- Options for HTML output -------------------------------------------------
