@@ -300,9 +300,9 @@ class CellParser:
         self.check_dict_structure()
 
         # Constants
-        self.R = self.parse_value('constants','R')
-        self.F = self.parse_value('constants','F')
-        self.alpha = self.parse_value('constants','alpha')
+        self.R = self.parse_value('constants','R', default=8.314472)
+        self.F = self.parse_value('constants','F', default=96485.3365)
+        self.alpha = self.parse_value('constants','alpha', default=0.5)
 
         # Cell parameters
         self.heatConvection = self.parse_value('properties','heatConvection')
@@ -332,7 +332,7 @@ class CellParser:
 
     def _select_element(self, element):
         if self.type == 'li-ion':
-            mandatory_entries = ['constants', 'separator', 'positiveElectrode', 'negativeElectrode', 'electrolyte', 'structure']
+            mandatory_entries = ['separator', 'positiveElectrode', 'negativeElectrode', 'electrolyte', 'structure']
         if 'ncc' in self.structure:
             mandatory_entries.append('negativeCurrentCollector')
         if 'pcc' in self.structure:

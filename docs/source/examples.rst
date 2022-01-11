@@ -3,6 +3,8 @@ Use cases
 
 In the repository or docker image, several example use cases are included. Additionally several literature datasets are included.
 
+.. _examples:
+
 Datasets
 ---------
 

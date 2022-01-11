@@ -1,6 +1,7 @@
 Modelling
 ==========
 
+.. _mesh:
 
 Geometry and mesh
 ------------------
@@ -10,22 +11,22 @@ It is designed to work on any geometry or mesh provided that they are properly t
 
 There are different subdomains in the model:
 
-- Current Collector:
-  Current collectors are parts of the battery that conduct electricity, but not ions. There are two types, the positive current collector (tag="pcc"), which connects cathodes and the negative current collector (tag="ncc"), which connects anodes.
-  Additionally, the current collectors are conected to the input/output of the battery at the tabs. 
-- Electrode:
-  Electrodes are porous materials filled with electrolyte. They conduct electrons as well as ions, and exchange ions with the electrolyte. There are two types of electrodes, the anode (tag="a") which has the lowest Open Circuit Potential, and the cathode (tag="c"), which has the highest Open Ciruit Potential.
-- Separator
-  Separator (tag="s") is a porous material filled with electrolyte. The solid part of the separator doesn't conduct electrons nor ions. It is inert to the charge carriers.
+* Current Collector:
+   Current collectors are parts of the battery that conduct electricity, but not ions. There are two types, the positive current collector (tag="pcc"), which connects cathodes and the negative current collector (tag="ncc"), which connects anodes.
+   Additionally, the current collectors are conected to the input/output of the battery at the tabs. 
+* Electrode:
+   Electrodes are porous materials filled with electrolyte. They conduct electrons as well as ions, and exchange ions with the electrolyte. There are two types of electrodes, the anode (tag="a") which has the lowest Open Circuit Potential, and the cathode (tag="c"), which has the highest Open Ciruit Potential.
+* Separator
+   Separator (tag="s") is a porous material filled with electrolyte. The solid part of the separator doesn't conduct electrons nor ions. It is inert to the charge carriers.
 
 
 The dimensions of these domains can be customized in the cell parameter file. The structure of the cell can be customized up to certain level.
 There are other parts of the cell, that don't need to be meshes, but are automatically considered by the model:
 
-- Electrolyte:
-  Is the substance filling the electrodes and separator, it is ion conductive, but not electron conductive.
-- Sealing:
-  The cell is ussually sealed with some materials that prohibits mass and charge exchange with the environment. However these materials have an influence on the energy exchange with the surroundings. They are considered to modify the heat transport coefficients with the exterior of the cell.
+* Electrolyte:
+   Is the substance filling the electrodes and separator, it is ion conductive, but not electron conductive.
+* Sealing:
+   The cell is ussually sealed with some materials that prohibits mass and charge exchange with the environment. However these materials have an influence on the energy exchange with the surroundings. They are considered to modify the heat transport coefficients with the exterior of the cell.
 
 
 Submodels
@@ -33,13 +34,18 @@ Submodels
 
 The different variables in the models are defined only in some of the domains. Considering the models included the variables are defined in the following domains:
 
-- Electrochemical model:
-  Electrolyte potential and concentration :math:`\phi_e\, c_e` are defined in the electrodes and the separator. Solid phase potential :math:` \phi_s ` is defined only at the electrodes. At the current collectors there is also a solid phase potential but due to the disparity of conductivity scales, another variable is created :math:`\phi_{s,cc}`, and continuity is imposed at the interface between electrode and current collectors with a lagrange multiplier. 
-  Particle concentration :math:`c_s`\ and intercalation current density :math:`j_i` are also defined as variables but only at their corresponding electrode. This means that each electrode has many of these variables as active materials.
-- Thermal model:
-  In isothermal simulations (solve\_thermal=False) the temperature is set as a constant value over the domain. Otherwise, temperature is a scalar function defined in all of the domains. Heat sources considered are ohmic, polarization and reaction heat sources.
-- Degradation models:
-  At the moment only SEI growth is implemented, but in future versions other degradation mechanisms will be included. The anode SEI model implemented is based on :cite:t:`Safari2009` and it assumes that the electrolyte solvent concentration (primarily EC and DMC) is the limiting factor for SEI growth.
+* Electrochemical model:
+   Electrolyte potential and concentration (:math:`\phi_e` and :math:`c_e`) are defined in the electrodes and the separator. Solid phase potential (:math:`\phi_s`) is defined only at the electrodes. At the current collectors there is also a solid phase potential but due to the disparity of conductivity scales, another variable is created :math:`\phi_{s,cc}`, and continuity is imposed at the interface between electrode and current collectors with a lagrange multiplier. 
+   Particle concentration (:math:`c_s`\) and intercalation current density (:math:`j_i`) are also defined as variables but only at their corresponding electrode. This means that each electrode has many of these variables as active materials.
+* Thermal model:
+   In isothermal simulations (solve\_thermal=False) the temperature is set as a constant value over the domain. Otherwise, temperature is a scalar function defined in all of the domains. Heat sources considered are ohmic, polarization and reaction heat sources.
+* Degradation models:
+   At the moment only SEI growth is implemented, but in future versions other degradation mechanisms will be included.
+
+  * SEI growth model:
+     The anode SEI model implemented is based on :cite:t:`Safari2009` and it assumes that the electrolyte solvent concentration (primarily EC and DMC) is the limiting factor for SEI growth.
+     Therefore solvent transport across the SEI is solved with an spectral method using Laplace polynomials. 
+
 
 Pseudo-dimension
 -----------------
@@ -75,7 +81,7 @@ The
 
 P4D
 ^^^^
-Due to the necesity of modeling details in 3D, the normalization strategy is no longer possible, therefore, in order to incorporate contributions from all the residuals in a proper way, the equations are non-dimensionalized.
+Due to the necesity of modeling details in 3D, the normalization strategy is no longer possible. Therefore, in order to incorporate contributions from all the residuals in a proper way, the equations are non-dimensionalized.
 
 
 Formulation details

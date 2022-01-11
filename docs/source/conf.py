@@ -79,7 +79,8 @@ latex_elements = {
 
     # Additional stuff for the LaTeX preamble.
     #
-    # 'preamble': '',
+    'preamble': """\\usepackage{etoolbox}
+\patchcmd{\\thebibliography}{\\section*{\\refname}}{}{}{}""",
 
     # Latex figure (float) alignment
     #
