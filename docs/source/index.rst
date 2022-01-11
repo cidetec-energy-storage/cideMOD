@@ -26,5 +26,6 @@ Check out the :doc:`usage` section for further information, including how to
    modeling
    examples
    references
+   modules
 
 

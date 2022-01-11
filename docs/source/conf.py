@@ -35,7 +35,6 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinxcontrib.bibtex',
-    'autoapi.extension'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -49,17 +48,10 @@ exclude_patterns = []
 # The master toctree document.
 master_doc = 'index'
 
-# Bibliography file
+# Bibliography conf
 bibtex_bibfiles = ['refs.bib']
-
-# Citations format
 bibtex_default_style = 'unsrt'
 
-# Autoapi conf
-autoapi_dirs = ['../../src/cideMOD']
-autoapi_keep_files = False
-autoapi_options = [ 'members', 'undoc-members', 'private-members', 'show-inheritance', 'show-module-summary', 'special-members']
-# autoapi_generate_api_docs = True
 
 
 # -- Options for HTML output -------------------------------------------------

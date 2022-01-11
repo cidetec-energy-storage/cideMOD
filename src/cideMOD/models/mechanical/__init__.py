@@ -26,5 +26,5 @@ def mechanical_model(cell):
         raise Exception("Solid electrolytes not supported in this version")
 
 __all__ = [
-    mechanical_model
+    "mechanical_model"
 ]
