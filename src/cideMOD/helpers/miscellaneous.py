@@ -19,9 +19,6 @@
 """miscellaneous.py involves all the auxiliary functions which
 dosen't belong to any class.
 
-_Date: 16/09/2020_
-_Author: Clara Ganuza_
-
 Functions
 ---------
 get_spline(data, spline_type = "not-a-knot")
@@ -50,9 +47,6 @@ def get_spline(data, spline_type = "not-a-knot", return_fenics = True):
 
     It gets the spline coefficients and uses them for computing
     the spline in a given point, y.
-
-    _Date: 16/09/2020_
-    _Author: _
 
     Parameters
     ----------
@@ -116,11 +110,7 @@ def hysteresys_property(property:dict):
     return value_selector
 
 def init_results_folder(case_name,overwrite=False, copy_files:list=[]):
-    """Function which initialize the results folder. If
-    doesn't exist creates it.
-
-    _Date: 16/09/2020_
-    _Author: Raúl Ciria_
+    """Function which initialize the results folder.
 
     Parameters
     ----------
@@ -164,13 +154,15 @@ def init_results_folder(case_name,overwrite=False, copy_files:list=[]):
     return save_path
 
 def constant_expression(expression, **kwargs):
-    """
+    """Evaluates expression with given arguments
+
     Parameters
     ----------
     expresion : str
         String form of the expression in python syntax.
     **kwargs: 
         variables to replace inside the expresion.
+    
     Returns
     -------
     value: Float, Constant
@@ -197,9 +189,6 @@ def plot_list_variable(x, y, name, direc, show=False, hide_ax_tick_labels=False,
                     ylabel = 'y', ymin=None, ymax=None, xmin = None, xmax = None,
                     i_app = None, data_path = None, save = True, ref=""):
     """This function plots y values in x axis.
-
-    _Date: 16/09/2020_
-    _Author: Clara Ganuza_
 
     Parameters
     ----------

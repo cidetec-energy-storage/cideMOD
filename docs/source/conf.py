@@ -31,10 +31,11 @@ release = '0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
     'sphinx.ext.mathjax',
-    'sphinxcontrib.bibtex'
+    'sphinxcontrib.bibtex',
+    'autoapi.extension'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -53,6 +54,12 @@ bibtex_bibfiles = ['refs.bib']
 
 # Citations format
 bibtex_default_style = 'unsrt'
+
+# Autoapi conf
+autoapi_dirs = ['../../src/cideMOD']
+autoapi_keep_files = False
+autoapi_options = [ 'members', 'undoc-members', 'private-members', 'show-inheritance', 'show-module-summary', 'special-members']
+# autoapi_generate_api_docs = True
 
 
 # -- Options for HTML output -------------------------------------------------

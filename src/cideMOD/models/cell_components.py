@@ -18,11 +18,6 @@
 #
 """cell_components creates and initializes the corresponding battery components
 attributes. This also includes the functions for the weak formulation.
-
-_Date: 16/09/2020_
-
-_Author: Clara Ganuza_
-
 """
 from dolfin import *
 

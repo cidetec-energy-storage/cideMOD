@@ -18,7 +18,7 @@
 #
 from dolfin import grad
 
-from .equations import *
+from cideMOD.models.electrochemical.equations import *
 
 
 class ElectrochemicalModel:

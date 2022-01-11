@@ -3,4 +3,5 @@ isort
 Sphinx
 sphinx-rtd-theme
 sphinxcontrib-bibtex
+sphinx-autoapi
 -e .

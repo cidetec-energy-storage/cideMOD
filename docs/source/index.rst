@@ -27,9 +27,4 @@ Check out the :doc:`usage` section for further information, including how to
    examples
    references
 
-.. toctree::
-   :maxdepth: 2
-   :caption: API Reference:
-
-   api
 

@@ -968,10 +968,6 @@ class Problem:
         Needed operations for each time step for the SGM, solving
         calculations and updating variables.
 
-        _Date: 09/09/2020_
-
-        _Author: Raúl Ciria_
-
         Parameters
         ----------
         - relaxation : Real between 0-1, default = 1.
