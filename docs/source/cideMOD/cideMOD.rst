@@ -5,7 +5,7 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
    cideMOD.bms
    cideMOD.helpers
@@ -16,13 +16,10 @@ Subpackages
 Submodules
 ----------
 
-cideMOD.pxD module
-------------------
+.. toctree::
+   :maxdepth: 2
 
-.. automodule:: cideMOD.pxD
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   cideMOD.pxD
 
 Module contents
 ---------------
@@ -31,3 +28,4 @@ Module contents
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:

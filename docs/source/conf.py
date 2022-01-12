@@ -52,6 +52,11 @@ master_doc = 'index'
 bibtex_bibfiles = ['refs.bib']
 bibtex_default_style = 'unsrt'
 
+# autodoc options
+autodoc_default_options = {
+    'ignore-module-all':True
+}
+
 
 
 # -- Options for HTML output -------------------------------------------------
