@@ -16,7 +16,9 @@ Check out the :doc:`usage` section for further information, including how to :re
 
 .. note::
 
-   This project is under active development.
+   This project is under active development. 
+   
+   The models included will change in future versions. The code is not fully documented, this documentation will be completed towards the version v1.0
 
 .. toctree::
    :maxdepth: 2

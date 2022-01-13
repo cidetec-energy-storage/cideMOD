@@ -30,7 +30,7 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
     .. math::
 
         \begin{gathered}
-            \hat{\nabla} \left( \kappa_{eff} \hat{\nabla} \varphi_e \right) = \sum_{i=0}^{n_{mat}} a_i j_{i}
+            - \hat{\nabla} \left( \kappa_{eff} \hat{\nabla} \varphi_e  - 2 \kappa_{eff} \frac{RT}{F} (1-t_0) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \hat{\nabla} \ln{c_e}  \right) = \sum_{i=0}^{n_{mat}} a_i j_{i}
         \end{gathered}
 
 * Charge transport in the electrode
@@ -39,20 +39,22 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
     .. math::
 
         \begin{gathered}
-            \hat{\nabla} \left( \sigma_{eff} \hat{\nabla} \varphi_s \right) = \sum_{i=0}^{n_{mat}} a_i j_{i}
+            - \hat{\nabla} \left( \sigma_{eff} \hat{\nabla} \varphi_s \right) = - \sum_{i=0}^{n_{mat}} a_i j_{i}
+            \quad ; \quad
+            \sigma_{eff} \hat{\nabla} \varphi_s \Big|_{tab} = I_{app}
         \end{gathered}
 
     In the current colectors, a similar equation is used, but in this case, there is no exchage with the electrolyte, therefore the right hand side term equals zero.
 
 * Mass transport in the active material (pseudodimension)
-    The mass transport in the active material is calculated in the :class:`c_s_equation <cideMOD.models.particle_models.implicit_coupling.SpectralLegendreModel>` class using Legendre polynomials.
+    The mass transport in the active material is calculated in the :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_coupling.SpectralLegendreModel>` class using Legendre polynomials.
 
     .. math::
 
         \begin{gathered}
             \frac{\partial c_s}{\partial t} =
-            \hat{\nabla} \left( D_s^{eff} \hat{\nabla} c_s \right)  ;
-            \qquad
+            \hat{\nabla} \left( D_s^{eff} \hat{\nabla} c_s \right)
+            \quad ; \quad
             - D_s^{eff} \hat{\nabla} c_s \Bigg|_{r=R_p} = \frac{j_{i}}{F}
         \end{gathered}
 
@@ -77,15 +79,15 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
 .. rubric:: Thermal Model
 
 * Energy conservation:
-    The mass transport in the electrolyte is calculated in :func:`T_equation <cideMOD.models.thermal.equations.T_equation>` function.
+    The heat transfer across the cell is computed in :func:`T_equation <cideMOD.models.thermal.equations.T_equation>` function.
 
     .. math::
 
         \begin{gathered}
             \rho c_p \frac{\partial T}{\partial t} =
-            \hat{\nabla} \left( \lambda_{eff} \hat{\nabla} T \right) + q    ;
-            \qquad
-            - \lambda_{eff} \hat{\nabla} T \Bigg|_{\Gamma}= h (T-T_ext)
+            \hat{\nabla} \left( \lambda_{eff} \hat{\nabla} T \right) + q
+            \quad ; \quad
+            - \lambda_{eff} \hat{\nabla} T \Bigg|_{\Gamma}= h (T-T_{ext})
         \end{gathered}
 
 * Heat generation:
@@ -103,7 +105,9 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
         .. math::
 
             \begin{gathered}
-                q_{ohm} =  \sigma_{eff} \hat{\nabla} \varphi_s \hat{\nabla} \varphi_e + \kappa_{eff} \hat{\nabla} \varphi_e \hat{\nabla} \varphi_e - 2 \frac{RT}{F} \kappa_{eff} (1-t_0^+) (1+ln()) \frac{\hat{\nabla} c_e}{c_e} \hat{\nabla} \varphi_e
+                q_{ohm} =  (1-\varepsilon) q_{solid} + \varepsilon q_{liquid} \\
+                q_{solid} =  \sigma_{eff} \hat{\nabla} \varphi_s \hat{\nabla} \varphi_e \\
+                q_{liquid} = \kappa_{eff} \hat{\nabla} \varphi_e \hat{\nabla} \varphi_e - 2 \kappa_{eff} \frac{RT}{F} (1-t_0^+) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \frac{\hat{\nabla} c_e}{c_e} \hat{\nabla} \varphi_e
             \end{gathered}
 
     * Reversible reaction heat source
@@ -124,5 +128,66 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
                 q_{rev} =  \sum_{i=0}^{n_{mat}} a_i j_{i} \eta
             \end{gathered}
 
-.. rubric:: SEI Model
+.. rubric:: Degradation Models
 
+* SEI formation side reaction
+    This model is implemented inside the :class:`SEI <cideMOD.models.degradation.equations.SEI>` class.
+    The model considers that the SEI is originated by the electrochemical reaction between EC solvent molecule, 2 lithium ions and 2 electrons at the electrode surface:
+
+    .. math::
+
+            \begin{gathered}
+                EC + 2 Li^+ + 2 e^- \rightarrow V_{SEI}
+            \end{gathered}
+    
+    Therefore the rection equation reads:
+
+    .. math::
+
+            \begin{gathered}
+                j_{SEI} = F k_{SEI} c_{EC} c_s e^{\frac{-\beta F}{RT}(\eta - (U_{SEI} - U_{eq}))}
+            \end{gathered}
+
+    where the concentration of EC solvent at the SEI must be modelled according to the transport equation:
+
+    .. math::
+
+            \begin{gathered}
+                \frac{\partial c_{EC}}{\partial t} = \nabla \left( D_{EC} \nabla c_{EC} - \frac{ \partial \delta_{SEI}}{\partial t} c_{EC} \right)
+            \end{gathered}
+
+    with the following boundary conditions:
+
+    .. math::
+
+            \begin{gathered}
+                \left( D_{EC} \nabla c_{EC} - \frac{ \partial \delta_{SEI}}{\partial t} c_{EC} \right) \Bigg|_{r_{SEI}=R_s} = \frac{j_{SEI}}{F}
+                \quad ; \quad
+                c_{EC} \big|_{r_{SEI}=R_s+\delta_{SEI}} = c_{EC}^0
+            \end{gathered}
+
+    The SEI growth can be calculated from the reaction rate and SEI components properties:
+
+    .. math::
+
+            \begin{gathered}
+                \frac{\partial \delta_{SEI}}{\partial t} = - \frac{M_{SEI}}{2 F \rho_{SEI}} j_{SEI}
+            \end{gathered}
+
+    The total exchange current therefore has two components:
+
+    .. math::
+
+            \begin{gathered}
+                j_{tot} = j_{int} + j_{SEI}
+            \end{gathered}
+
+    And the overpotential has now an additional component corresponding to the voltage drop caused by SEI resistance:
+
+    .. math::
+
+            \begin{gathered}
+                \eta = \varphi_s - \varphi_e - U_{eq}(c_s) - \frac{\delta_{SEI}}{\kappa_{SEI}} j_{tot} 
+            \end{gathered}
+
+    

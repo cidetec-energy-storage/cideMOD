@@ -22,7 +22,7 @@ copyright = '2021, CIDETEC'
 author = 'Raul Ciria Aylagas'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = 'v0.1'
 
 
 # -- General configuration ---------------------------------------------------
