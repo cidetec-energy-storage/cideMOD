@@ -6,7 +6,7 @@ We use the well-known P2D model described by :cite:t:`Doyle1993`. As each domain
 .. math::
 
     \begin{gathered}
-                \hat{\nabla} = \begin{pmatrix} \frac{\partial}{\partial x} \\ \frac{\partial}{\partial y} \\ \frac{\partial}{\partial z} \end{pmatrix} = \begin{pmatrix} \frac{1}{L_i} \frac{\partial}{\partial x} \\ \frac{1}{H_i} \frac{\partial}{\partial y} \\ \frac{1}{W_i} \frac{\partial}{\partial z} \end{pmatrix}
+                \nabla = \begin{pmatrix} \frac{\partial}{\partial x} \\ \frac{\partial}{\partial y} \\ \frac{\partial}{\partial z} \end{pmatrix} = \begin{pmatrix} \frac{1}{L_i} \frac{\partial}{\partial \hat{x}} \\ \frac{1}{H_i} \frac{\partial}{\partial \hat{y}} \\ \frac{1}{W_i} \frac{\partial}{\partial \hat{z}} \end{pmatrix}
     \end{gathered}
 
 Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height and width. However, for a P2D model, only the first row of the vector is used.
@@ -21,7 +21,7 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
 
         \begin{gathered}
             \epsilon \frac{\partial c_e}{\partial t} =
-            \hat{\nabla} \left( D_{eff} \hat{\nabla} c_e \right) + \frac{1}{F}\sum_{i=0}^{n_{mat}} a_i j_{i}
+            \nabla \left( D_{eff} \nabla c_e \right) + \frac{1}{F}\sum_{i=0}^{n_{mat}} a_i j_{i}
         \end{gathered}
 
 * Charge transport in the electrolyte
@@ -30,7 +30,7 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
     .. math::
 
         \begin{gathered}
-            - \hat{\nabla} \left( \kappa_{eff} \hat{\nabla} \varphi_e  - 2 \kappa_{eff} \frac{RT}{F} (1-t_0) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \hat{\nabla} \ln{c_e}  \right) = \sum_{i=0}^{n_{mat}} a_i j_{i}
+            - \nabla \left( \kappa_{eff} \nabla \varphi_e  - 2 \kappa_{eff} \frac{RT}{F} (1-t_0) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \nabla \ln{c_e}  \right) = \sum_{i=0}^{n_{mat}} a_i j_{i}
         \end{gathered}
 
 * Charge transport in the electrode
@@ -39,9 +39,9 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
     .. math::
 
         \begin{gathered}
-            - \hat{\nabla} \left( \sigma_{eff} \hat{\nabla} \varphi_s \right) = - \sum_{i=0}^{n_{mat}} a_i j_{i}
+            - \nabla \left( \sigma_{eff} \nabla \varphi_s \right) = - \sum_{i=0}^{n_{mat}} a_i j_{i}
             \quad ; \quad
-            \sigma_{eff} \hat{\nabla} \varphi_s \Big|_{tab} = I_{app}
+            \sigma_{eff} \nabla \varphi_s \Big|_{tab} = I_{app}
         \end{gathered}
 
     In the current colectors, a similar equation is used, but in this case, there is no exchage with the electrolyte, therefore the right hand side term equals zero.
@@ -53,9 +53,9 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
 
         \begin{gathered}
             \frac{\partial c_s}{\partial t} =
-            \hat{\nabla} \left( D_s^{eff} \hat{\nabla} c_s \right)
+            \nabla \left( D_s^{eff} \nabla c_s \right)
             \quad ; \quad
-            - D_s^{eff} \hat{\nabla} c_s \Bigg|_{r=R_p} = \frac{j_{i}}{F}
+            - D_s^{eff} \nabla c_s \Bigg|_{r=R_p} = \frac{j_{i}}{F}
         \end{gathered}
 
 * Exchange between the electrolyte and the electrode by lithium intercalation
@@ -85,13 +85,13 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
 
         \begin{gathered}
             \rho c_p \frac{\partial T}{\partial t} =
-            \hat{\nabla} \left( \lambda_{eff} \hat{\nabla} T \right) + q
+            \nabla \left( \lambda_{eff} \nabla T \right) + q
             \quad ; \quad
-            - \lambda_{eff} \hat{\nabla} T \Bigg|_{\Gamma}= h (T-T_{ext})
+            - \lambda_{eff} \nabla T \Bigg|_{\Gamma}= h (T-T_{ext})
         \end{gathered}
 
 * Heat generation:
-    Several heat sources have been considered:
+    Several heat sources have been considered. The formulation of this heat sources is based on :cite:t:`Chiew2019`
     
     .. math::
 
@@ -106,8 +106,8 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
 
             \begin{gathered}
                 q_{ohm} =  (1-\varepsilon) q_{solid} + \varepsilon q_{liquid} \\
-                q_{solid} =  \sigma_{eff} \hat{\nabla} \varphi_s \hat{\nabla} \varphi_e \\
-                q_{liquid} = \kappa_{eff} \hat{\nabla} \varphi_e \hat{\nabla} \varphi_e - 2 \kappa_{eff} \frac{RT}{F} (1-t_0^+) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \frac{\hat{\nabla} c_e}{c_e} \hat{\nabla} \varphi_e
+                q_{solid} =  \sigma_{eff} \nabla \varphi_s \nabla \varphi_e \\
+                q_{liquid} = \kappa_{eff} \nabla \varphi_e \nabla \varphi_e - 2 \kappa_{eff} \frac{RT}{F} (1-t_0^+) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \frac{\nabla c_e}{c_e} \nabla \varphi_e
             \end{gathered}
 
     * Reversible reaction heat source

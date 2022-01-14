@@ -15,7 +15,7 @@ In Linux systems, at the moment it is necesary to use **Docker Engine**.
 Windows 
 ~~~~~~~~
 
-Note: You need Windows 10 or higher
+Note: Windows 10 or higher version is required
 
 Detailed instructions are given in the `Windows Docker Webpage <https://docs.docker.com/desktop/windows/install/>`_
 

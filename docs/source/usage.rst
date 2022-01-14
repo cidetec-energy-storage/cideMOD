@@ -63,9 +63,7 @@ In the data folder, there are several examples of such parameter files. This is 
 Test Plan
 -----------
 When using the :class:`BMS <cideMOD.bms.battery_system.BMS>` interface to simulate cell behavior, it is necesary to specify a test plan. This can be specified as a json or created programatically as python dictionaries or using cideMOD's :class:`Input <cideMOD.bms.inputs.Input>` and :class:`Trigger <cideMOD.bms.triggers.Trigger>` classes.
-An example of a test plan built in the code with the different building blocks is located in the :code:`storage.py` in the examples folder:
-
-.. literalinclude:: ../../examples/storage.py
+An example of a test plan built in the code with the different building blocks is can be found in the :doc:`Use Cases <examples>` section.
 
 Finer control
 --------------
@@ -80,6 +78,6 @@ There are two kind of outputs available. For each simulation, the library saves 
 
 * Internal variables:
    These are the problem variables, or any derived value that has different values for each point in the battery geometry. These are automatically defined in the code, and written in the `XDMF Format <https://www.xdmf.org/index.php/Main_Page>`_.
-   The parameter :code:`store_delay` can be modified to a negative value to supress this output, or to a positive value to specify with how many frecuency (in timesteps) the results are saved to disk.
+   The parameter :code:`store_delay` can be modified to a negative value to supress this output, or to a positive value to specify the frecuency (in timesteps) at which the results are saved to disk.
 * Global variables:
    These are overall cell figures (for example cell voltage, current, maximum temperature, etc...), that are calculated and saved as a list of values over time internally in the memory. When the temporal loop finish, they are saved to disk in text files.
