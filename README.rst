@@ -10,7 +10,9 @@ It allows complete customization of the cell geometry including the tap position
 Installation
 ------------
 
-The cideMOD model is based on the finite element platform **FEniCS** and the library **multiphenics**. 
+Read the Installation Section in the documentation for more information and installation options.
+
+The cideMOD model is based on the finite element platform **FEniCS** and the library **multiphenics**.
 From here we will assume that the user has a working environment with *FEniCS* and *multiphenics*.
 
 To use cideMOD, first install it using pip :
@@ -54,7 +56,7 @@ Documentation
 -------------
 
 The Documentation is a Work In Progress.
-You can access the documentation on the docs folder building it (See the requirements.txt file for necessary `Sphinx <https://www.sphinx-doc.org>`_ packages):
+You can access the documentation on the docs folder building it (See the requirements.txt file for necessary packages):
 
 .. code-block:: language
 
