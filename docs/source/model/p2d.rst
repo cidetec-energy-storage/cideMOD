@@ -1,15 +1,15 @@
 Dimensional model
 ==================
 
-We use the well-known P2D model described by :cite:t:`Doyle1993`. As each domain is normalized with its thickness, the gradients that we use are:
+The well-known P2D model described by :cite:t:`Doyle1993` is considered herein as a baseline. As each domain is normalized with its thickness, the gradients used are:
 
 .. math::
 
     \begin{gathered}
-                \nabla = \begin{pmatrix} \frac{\partial}{\partial x} \\ \frac{\partial}{\partial y} \\ \frac{\partial}{\partial z} \end{pmatrix} = \begin{pmatrix} \frac{1}{L_i} \frac{\partial}{\partial \hat{x}} \\ \frac{1}{H_i} \frac{\partial}{\partial \hat{y}} \\ \frac{1}{W_i} \frac{\partial}{\partial \hat{z}} \end{pmatrix}
+        \nabla = \begin{pmatrix} \frac{\partial}{\partial x} \\ \frac{\partial}{\partial y} \\ \frac{\partial}{\partial z} \end{pmatrix} = \begin{pmatrix} \frac{1}{L_i} \frac{\partial}{\partial \hat{x}} \\ \frac{1}{H_i} \frac{\partial}{\partial \hat{y}} \\ \frac{1}{W_i} \frac{\partial}{\partial \hat{z}} \end{pmatrix}
     \end{gathered}
 
-Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height and width. However, for a P2D model, only the first row of the vector is used.
+Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height and width. However, in the case of the P2D model, only the first row of the vector is used.
 
 .. rubric:: Electrochemical Model
 

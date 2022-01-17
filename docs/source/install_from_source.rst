@@ -1,7 +1,17 @@
 Install from source
 ^^^^^^^^^^^^^^^^^^^^
 
-The cideMOD model is based on the finite element platform **FEniCS** :cite:p:`fenics` and the library **multiphenics** :cite:p:`multiphenics`. 
+.. _FEniCS: https://fenicsproject.org/
+.. _multiphenics: https://github.com/multiphenics/multiphenics
+.. _gmsh: https://gmsh.info/
+
+.. rubric:: Requirements
+
+- `FEniCS`_ :cite:p:`fenics`
+- `multiphenics`_ :cite:p:`multiphenics`
+- `gmsh`_ :cite:p:`gmsh`
+
+The cideMOD model is based on the finite element platform **FEniCS** and the library **multiphenics**. 
 From here we will assume that the user has a working environment with *FEniCS* and *multiphenics*.
 
 To use cideMOD, first install it using pip :

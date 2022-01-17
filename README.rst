@@ -1,9 +1,11 @@
 cideMOD
 ===================
-cideMOD refers to the Doyle-Fuller-Newman model in which the physicochemical equations are solved by Finite Element methods using `FEniCS <https://fenicsproject.org/>`_ library. It enables doing physics-based battery simulations with a wide variety of use cases, from different drive cycles to characterization techniques such as GITT/PITT. 
+**cideMOD** refers to the Doyle-Fuller-Newman model in which the physicochemical equations are solved by Finite Element methods using `FEniCS <https://fenicsproject.org/>`_ library. It enables doing physics-based battery simulations with a wide variety of use cases, from different drive cycles to characterization techniques such as GITT/PITT. 
 
 cideMOD is a pXD (pseudo X-dimensional) model that extends the original P2D (pseudo 2-dimensional) model, proposed by John Newman and co-workers, from 1D to 2D and 3D battery geometry. Therefore, charge balance, mass balance and reaction kinetics, as well as energy balance, are spatially resolved for the entire battery geometry, considering the inhomogeneity of battery state properties.
+cideMOD has some additional models for solving the cell thermal behaviour, including mayor heat sources, and studying the battery degradation with the SEI growth. It also supports several active materials in the electrodes, and, nonlinear and temperature dependent electrode and electrolyte transport properties. 
 
+It allows complete customization of the cell geometry including the tap position for optimal configuration, as well as highly customizable simulation conditions
 
 Installation
 ------------
@@ -52,7 +54,7 @@ Documentation
 -------------
 
 The Documentation is a Work In Progress.
-You can access the documentation on the docs folder (WIP) building it:
+You can access the documentation on the docs folder building it (See the requirements.txt file for necessary `Sphinx <https://www.sphinx-doc.org>`_ packages):
 
 .. code-block:: language
 

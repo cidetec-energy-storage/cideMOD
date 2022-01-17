@@ -51,8 +51,8 @@ Depending on the physics of the mechanisms takin place in each domain, a differe
 
 Pseudo-dimension
 -----------------
-So far we've talked about meshes for the cell, but in the (Pseudo X-Dimensional) PXD models there is a pseudodimension (what P stands for in P2D, P3D, P4D) corresponding to the active materials inner domain. This is not explicitly considered, but an homogeneization links the internal state of such domains with the rest of the model.
-In cideMOD, we solve the pseudodimension with an sprectral approach. Therefore, we consider a set of global basis functions (even Legendre Polynomials) and assume that the solution is a linear combination of those. Doing that we can solve the problem in a single mesh, and FEniCS matrix.
+So far we've talked about meshes for the cell, but in the PXD models there is a pseudodimension (what P stands for in P2D, P3D, P4D) corresponding to the active materials inner domain. This is not explicitly considered, but an homogeneization links the internal state of such domains with the rest of the model.
+In *cideMOD*, we solve the pseudodimension with an sprectral approach. Therefore, we consider a set of global basis functions (even Legendre Polynomials) and assume that the solution is a linear combination of those. Doing that we can solve the problem in a single mesh, and FEniCS matrix.
 
 Additionally, as the particle model is only connected to the rest of the cell through the particle interface, the properties of Legendre polynomials are used to reduce coupling at the jacobian level. Thus the concentration in the domain has been decomposed as:
 
