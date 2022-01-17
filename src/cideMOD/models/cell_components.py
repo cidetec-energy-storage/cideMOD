@@ -187,7 +187,7 @@ class electrolyteInterface:
         self.i_0 = EI.sideReactionExchangeCurrentDensity
         self.M = EI.molecularWeight
         self.rho = EI.density
-        self.k = EI.conductivity
+        self.kappa = EI.conductivity
         self.delta0 = EI.delta0
         self.beta = EI.chargeTransferCoefficient
         self.D_EC = EI.EC_diffusion

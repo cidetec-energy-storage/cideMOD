@@ -23,7 +23,7 @@ import numpy
 from numpy.polynomial.polynomial import *
 
 from cideMOD.helpers.config_parser import electrode
-from cideMOD.helpers.miscellaneous import Lagrange
+from cideMOD.numerics.polynomials import Lagrange
 from cideMOD.models.base.base_nondimensional import BaseModel
 
 

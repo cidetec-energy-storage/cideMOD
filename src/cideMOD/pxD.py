@@ -124,9 +124,6 @@ class Problem:
         self.negativeCC = CurrentColector('negative', self.cell.negative_curent_colector); self.negativeCC.setup(self)
         self.positiveCC = CurrentColector('positive', self.cell.positive_curent_colector); self.positiveCC.setup(self)
 
-        # if self.model_options.solve_SEI:
-        #     self.SEI_model.set_up(self.anode, self.F, self.R)
-
     def reset(self):
 
         self.time = 0.
@@ -1081,7 +1078,7 @@ class Problem:
             )
 
         if self.model_options.solve_SEI:
-            F_j_Li.extend(self.SEI_model.equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material))
+            F_j_Li.extend(self.SEI_model.equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.F, self.R))
 
         # CATHODE
         for i, material in enumerate(self.cathode.active_material):
@@ -1221,7 +1218,7 @@ class Problem:
             )
         
         if self.model_options.solve_SEI:
-            F_j_Li.append(self.SEI_model.equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.DT))
+                F_j_Li.append(self.SEI_model.equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.F, self.R, self.DT))
 
         for i, material in enumerate(self.cathode.active_material):
             j_li_index = self.f_1._fields.index('j_Li_c0')

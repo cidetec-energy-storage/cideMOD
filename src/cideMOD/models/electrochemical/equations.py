@@ -184,7 +184,7 @@ def ButtlerVolmer_equation(alpha, F, R, T, eta):
 
 def overpotential_equation(phi_s, phi_e, OCV, J=None, SEI=None, delta=None):
     if SEI:
-        G = SEI.R + delta / SEI.k
+        G = SEI.R + delta / SEI.kappa
         return phi_s - phi_e - OCV - J * G 
     else:
         return phi_s - phi_e - OCV
