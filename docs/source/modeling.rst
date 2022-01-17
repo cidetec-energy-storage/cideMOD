@@ -6,14 +6,14 @@ Modelling
 Geometry and mesh
 ------------------
 
-The *cideMOD* library works on top of FEniCS :cite:p:`fenics` using finite elements to solve the PDEs that represent the battery physics.
+The *cideMOD* library works on top of FEniCS :cite:p:`fenics` using finite elements to solve the PDEs that represent the cell physics.
 It is designed to work on any geometry or mesh provided that they are properly tagged. However, using FEniCS and GMSH :cite:p:`gmsh`, cideMOD is able to create automatically realistic 3D meshes of batteries in pouch cell format with different dimensions and tab positions.
 
 There are different subdomains in the model:
 
 * Current Collector:
-   Current collectors are parts of the battery that conduct electricity, but not ions. There are two types, the positive current collector (tag="pcc"), which connects cathode electrodes and the negative current collector (tag="ncc"), which connects anode electrodes.
-   Additionally, the current collectors are conected to the input/output of the battery at the tabs. 
+   Current collectors are parts of the cell that conduct electricity, but not ions. There are two types, the positive current collector (tag="pcc"), which connects cathode electrodes and the negative current collector (tag="ncc"), which connects anode electrodes.
+   Additionally, the current collectors are conected to the input/output of the cell at the tabs. 
 * Electrode:
    Electrodes are porous materials composed by active material, binder and conductive agents, in which the pores are filled with electrolyte. 
    They conduct electrons through the solid phase and ions through the electrolyte (ionic) phase, and exchange ions between the solid phase and the electrolyte. 
@@ -21,13 +21,13 @@ There are different subdomains in the model:
 * Separator
    Separator (tag="s") is a porous material filled with electrolyte. The solid part of the separator doesn't conduct electrons nor ions. It is inert to the charge carriers.
 
-The dimensions of these domains can be customized in the battery parameter file. The structure of the battery can be customized up to certain level.
-There are other parts of the battery, that don't need to be meshed, but are automatically considered by the model:
+The dimensions of these domains can be customized in the cell parameter file. The structure of the cell can be customized up to certain level.
+There are other parts of the cell, that don't need to be meshed, but are automatically considered by the model:
 
 * Electrolyte:
    Is the solution composed by solvents and salts that fill the electrodes and separator pores. It is ion conductive, but not electron conductive.
 * Sealing:
-   The battery is ussually sealed with some materials that prohibits mass and charge exchange with the environment. 
+   The cell is ussually sealed with some materials that prohibits mass and charge exchange with the environment. 
    However these materials have an influence on the energy exchange with the surroundings. This effect is considered as an overal heat transfer coefficient in the thermal model.
 
 
@@ -84,7 +84,7 @@ The P2D model is simpler, and it uses standard FEniCS interval meshes to discret
 .. rubric:: P4D
 
 Given the necesity of modeling details in 3D (for example current collector tabs), the normalization strategy, used to get a simpler mesh that could be generated with FEniCS does not work anymore. In this case it preferred to use the real geometry of the cell, generated with gmsh. 
-Due to the disparity of scales in the real battery geometry and in order to incorporate contributions from all the residuals in a proper way, the equations are non-dimensionalized. This makes it possible real battery geometry representations, but as a consequence, each time the geometry changes, the mesh needs to change, and the FEniCS engine has to recompile part of the solver code.
+Due to the disparity of scales in the real cell geometry and in order to incorporate contributions from all the residuals in a proper way, the equations are non-dimensionalized. This makes it possible real cell geometry representations, but as a consequence, each time the geometry changes, the mesh needs to change, and the FEniCS engine has to recompile part of the solver code.
 
 
 Formulation details

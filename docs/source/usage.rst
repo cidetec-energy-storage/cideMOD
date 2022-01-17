@@ -31,12 +31,12 @@ Cell Parameters
 ----------------
 
 Cell properties and material parameters are specified in a single :code:`json` file or optionally a Python dictionary can be used as well.
-Several :ref:`examples <examples>` of different battery datasets are given under the data folder. The :code:`json` file must contain different mandatory objects:
+Several :ref:`examples <examples>` of different cell datasets are given under the data folder. The :code:`json` file must contain different mandatory objects:
 
 * Structure: 
    The :code:`"structure"` entry determines the configuration of the cell. It is a list containing the tags of the different :ref:`subdomains <mesh>` in order. 
    The easiest configuration would be :code:`["a","s","c"]` corresponding to a cell composed of an anode, separator and cathode. 
-   A battery composed of two cells could have this other structure :code:`["ncc","a","s","c","pcc","c","s","a","ncc"]`. All the subdomains specified in the "structure" entry must have its own entry defined in the following points.
+   A cell composed of two units could have this other structure :code:`["ncc","a","s","c","pcc","c","s","a","ncc"]`. All the subdomains specified in the "structure" entry must have its own entry defined in the following points.
 * Current collectors:
    There is a distinction between the :code:`"positiveCurrentCollector"` and :code:`"negativeCurrentCollector"`, as they often have different properties. These keywords must contain geometry properties and conductivity. If the thermal model is used, thermal properties should be specified as well.
 * Electrodes: 
@@ -77,7 +77,7 @@ Outputs
 There are two kind of outputs available. For each simulation, the library saves results to a folder on the fly in case of internal variables, and at the end of the time-loop in the case of global variables.
 
 * Internal variables:
-   These are the problem variables, or any derived value that has different values for each point in the battery geometry. These are automatically defined in the code, and written in the `XDMF Format <https://www.xdmf.org/index.php/Main_Page>`_.
+   These are the problem variables, or any derived value that has different values for each point in the cell geometry. These are automatically defined in the code, and written in the `XDMF Format <https://www.xdmf.org/index.php/Main_Page>`_.
    The parameter :code:`store_delay` can be modified to a negative value to supress this output, or to a positive value to specify the frecuency (in timesteps) at which the results are saved to disk.
 * Global variables:
    These are overall cell figures (for example cell voltage, current, maximum temperature, etc...), that are calculated and saved as a list of values over time internally in the memory. When the temporal loop finish, they are saved to disk in text files.
