@@ -42,7 +42,8 @@ RUN mkdir cideMOD && \
     ln -s $FENICS_PREFIX/lib/python3.6/dist-packages/cideMOD*egg/cideMOD cideMOD/src && \
     mv /tmp/cideMOD/tests cideMOD/ && \
     mv /tmp/cideMOD/examples cideMOD && \
-    mv /tmp/cideMOD/data cideMOD
+    mv /tmp/cideMOD/data cideMOD && \
+    mv /tmp/cideMOD/docs cideMOD
 
 USER root
 RUN rm -rf /tmp/cideMOD && \
