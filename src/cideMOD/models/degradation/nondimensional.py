@@ -92,7 +92,7 @@ class SolventLimitedSEIModel(BaseModel):
             a_s = 3*material.eps_s/material.R_s
             if SEI:
                 ref_thickness_change = self.t_c*self.I_0*SEI.M/(2*self.cell.F*a_s*self.L_0*SEI.rho)
-                delta_c = self.I_0*self.t_c/(self.cell.F*self.L_0*a_s*ref_thickness_change)
+                delta_c = SEI.solventSurfConcentration*SEI.EC_eps
             else:
                 ref_thickness_change = 1
                 delta_c = 1
