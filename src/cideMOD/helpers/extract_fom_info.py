@@ -167,13 +167,28 @@ def store_results(problem, label):
     # Obtain results dictionary with the current time step variables solution
     resultsDict = get_current_results(problem, label)
 
-    # Store problem variables
-    if not bool(problem.fom2rom['results']):
-        # Empty dictionary
-        problem.fom2rom['results'] = resultsDict.copy()
-    else:
-        for key in resultsDict:
-            problem.fom2rom['results'][key] = np.column_stack((problem.fom2rom['results'][key], resultsDict[key].copy()))
+    for key in resultsDict:
+        problem.fom2rom['results'][key][:,problem.current_timestep] = resultsDict[key].copy()
+
+    problem.current_timestep += 1
+
+
+def initialize_results(problem, N):
+    """
+    Initialize arrays where the snapshots will be saved.
+
+    :param problem: Instance of class Problem or NDProblem.
+    :type problem: cideMOD.problem.NDProblem
+    
+    :param N: Number os snapshots expected to save.
+    :type N: int
+    """
+
+    for field in ['phis', 'phie', 'ce', 'cs', 'jLi']:
+        if field == 'cs':
+            problem.fom2rom['results'][field] = np.zeros([problem.SGM.order*problem.f_1.phi_s.vector()[:].shape[0], N+1])
+        else:
+            problem.fom2rom['results'][field] = np.zeros([problem.f_1.phi_s.vector()[:].shape[0], N+1])
 
 
 #####################################################

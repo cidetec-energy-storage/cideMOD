@@ -149,9 +149,10 @@ class Warehouse:
             self.global_var_arrays[i].append(f['fnc']())
         timer.stop()
 
-    def store(self, time, force = False):
+    def store(self, time, force = False, store_fom = True):
         self._store_globals(time)
-        self._store_2_rom()
+        if store_fom:
+            self._store_2_rom()
         if isinstance(self.delay, list):
             if time in self.delay or any(k<time and k>self.counter for k in self.delay):
                 self._post_process()

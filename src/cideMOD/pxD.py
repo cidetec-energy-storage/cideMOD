@@ -22,6 +22,7 @@ from multiphenics import *
 import json
 import os
 import sys
+import numpy as np
 from collections import namedtuple
 
 from cideMOD.bms.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
@@ -39,7 +40,7 @@ from cideMOD.models.particle_models import *
 from cideMOD.models.thermal.equations import *
 from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
-from cideMOD.helpers.extract_fom_info import get_mesh_info
+from cideMOD.helpers.extract_fom_info import get_mesh_info, initialize_results
 
 # Activate this only for production
 # set_log_active(False)
@@ -148,6 +149,7 @@ class Problem:
         # Initilize dictionaries that will stores the simulation results and information for ROM model
         self.fom2rom = dict()
         self.fom2rom['results'] = dict()
+        self.current_timestep = 0
 
     def set_new_state(self, time, new_state):
         self.time = time
@@ -266,7 +268,6 @@ class Problem:
         self.fom2rom['areCC'] = areCC_
 
         _print(' - Initializing state - Done ')
-        self.WH.store(self.time)
 
     def _build_extra_models(self):
         #Extra models
@@ -355,7 +356,6 @@ class Problem:
         _print('Problem Setup finished.')
         _print("Problem has {} dofs.\n".format(MPI.sum(comm,len(self.u_2.block_vector()))))
         self.ready=True
-        self.WH.store(self.time)
 
     def set_use_options(self, solver, pc='hypre', use_options=False):
         if use_options:
@@ -701,6 +701,11 @@ class Problem:
 
 
     def solve_ie(self, i_app=30.0, v_app=None, t_f=3600, store_delay=1, max_step=3600, min_step=0.01, triggers=[], adaptive=True):
+
+        initialize_results(self, int(np.round((t_f-self.time)/min_step)))
+        store_fom = True if not adaptive else False
+        self.WH.store(self.time, store_fom=store_fom)
+
         if not self.ready:
             self.setup()
         self.prepare_solve(store_delay, self.time)
