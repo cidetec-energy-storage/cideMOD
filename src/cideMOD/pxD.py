@@ -702,7 +702,7 @@ class Problem:
 
     def solve_ie(self, i_app=30.0, v_app=None, t_f=3600, store_delay=1, max_step=3600, min_step=0.01, triggers=[], adaptive=True):
 
-        initialize_results(self, int(np.round((t_f-self.time)/min_step)))
+        initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
         store_fom = True if not adaptive else False
         self.WH.store(self.time, store_fom=store_fom)
 
