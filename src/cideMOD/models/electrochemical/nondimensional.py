@@ -248,7 +248,7 @@ class ElectrochemicalModel(BaseModel):
         i_0 = mat_dp['k_0'] * c_s_surf **0.5 * (1-c_s_surf)**0.5 * (1+self.delta_c_e_ref/self.c_e_0 * c_e) ** 0.5
         i_n = conditional(lt(self.c_e_0+self.delta_c_e_ref*c_e, 0), 0, conditional(lt(c_s_surf,0),0, conditional(lt(1-c_s_surf,0), 0, i_0 * regularization)))
         eta = self.overpotential(material, phi_s, phi_e, current, c_s_surf, kwargs=kwargs) / (1+self.thermal_gradient/self.T_ref * T)
-        j_li = i_0 * 2 * sinh(eta)
+        j_li = i_n * 2 * sinh(eta)
         return j_li
 
     def overpotential(self, material, phi_s, phi_e, current, c_s_surf, **kwargs):
