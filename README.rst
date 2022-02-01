@@ -56,7 +56,9 @@ Documentation
 -------------
 
 The Documentation is a Work In Progress.
-You can access the documentation on the docs folder building it (See the requirements.txt file for necessary packages):
+The documentation can be viewed at `ReadTheDocs <https://cidemod.readthedocs.io/en/latest/>`_ .
+
+You can also access the documentation on the docs folder building it (See the requirements.txt file for necessary packages):
 
 .. code-block:: language
 
