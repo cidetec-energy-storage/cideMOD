@@ -126,7 +126,7 @@ class ElectrochemicalModel(BaseModel):
 
         self.K_eff_ref = constant_expression(self._parse_cell_value(self.cell.electrolyte.ionicConductivity), c_e=self.c_e_0, temp=self.T_ref)
 
-        self.sigma_ref = np.min([self._parse_cell_value(self.cell.negative_electrode.electronicConductivity), 
+        self.sigma_ref = np.max([self._parse_cell_value(self.cell.negative_electrode.electronicConductivity), 
             self._parse_cell_value(self.cell.positive_electrode.electronicConductivity)])
         
         self.solid_potential = self.I_0 * self.L_0 / self.sigma_ref 
