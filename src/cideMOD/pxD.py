@@ -1782,7 +1782,7 @@ class NDProblem(Problem):
             F_phi_s_cc += F_phi_s_pcc - F_phi_bc_p
         else:
             F_phi_s_c = self.nd_model.phi_s_electrode_equation(domain=self.cathode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_li=self.j_Li_e_c)
-            F_phi_bc_p = self.nd_model.phi_s_bc(i_app = self.f_1.lm_app, test=self.test.phi_s, ds = d.s_c, area_ratio=self.mesher.area_ratio_c)
+            F_phi_bc_p = self.nd_model.phi_s_bc(i_app = self.f_1.lm_app, test=self.test.phi_s, ds = d.s_c, area_ratio=self.mesher.area_ratio_c, eq_scaling=self.nd_model.sigma_ref/self.cathode.sigma)
             F_phi_s_el += F_phi_s_c - F_phi_bc_p
 
         if 'ncc' in self.cell.structure:

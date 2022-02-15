@@ -126,7 +126,7 @@ class ElectrochemicalModel(BaseModel):
 
         self.K_eff_ref = constant_expression(self._parse_cell_value(self.cell.electrolyte.ionicConductivity), c_e=self.c_e_0, temp=self.T_ref)
 
-        self.sigma_ref = np.max([self._parse_cell_value(self.cell.negative_electrode.electronicConductivity), 
+        self.sigma_ref = np.min([self._parse_cell_value(self.cell.negative_electrode.electronicConductivity), 
             self._parse_cell_value(self.cell.positive_electrode.electronicConductivity)])
         
         self.solid_potential = self.I_0 * self.L_0 / self.sigma_ref 
@@ -204,11 +204,11 @@ class ElectrochemicalModel(BaseModel):
         return weak_form
 
     def phi_s_electrode_equation(self, domain, phi_s, test, j_li, dx, lagrange_multiplier=None, dS=None):
-        weak_form = domain.sigma/(self.delta_sigma*self.sigma_ref) * inner(grad(phi_s), grad(test)) * dx(metadata={"quadrature_degree":0})
+        weak_form = 1/(self.delta_sigma) * inner(grad(phi_s), grad(test)) * dx(metadata={"quadrature_degree":0})
         if j_li:
-            weak_form += j_li*test*dx
+            weak_form += self.sigma_ref/domain.sigma * j_li*test*dx
         if lagrange_multiplier and dS:
-            weak_form += self.phi_s_interface(lagrange_multiplier, phi_s_test = test, dS=dS)
+            weak_form += self.sigma_ref/domain.sigma * self.phi_s_interface(lagrange_multiplier, phi_s_test = test, dS=dS)
         return weak_form
 
     def phi_s_conductor_equation(self, domain, phi_s_cc, test, dx, lagrange_multiplier=None, dS=None):
