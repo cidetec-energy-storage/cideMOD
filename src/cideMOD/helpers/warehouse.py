@@ -172,6 +172,12 @@ class Warehouse:
         # Save current time step solution
         store_results(self.problem, 'unscaled' if hasattr(self.problem,'nd_model') else 'scaled')
 
+    def crop_results(self):
+        # Crop results to the number of time steps solved
+        for key in self.problem.fom2rom['results']:
+            if key != 'time' and key != 'voltage':
+                self.problem.fom2rom['results'][key] = self.problem.fom2rom['results'][key][:,:self.problem.current_timestep]
+
     def write_globals(self, clean=True):
         if MPI.rank(self.comm) == 0:
             for i, key in enumerate(self.global_vars.keys(), 1):

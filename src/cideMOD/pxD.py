@@ -757,6 +757,8 @@ class Problem:
             
             if errorcode != 0:
                 timer.stop()
+                if store_fom: 
+                    self.WH.crop_results() # Crop results
                 return self.exit(errorcode)
         _print(f"Reached max time {self.time:.2f} \033[K\n")
         timer.stop()
