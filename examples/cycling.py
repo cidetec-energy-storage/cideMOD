@@ -6,7 +6,7 @@ SIMULATION_OPTIONS = ModelOptions(mode='P2D', solve_SEI=True)
 
 EVENT1 = {
     "type": "Voltage",  # Voltage, Current, Ah, Wh
-    "value": 2,  # Number
+    "value": 2.8,  # Number
     "unit": "V",  #
     "atol": 1e-2,  # Absolute tolerance
     "rtol": 1e-2,  # Relative tolerance

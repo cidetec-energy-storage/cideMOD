@@ -805,7 +805,7 @@ class Problem:
             errorcode = e
             print(f"{str(e)} at {self.state['t']:.2f} \033[K\n")
         self.time += timestep
-        self.advance_problem()
+        self.advance_problem(True)
         timer.stop()
         return errorcode
 
@@ -856,8 +856,8 @@ class Problem:
             timer.stop()
             return errorcode
 
-    def advance_problem(self):
-        self.WH.store(self.time, force=self.time == 0)
+    def advance_problem(self, store_fom=False):
+        self.WH.store(self.time, force=self.time == 0, store_fom=store_fom)
         block_assign(self.u_0, self.u_1)
         block_assign(self.u_1, self.u_2)
         if not self.c_s_implicit_coupling:
