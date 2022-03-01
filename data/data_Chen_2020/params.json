@@ -22,12 +22,16 @@
     "negativeCurrentCollector": {
         "name": "Cu",
         "thickness": {"unit": "m", "value": 1.2e-05},
+        "width": {"unit": "m", "value": 1.58},
+        "height": {"unit": "m", "value": 0.065},
         "area": {"unit": "m^2", "value": 0.1027},
         "density": {"unit": "kg/m3", "value": 8000.0}
     },
     "negativeElectrode": {
         "name": "Graphite-SiO_x",
         "thickness": {"unit": "m", "value": 85.2e-06},
+        "width": {"unit": "m", "value": 1.58},
+        "height": {"unit": "m", "value": 0.065},
         "area": {"unit": "m^2", "value": 0.1027},
         "porosity": {"unit": "-", "value": 0.25},
         "bruggeman": {"unit": "-", "value": 2.91},
@@ -58,6 +62,8 @@
     "separator": {
         "name": "Celgard",
         "thickness": {"unit": "m", "value": 12.0e-06},
+        "width": {"unit": "m", "value": 1.58},
+        "height": {"unit": "m", "value": 0.065},
         "density": {"unit": "kg/m3", "value": 1037.91},
         "porosity": {"unit": "-", "value": 0.47},
         "bruggeman": {"unit": "-", "value": 2.57},
@@ -67,6 +73,8 @@
     "positiveElectrode": {
         "name": "NMC",
         "thickness": {"unit": "m", "value": 75.6e-06},
+        "width": {"unit": "m", "value": 1.58},
+        "height": {"unit": "m", "value": 0.065},
         "area": {"unit": "m^2", "value": 0.1027},
         "porosity": {"unit": "-", "value": 0.335},
         "bruggeman": {"unit": "-", "value": 2.43},
@@ -96,6 +104,8 @@
     "positiveCurrentCollector": {
         "name": "Al",
         "thickness": {"unit": "m", "value": 1.6e-05},
+        "width": {"unit": "m", "value": 1.58},
+        "height": {"unit": "m", "value": 0.065},
         "area": {"unit": "m^2", "value": 0.1027},
         "density": {"unit": "kg/m3", "value": 5000.0}
     },

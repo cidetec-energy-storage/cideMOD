@@ -702,8 +702,9 @@ class Problem:
 
     def solve_ie(self, i_app=30.0, v_app=None, t_f=3600, store_delay=1, max_step=3600, min_step=0.01, triggers=[], adaptive=True):
 
-        initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
         store_fom = True if not adaptive else False
+        if store_fom:
+            initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
         self.WH.store(self.time, store_fom=store_fom)
 
         if not self.ready:
@@ -736,9 +737,9 @@ class Problem:
         PETScOptions.set('snes_max_it', 20)
         self.get_state()
         while self.time < t_f:
-            # if it > 0:
-            #     PETScOptions.set('snes_lag_jacobian', 10)
-            #     PETScOptions.set('snes_max_it', 30)
+            if it > 0 and not self.use_options:
+                PETScOptions.set('snes_lag_jacobian', 5)
+                PETScOptions.set('snes_max_it', 30)
 
             if isinstance(i_app,str):
                 i_app_t = eval( i_app, globals(), {'time': self.time} )

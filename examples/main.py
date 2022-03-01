@@ -14,7 +14,7 @@ case = "Ai_2020"
 data_path = "../data/data_{}".format(case)
 params = "params.json"
 
-model_options = ModelOptions(clean_on_exit=True)
+model_options = ModelOptions(mode='P2D')
 
 save_path = init_results_folder(
     case, overwrite=overwrite, copy_files=[f"{data_path}/{params}"]

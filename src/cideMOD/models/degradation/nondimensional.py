@@ -92,7 +92,7 @@ class SolventLimitedSEIModel(BaseModel):
             a_s = 3*material.eps_s/material.R_s
             if SEI:
                 ref_thickness_change = self.t_c*self.I_0*SEI.M/(2*self.cell.F*a_s*self.L_0*SEI.rho)
-                delta_c = SEI.solventSurfConcentration*SEI.EC_eps
+                delta_c = SEI.c_EC_sln*SEI.eps
             else:
                 ref_thickness_change = 1
                 delta_c = 1
@@ -108,7 +108,7 @@ class SolventLimitedSEIModel(BaseModel):
         mat_dp = self.material_parameters(material)
         sei_ocv = self.scale_variables({'OCV': SEI.U})['OCV']
         eta_sei = self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - sei_ocv
-        sei_resistance = SEI.R+mat_dp['delta_ref_sei']*delta/SEI.k 
+        sei_resistance = SEI.R+mat_dp['delta_ref_sei']*delta/SEI.kappa 
         eta_sei -= sei_resistance/self.thermal_potential * J * self.I_0/(self.L_0*material.a_s) 
         return eta_sei
 
