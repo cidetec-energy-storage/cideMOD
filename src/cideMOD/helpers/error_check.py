@@ -16,14 +16,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import MPI, project
-from multiphenics import block_assign
+from mpi4py import MPI
+from cideMOD.numerics.fem_handler import interpolate, assign
 
 import os
 
 from numpy import array, ndarray
 
-comm =MPI.comm_world
+comm =MPI.COMM_WORLD
 
 class ErrorCheck:
     def print(self, *args):
@@ -44,7 +44,7 @@ class ErrorCheck:
                 self.check_coeffs()
                 if debug:
                     self.print('\n------------PREVIOUS TIMESTEP------------\n')
-                    block_assign(self.problem.u_1,self.problem.u_0)
+                    assign(self.problem.u_1,self.problem.u_0)
                     self.check_electrolyte_depleted()
                     self._compute_electrode_charge()
                     self.check_electrode_depleted()
@@ -55,34 +55,34 @@ class ErrorCheck:
                 self.print(str(e))
                 # raise e
             finally:
-                if MPI.rank(comm)==0:
+                if comm.rank==0:
                     with open(os.path.join(problem.save_path,'error_check_{}.txt'.format(name)),'w') as f:
                         f.writelines(self.log)
 
     def _compute_electrode_charge(self):
         if self.problem.c_s_implicit_coupling:
             if 'nd_model' in self.problem.__dict__:
-                x_a = [project(self.problem.SGM.c_s_surf(self.problem.f_1,'anode')[i],self.problem.V) for i, material in enumerate(self.problem.anode.active_material)]
-                x_c = [project(self.problem.SGM.c_s_surf(self.problem.f_1,'cathode')[i],self.problem.V) for i, material in enumerate(self.problem.cathode.active_material)]
+                x_a = [interpolate(self.problem.SGM.c_s_surf(self.problem.f_1,'anode')[i],self.problem.V) for i, material in enumerate(self.problem.anode.active_material)]
+                x_c = [interpolate(self.problem.SGM.c_s_surf(self.problem.f_1,'cathode')[i],self.problem.V) for i, material in enumerate(self.problem.cathode.active_material)]
             else:
-                x_a = [project(self.problem.SGM.c_s_surf(self.problem.f_1,'anode')[i]/material.c_s_max,self.problem.V) for i, material in enumerate(self.problem.anode.active_material)]
-                x_c = [project(self.problem.SGM.c_s_surf(self.problem.f_1,'cathode')[i]/material.c_s_max,self.problem.V) for i, material in enumerate(self.problem.cathode.active_material)]
+                x_a = [interpolate(self.problem.SGM.c_s_surf(self.problem.f_1,'anode')[i]/material.c_s_max,self.problem.V) for i, material in enumerate(self.problem.anode.active_material)]
+                x_c = [interpolate(self.problem.SGM.c_s_surf(self.problem.f_1,'cathode')[i]/material.c_s_max,self.problem.V) for i, material in enumerate(self.problem.cathode.active_material)]
         else:
-            x_a = [ project(self.problem.c_s_surf_1_anode[i]/material.c_s_max ,self.problem.V) for i, material in enumerate(self.problem.anode.active_material)]
-            x_c = [ project(self.problem.c_s_surf_1_cathode[i]/material.c_s_max ,self.problem.V) for i, material in enumerate(self.problem.cathode.active_material)]
-        self.x_a = [x.vector()[self.subdomains.anode] for x in x_a]
-        self.x_c = [x.vector()[self.subdomains.cathode] for x in x_c]
+            x_a = [ interpolate(self.problem.c_s_surf_1_anode[i]/material.c_s_max ,self.problem.V) for i, material in enumerate(self.problem.anode.active_material)]
+            x_c = [ interpolate(self.problem.c_s_surf_1_cathode[i]/material.c_s_max ,self.problem.V) for i, material in enumerate(self.problem.cathode.active_material)]
+        self.x_a = [x.vector.array[self.subdomains.anode] for x in x_a]
+        self.x_c = [x.vector.array[self.subdomains.cathode] for x in x_c]
         
     def check_electrolyte_depleted(self):
         """
         If electrolyte concentration is zero or below, numeric crashes.
         """
         if 'nd_model' in self.problem.__dict__:
-            c_e = project(self.problem.dim_variables.c_e, self.problem.V).vector()[self.subdomains.electrolyte]
+            c_e = interpolate(self.problem.dim_variables.c_e, self.problem.V).vector()[self.subdomains.electrolyte]
         else:
             c_e = self.problem.u_1.sub(0).vector()[self.subdomains.electrolyte]
-        min_c_e = 1e12
-        min_c_e = MPI.min(comm, min(min(c_e),min_c_e))
+        min_c_e = min(1e12, min(c_e))
+        min_c_e = comm.allreduce(min_c_e, MPI.MIN)
         if min_c_e<=0:
             self.print('\tERROR - Electrolyte has depleted!! (min c_e =',"{:.2e}".format(min_c_e),')')
         else:
@@ -97,7 +97,7 @@ class ErrorCheck:
                 max_x = max(x)
             else:
                 max_x = 0
-            max_x_a = MPI.max(comm, max_x)
+            max_x_a = comm.allreduce(max_x, MPI.MAX)
             if max_x_a > 1:
                 self.print('\tERROR - Anode material {} overloaded!! (max c_s_a ='.format(i),"{:.2f}%".format(max_x_a*100),')')
             else:
@@ -107,7 +107,7 @@ class ErrorCheck:
                 max_x = max(x)
             else:
                 max_x = 0
-            max_x_c = MPI.max(comm, max_x)
+            max_x_c = comm.allreduce(max_x, MPI.MAX)
             if max_x_c > 1:
                 self.print('\tERROR - Cathode material {} overloaded!! (max c_s_c ='.format(i),"{:.2f}%".format(max_x_c*100),')')
             else:
@@ -123,7 +123,7 @@ class ErrorCheck:
                 min_x = min(x)
             else:
                 min_x = 1
-            min_x_a = MPI.min(comm, min_x)
+            min_x_a = comm.allreduce(min_x, MPI.MIN)
             if min_x_a <= 0:
                 self.print('\tERROR - Anode material {} depleted!! (min c_s_a ='.format(i),"{:.2f}%".format(min_x_a*100),')')
             else:
@@ -133,7 +133,7 @@ class ErrorCheck:
                 min_x = min(x)
             else:
                 min_x = 1
-            min_x_c = MPI.min(comm, min_x)
+            min_x_c = comm.allreduce(min_x, MPI.MIN)
             if min_x_c <= 0:
                 self.print('\tERROR - Cathode material {} depleted!! (min c_s_c ='.format(i),"{:.2f}%".format(min_x_c*100),')')
             else:
@@ -184,8 +184,8 @@ class ErrorCheck:
     def _check_coeff(self, coeff, subdomain):
         if not isinstance(subdomain, ndarray):
             subdomain = array(subdomain)
-        v=project(coeff,self.problem.V, form_compiler_parameters={'quadrature_degree':2})
-        v=v.vector()
+        v=interpolate(coeff, self.problem.V)
+        v=v.vector.array
         if subdomain.any():
             v = v[subdomain]
             vmax = v.max()
@@ -193,7 +193,7 @@ class ErrorCheck:
         else:
             vmax = -9e99
             vmin = 9e99
-        vmax = MPI.max(comm, vmax)
-        vmin = MPI.min(comm, vmin)
-        return [vmax,vmin]
+        vmax = comm.allreduce(vmax, MPI.MAX)
+        vmin = comm.allreduce(vmin, MPI.MIN)
+        return [vmax, vmin]
         

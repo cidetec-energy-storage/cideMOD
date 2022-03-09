@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import inner
+from ufl import inner
 
 from cideMOD.models.cell_components import CurrentColector, Electrode, Separator
 

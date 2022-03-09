@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import as_vector, as_tensor
+from ufl import as_vector, as_tensor
 import numpy as np
 from numpy.linalg import inv as invert
 

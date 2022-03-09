@@ -24,8 +24,12 @@ Functions
 get_spline(data, spline_type = "not-a-knot")
 
 """
-import dolfin as df
-import multiphenics as mph
+from cideMOD.numerics.fem_handler import interpolate
+import dolfinx as dfx
+import multiphenicsx.fem
+from ufl import conditional, ge, lt, gt
+import ufl
+from mpi4py import MPI
 
 import glob
 import json
@@ -90,10 +94,10 @@ def get_spline(data, spline_type = "not-a-knot", return_fenics = True):
             fy = 0
 
             for j in range(len(S_list)):
-                fy += S_list[j] * df.conditional(df.ge(y,x_array[j]), df.conditional(df.lt(y,x_array[j+1]), 1, 0), 0)
+                fy += S_list[j] * conditional(ge(y,x_array[j]), conditional(lt(y,x_array[j+1]), 1, 0), 0)
 
-            fy += S_list[+0]*df.conditional(df.lt(y,x_array[+0]), 1, 0)
-            fy += S_list[-1]*df.conditional(df.ge(y,x_array[-1]), 1, 0)
+            fy += S_list[+0]*conditional(lt(y,x_array[+0]), 1, 0)
+            fy += S_list[-1]*conditional(ge(y,x_array[-1]), 1, 0)
 
             return fy
         return f
@@ -103,7 +107,7 @@ def get_spline(data, spline_type = "not-a-knot", return_fenics = True):
 def hysteresys_property(property:dict):
     def value_selector(x, current = None):
         if current:
-            return df.conditional(df.gt(current, 0), property['charge'](x), df.conditional(df.lt(current, 0), property['discharge'](x), property['charge'](x)*0.5+property['discharge'](x)*0.5) )
+            return conditional(gt(current, 0), property['charge'](x), conditional(lt(current, 0), property['discharge'](x), property['charge'](x)*0.5+property['discharge'](x)*0.5) )
         else:
             return property['discharge'](x)
     return value_selector
@@ -125,21 +129,21 @@ def init_results_folder(case_name,overwrite=False, copy_files:list=[]):
         Complete saving path.
     """
     save_path = 'results_{}'.format(case_name)
-    comm = df.MPI.comm_world
-    if df.MPI.rank(comm)==0:
+    comm = MPI.COMM_WORLD
+    if comm.rank==0:
         if not overwrite:
             i=1
             while os.path.exists(save_path):
                 save_path='results_{}_v{}'.format(case_name,i)
                 i=i+1
     save_path = comm.bcast(save_path,root=0)
-    if df.MPI.rank(comm) == 0:
+    if comm.rank == 0:
         try:
             os.stat(save_path); shutil.rmtree(save_path); os.mkdir(save_path)
         except:
             os.mkdir(save_path)
         print('Saving results to',os.path.realpath(save_path))
-        df.set_log_level(df.LogLevel.WARNING)
+        dfx.log.set_log_level(dfx.log.LogLevel.WARNING)
         for i, cpfile in enumerate(copy_files):
             if isinstance(cpfile, str):
                 path = pathlib.Path(cpfile)
@@ -149,7 +153,7 @@ def init_results_folder(case_name,overwrite=False, copy_files:list=[]):
                 with open(os.path.join(save_path,f'conf_{i}.json'),'w') as fout:
                     json.dump(cpfile,fout,indent=4,sort_keys=True)
     else:
-        df.set_log_level(df.LogLevel.ERROR)
+        dfx.log.set_log_level(dfx.log.LogLevel.ERROR)
     return save_path
 
 def constant_expression(expression, **kwargs):
@@ -168,20 +172,10 @@ def constant_expression(expression, **kwargs):
         Evaluation of the expression or constant given.
     """
     if isinstance(expression,str):
-        value = eval(expression,{**kwargs,**df.__dict__})
+        value = eval(expression,{**kwargs,**ufl.__dict__})
     else:
         value = expression
     return value
-
-def inside_element_expression(list):
-    expression = ""
-    for i_index, e_index in enumerate(list):
-        expression += "(x[0] >= " + str(e_index) + " - tol && x[0] <= " + str(e_index + 1) + " + tol)"
-        if i_index < (len(list) - 1):
-            expression += " || "
-    if expression == "":
-        expression = "false"
-    return expression
 
 def plot_list_variable(x, y, name, direc, show=False, hide_ax_tick_labels=False,
                     label_axes=True, title='', hide_axis=False, xlabel = 'x',
@@ -305,7 +299,7 @@ def analyze_jacobian(J, fields):
         for j, fld in enumerate(fields):
             try:
                 reference = time.time()
-                norm = df.assemble(J[i,j]).norm('l1')
+                norm = dfx.fem.assemble_matrix(J[i,j]).norm()
                 times[i,j] = time.time()-reference
                 abs_J[i,j] = norm
             except Exception as e:
@@ -314,7 +308,7 @@ def analyze_jacobian(J, fields):
             print(J_lab[i][j], abs_J[i,j], times[i,j])
     print('Total time:',time.time()-start_time) 
     start_time = time.time()
-    J = mph.block_assemble(J) 
+    J = multiphenicsx.fem.petsc.assemble_matrix_block(J) 
     print('Multiphenics time:',time.time()-start_time)  
     mat = J.mat()
     spm = csr_matrix(mat.getValuesCSR()[::-1], shape=mat.size)
@@ -360,7 +354,7 @@ def create_problem_json(problem_dic, V):
          elif problem_dic[key] is None:
              problem_dic_json[key] = problem_dic[key]
          elif type(problem_dic[key]) is function.constant.Constant:
-             problem_dic_json[key] = df.project(problem_dic[key], V).compute_vertex_values().tolist()
+             problem_dic_json[key] = interpolate(problem_dic[key], V).vector.array.tolist()
          elif isinstance(problem_dic[key], type(problem_dic[key])):
              if type(problem_dic[key]).__name__ in ["Electrode", "Separator"]:
                  problem_dic_2 = problem_dic[key].__dict__

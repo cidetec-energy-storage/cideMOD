@@ -16,8 +16,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import *
-from multiphenics import *
+
+import typing
+import dolfinx as dfx
+import multiphenicsx.mesh as mpx
+from mpi4py import MPI
+from dolfinx.common import Timer
+from ufl import Measure
 
 import json
 import os
@@ -26,21 +31,21 @@ from pathlib import Path
 
 import appdirs
 import meshio
-from dolfin_utils.meshconvert.meshconvert import convert2xml
+import numpy as np
 
 from cideMOD.mesh.base_mesher import BaseMesher
 from cideMOD.mesh.gmsh_generator import GmshGenerator
-from cideMOD.mesh.restrictions_functions import (
-    _boundary_restriction,
-    _generate_interface_mesh_function,
-    _interface_restriction,
-    _subdomain_restriction,
-)
+# from cideMOD.mesh.restrictions_functions import (
+#     _boundary_restriction,
+#     _generate_interface_mesh_function,
+#     _interface_restriction,
+#     _subdomain_restriction,
+# )
 
 dir_path = Path(appdirs.user_data_dir('cideMOD',False))
 os.makedirs(os.path.join(dir_path,'meshes','templates'), exist_ok=True)
 os.makedirs(os.path.join(dir_path,'meshes','current'), exist_ok=True)
-comm = MPI.comm_world
+comm = MPI.COMM_WORLD
 
 class GmshConverter(BaseMesher):
     def _mesh_template(self, mtype, filename):
@@ -110,63 +115,55 @@ class GmshConverter(BaseMesher):
     def get_field_data(self):
         msh = meshio.read(self._mesh_store('mesh.msh'))
         field_data = {key: int(item[0]) for key, item in msh.field_data.items()}
-        field_data['interfaces'] = {
-            'anode-separator': 1,
-            'cathode-separator': 2,
-            'anode-CC': 3,
-            'cathode-CC': 4
+        field_data['facets'] = {
+            'positivePlug': 1,
+            'negativePlug': 2,
+            'anode-separator': 3,
+            'cathode-separator': 4,
+            'anode-CC': 5,
+            'cathode-CC': 6
+            
         }
         return field_data
 
     def build_mesh(self, scale = 1, tab_geometry=None):
-        if not self.mesh_updated(self.prepare_parameters()): 
-            if MPI.size(comm)==1:
-                self.prepare_mesh()
-                # self.cell.write_param_file(self._mesh_store("params.json"))
-                # command = "python3 {path}/create_mesh.py {params} {mode} {Nx} {Ny} {Nz}".format(
-                #     path = dir_path,
-                #     params = self._mesh_store("params.json"),
-                #     mode = self.options.mode,
-                #     Nx = self.options.N_x,
-                #     Ny = self.options.N_y,
-                #     Nz = self.options.N_z
-                # )
-                # os.system(command)
-            else:
-                raise Exception("Mesh not ready, run create_mesh script first")
-        t = Timer('Load Mesh')
+        if not self.mesh_updated(self.prepare_parameters()):
+            self.prepare_mesh()
         
-        self.mesh = Mesh(comm, self._mesh_store("mesh.xml"))
-        self.subdomains = MeshFunction("size_t", self.mesh, self._mesh_store(f"mesh_physical_region.xml"))
-        self.boundaries = MeshFunction("size_t", self.mesh, self._mesh_store(f"mesh_facet_region.xml"))
-        self.interfaces = MeshFunction("size_t", self.mesh, self._mesh_store(f"mesh_interface_region.xml"))
+        t = Timer('Load Mesh'); t.start()
+        self.mesh, cell_tags, facet_tags = self.read_gmsh()
+        self.subdomains = cell_tags
+        self.boundaries = facet_tags
+        self.interfaces = facet_tags
 
         # Get field data
         self.field_data = self.get_field_data()
         self.field_data['anode'] = 11
         self.field_data['cathode'] = 12
         # Scale mesh and get dimensions
-        self.mesh.scale(1/scale)
-        self.dimension = self.mesh.topology().dim()
+        self.mesh.geometry.x = self.mesh.geometry.x/scale
+        self.dimension = self.mesh.topology.dim
         # Load restrictions
         ext = 'xdmf' # "xdmf" or "xml"
-        self.anode = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/anode.rtc.{ext}'))
-        self.separator = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/separator.rtc.{ext}'))
-        self.cathode = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/cathode.rtc.{ext}'))
-        self.positiveCC = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/positiveCC.rtc.{ext}'))
-        self.negativeCC = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/negativeCC.rtc.{ext}'))
+        self.anode = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['anode']])
+        self.separator = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['separator']])
+        self.cathode = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['cathode']])
+        self.positiveCC = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['positiveCC']])
+        self.negativeCC = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['negativeCC']])
         self.field_restrictions = {
             'anode':self.anode, 'separator':self.separator, 'cathode':self.cathode, 'positiveCC':self.positiveCC, 'negativeCC':self.negativeCC
         }
-        self.electrodes = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/electrodes.rtc.{ext}'))
-        self.electrolyte = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/electrolyte.rtc.{ext}'))
+        self.electrodes = (self.dimension, np.unique(np.concatenate([self.anode[1], self.cathode[1]])))
+        self.electrolyte = (self.dimension, np.unique(np.concatenate([self.anode[1], self.separator[1] ,self.cathode[1]])))
         # self.solid_conductor = self._subdomain_restriction(['anode','cathode', 'positiveCC', 'negativeCC']) #This is not being used right now
-        self.current_colectors = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/current_colectors.rtc.{ext}'))
-        self.electrode_cc_interfaces = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/electrode_cc_interfaces.rtc.{ext}'))
-        self.positive_tab = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/positive_tab.rtc.{ext}'))
+        self.current_colectors = (self.dimension, np.unique(np.concatenate([self.positiveCC[1], self.negativeCC[1] ])))
+        anode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['facets']['anode-CC']]
+        cathode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['facets']['anode-CC']]
+        self.electrode_cc_interfaces = (self.boundaries.dim, np.unique(np.concatenate([ anode_cc_interface, cathode_cc_interface ])))
+        self.positive_tab = (self.boundaries.dim, self.subdomains.indices[self.subdomains.values==self.field_data['positivePlug']])
 
         # Generate measures
-        a_s_c_order = all([self.structure[i+1]=='s' for i, el in enumerate(self.structure) if el is 'a'])
+        a_s_c_order = all([self.structure[i+1]=='s' for i, el in enumerate(self.structure) if el == 'a'])
         def int_dir(default_dir="+"):
             assert default_dir in ("+","-")
             reversed_dir = "-" if default_dir == "+" else "-"
@@ -181,83 +178,29 @@ class GmshConverter(BaseMesher):
         self.ds = Measure('ds', domain=self.mesh, subdomain_data=self.boundaries, metadata={"quadrature_degree":2})
         self.ds_a = self.ds(self.field_data['negativePlug'])
         self.ds_c = self.ds(self.field_data['positivePlug'])
-        self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.interfaces, metadata=meta)
-        self.dS_as = self.dS(self.field_data['interfaces']['anode-separator'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_sa = self.dS(self.field_data['interfaces']['anode-separator'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_sc = self.dS(self.field_data['interfaces']['cathode-separator'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_cs = self.dS(self.field_data['interfaces']['cathode-separator'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_a_cc = self.dS(self.field_data['interfaces']['anode-CC'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_cc_a = self.dS(self.field_data['interfaces']['anode-CC'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_c_cc = self.dS(self.field_data['interfaces']['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_cc_c = self.dS(self.field_data['interfaces']['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
+        self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.boundaries, metadata=meta)
+        self.dS_as = self.dS(self.field_data['facets']['anode-separator'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_sa = self.dS(self.field_data['facets']['anode-separator'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_sc = self.dS(self.field_data['facets']['cathode-separator'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_cs = self.dS(self.field_data['facets']['cathode-separator'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_a_cc = self.dS(self.field_data['facets']['anode-CC'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_cc_a = self.dS(self.field_data['facets']['anode-CC'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_c_cc = self.dS(self.field_data['facets']['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_cc_c = self.dS(self.field_data['facets']['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
 
         self.calc_area_ratios(scale)
         t.stop()
 
-    def gmsh_convert(self):
-        os.rename(self._mesh_store('mesh.msh2'), self._mesh_store('mesh.msh'))
-        convert2xml(self._mesh_store('mesh.msh'), self._mesh_store('mesh.xml'))
-
-        # Read old-style xml files
-        mesh = Mesh(self._mesh_store("mesh.xml"))
-        subdomains = MeshFunction("size_t", mesh, self._mesh_store("mesh_physical_region.xml"))
-        boundaries = MeshFunction("size_t", mesh, self._mesh_store("mesh_facet_region.xml"))
+    def read_gmsh(self)-> typing.Tuple[dfx.mesh.Mesh, dfx.cpp.mesh.MeshTags_int32, dfx.cpp.mesh.MeshTags_int32]:
+        xdmf = dfx.io.XDMFFile(comm, self._mesh_store("mesh.xdmf"),'r')
+        mesh = xdmf.read_mesh()
+        subdomains = xdmf.read_meshtags(mesh, 'subdomains')
+        boundaries = xdmf.read_meshtags(mesh, 'boundaries')
         field_data = self.get_field_data()
         subdomains, field_data = self.check_subdomains(subdomains, field_data)
-        interfaces = _generate_interface_mesh_function(mesh, subdomains, field_data)
-        
-        t0 = Timer('Gen restrictions')
-        # Generate restrictions
-        anode = _subdomain_restriction('anode', mesh, subdomains, field_data) 
-        separator = _subdomain_restriction('separator', mesh, subdomains, field_data) # Only used for processing
-        cathode = _subdomain_restriction('cathode', mesh, subdomains, field_data)
-        positiveCC = _subdomain_restriction('positiveCC', mesh, subdomains, field_data)
-        negativeCC = _subdomain_restriction('negativeCC', mesh, subdomains, field_data)
-        electrodes = _subdomain_restriction([anode, cathode], mesh, subdomains, field_data)
-        electrolyte = _subdomain_restriction([anode, separator, cathode], mesh, subdomains, field_data)
-        current_colectors = _subdomain_restriction([positiveCC, negativeCC], mesh, subdomains, field_data)
-        # solid_conductor = _subdomain_restriction([electrodes, current_colectors]) #This is not being used right now
-        electrode_cc_interfaces = _interface_restriction([ ['anode','negativeCC'], ['cathode', 'positiveCC'] ], mesh, subdomains, field_data)
-        positive_tab = _boundary_restriction(['positivePlug'], mesh, boundaries, field_data)
-        t0.stop()
-
-        t1 = Timer('Write XDMF mesh files')
-        # Mesh and subdomains are written with xml
-        # XDMFFile(self._mesh_store("mesh.xdmf")).write(mesh)
-        # XDMFFile(self._mesh_store("mesh_physical_region.xdmf")).write(subdomains)
-        # XDMFFile(self._mesh_store("mesh_facet_region.xdmf")).write(boundaries)
-        # XDMFFile(self._mesh_store("mesh_interface_region.xdmf")).write(interfaces)
-
-        # Restriction visualization (for debug)
-        XDMFFile(self._mesh_store("restrictions/anode.rtc.xdmf")).write(anode)
-        XDMFFile(self._mesh_store("restrictions/separator.rtc.xdmf")).write(separator)
-        XDMFFile(self._mesh_store("restrictions/cathode.rtc.xdmf")).write(cathode)
-        XDMFFile(self._mesh_store("restrictions/positiveCC.rtc.xdmf")).write(positiveCC)
-        XDMFFile(self._mesh_store("restrictions/negativeCC.rtc.xdmf")).write(negativeCC)
-        XDMFFile(self._mesh_store("restrictions/electrodes.rtc.xdmf")).write(electrodes)
-        XDMFFile(self._mesh_store("restrictions/electrolyte.rtc.xdmf")).write(electrolyte)
-        XDMFFile(self._mesh_store("restrictions/current_colectors.rtc.xdmf")).write(current_colectors)
-        XDMFFile(self._mesh_store("restrictions/electrode_cc_interfaces.rtc.xdmf")).write(electrode_cc_interfaces)
-        XDMFFile(self._mesh_store("restrictions/positive_tab.rtc.xdmf")).write(positive_tab)
-        t1.stop()
-        t = Timer('Write XML mesh files')
-        # Write out new-style xml files
-        File(self._mesh_store("mesh.xml")) << mesh
-        File(self._mesh_store("mesh_physical_region.xml")) << subdomains
-        File(self._mesh_store("mesh_facet_region.xml")) << boundaries
-        File(self._mesh_store("mesh_interface_region.xml")) << interfaces
-
-        # File(self._mesh_store("restrictions/anode.rtc.xml")) << anode
-        # File(self._mesh_store("restrictions/cathode.rtc.xml")) << cathode
-        # File(self._mesh_store("restrictions/electrodes.rtc.xml")) << electrodes
-        # File(self._mesh_store("restrictions/electrolyte.rtc.xml")) << electrolyte
-        # File(self._mesh_store("restrictions/current_colectors.rtc.xml")) << current_colectors
-        # File(self._mesh_store("restrictions/electrode_cc_interfaces.rtc.xml")) << electrode_cc_interfaces
-        # File(self._mesh_store("restrictions/positive_tab.rtc.xml")) << positive_tab
-        t.stop()
+        return mesh, subdomains, boundaries
 
 class TemplateMesher(GmshConverter):
-
     def prepare_mesh(self, mtype:str='standard'):
         template_path = self._mesh_template(mtype,'{}.geo'.format(self.mode.lower()))
         parameters = self.prepare_parameters(mtype)
@@ -265,7 +208,6 @@ class TemplateMesher(GmshConverter):
         if not self.mesh_updated(parameters):
             gm = GmshGenerator()
             gm.generate_mesh_from_template(template_path, self._mesh_store('mesh.msh2'), dim=int(self.mode[1])-1, parameters=parameters)
-            self.gmsh_convert()
             with open(self._mesh_store('log'), 'w') as fout:
                 json.dump(parameters, fout)
 
@@ -277,8 +219,7 @@ class GmshMesher(GmshConverter):
         is_updated = self.mesh_updated(parameters)
         if not is_updated:
             self.clean_mesh_files()
-            self.generate_gmsh_mesh() 
-            self.gmsh_convert()
+            self.generate_gmsh_mesh()
             with open(self._mesh_store('log'), 'w') as fout:
                 json.dump(parameters, fout)
         return not is_updated

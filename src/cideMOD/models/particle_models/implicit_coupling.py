@@ -16,16 +16,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import *
+import dolfinx as dfx
 
 from typing import List
 
 import numpy
 from numpy.polynomial.legendre import *
-from ufl.coefficient import Coefficient
+from ufl import Measure, exp, Coefficient
 
 from cideMOD.models.base.base_particle_models import StrongCoupledPM
-
+from cideMOD.numerics.fem_handler import interpolate
 
 class SpectralLegendreModel(StrongCoupledPM):
     """Particle Intercalation resolved with Legendre Polinomials.
@@ -43,7 +43,7 @@ class SpectralLegendreModel(StrongCoupledPM):
 
     def _get_n_mat(self, f, domain):
         n = 0
-        for name in f._fields:
+        for name in f.var_names:
             if name.startswith(f'c_s_0_{domain}'):
                 n += 1
         return n
@@ -58,10 +58,10 @@ class SpectralLegendreModel(StrongCoupledPM):
         if n_mat!=0:
             assert isinstance(c_s_ini, (list, tuple)) , "Keyword 'c_s_ini' must be an iterable"
             assert len(c_s_ini) == n_mat , "Keyword 'c_s_ini' must be a list of length {}".format(n_mat)
-            for i, name in enumerate(f_0._fields):
+            for i, name in enumerate(f_0.var_names):
                 for j, c_ini in enumerate(c_s_ini):
                     if name == f'c_s_0_{domain}{j}':
-                        f_0[i].assign(project(c_ini,f_0[i].function_space()))
+                        interpolate(c_ini, f_0[i])
 
     def build_legendre(self, order):
         """Builds mass matrix, stiffness matrix and boundary vector using Legendre Polinomials.
@@ -109,20 +109,20 @@ class SpectralLegendreModel(StrongCoupledPM):
         n_mat = self._get_n_mat(f_0, domain)
         F_c_s_0 = []
         for material in range(n_mat):
-            c_s_index = f_0._fields.index('c_s_0_{}{}'.format(domain, material))
-            F_c_s_0.append([(f_1[c_s_index] - f_0[c_s_index]) * test[c_s_index] * dx])
+            c_s_index = f_0.var_names.index('c_s_0_{}{}'.format(domain, material))
+            F_c_s_0.append((f_1[c_s_index] - f_0[c_s_index]) * test[c_s_index] * dx)
             for j in range(1, self.order):
-                F_c_s_0.append([f_1[c_s_index+j] * test[c_s_index+j] * dx])
+                F_c_s_0.append(f_1[c_s_index+j] * test[c_s_index+j] * dx)
         return F_c_s_0
 
     def wf_implicit_coupling(self, f_0, f_1, test, electrode, dx : Measure, DT, materials:List, F, R):
         domain = self._get_domain(electrode)
         F_c_s_ret = []
         for k, material in enumerate(materials):
-            c_s_index = f_1._fields.index('c_s_0_{}{}'.format(domain, k))
-            j_li_index = f_1._fields.index('j_Li_{}{}'.format(domain, k))
+            c_s_index = f_1.var_names.index('c_s_0_{}{}'.format(domain, k))
+            j_li_index = f_1.var_names.index('j_Li_{}{}'.format(domain, k))
             D_s_eff = self.get_value(material.D_s, f_1, electrode, material) 
-            if 'temp' in f_1._fields:
+            if 'temp' in f_1.var_names:
                 D_s_eff= D_s_eff* exp(material.D_s_Ea*(1/material.D_s_Tref - 1/f_1.temp)/R)
             for j in range(self.order):
                 F_c_s = 0
@@ -146,7 +146,7 @@ class SpectralLegendreModel(StrongCoupledPM):
         n_mat = self._get_n_mat(f_0, domain)
         F_c_s_aux = []
         for material in range(n_mat):
-            c_s_index = f_0._fields.index('c_s_0_{}{}'.format(domain, material))
+            c_s_index = f_0.var_names.index('c_s_0_{}{}'.format(domain, material))
             for j in range(0, self.order):
                 F_c_s_aux.append(f_1[c_s_index+j] * test[c_s_index+j] * dx - f_0[c_s_index+j] * test[c_s_index+j] * dx)
         return F_c_s_aux
@@ -156,7 +156,7 @@ class SpectralLegendreModel(StrongCoupledPM):
         n_mat = self._get_n_mat(f, domain)
         c_s_surf = []
         for material in range(n_mat):
-            c_s_index = f._fields.index('c_s_0_{}{}'.format(domain, material))
+            c_s_index = f.var_names.index('c_s_0_{}{}'.format(domain, material))
             c_s_surf_i = f[c_s_index]
             c_s_surf.append(c_s_surf_i)
         return c_s_surf
@@ -174,10 +174,10 @@ class SpectralLegendreModel(StrongCoupledPM):
         li_total = []
         for k, material in enumerate(materials):
             particle_total = 0
-            c_s_index = f._fields.index('c_s_0_{}{}'.format(domain, k))
+            c_s_index = f.var_names.index('c_s_0_{}{}'.format(domain, k))
             for i in range(self.order):
                 particle_total += f[c_s_index+i] * Int[i] # particle_integral(c_s)/ V
-            c_s_total = assemble(volume_factor*particle_total * material.eps_s * dx ) 
+            c_s_total = dfx.fem.assemble_scalar(volume_factor*particle_total * material.eps_s * dx ) 
             li_total.append(c_s_total)
         return sum(li_total)
 
@@ -199,8 +199,8 @@ class NondimensionalSpectralModel(SpectralLegendreModel):
         domain = self._get_domain(electrode)
         F_c_s_ret = []
         for k, material in enumerate(materials):
-            c_s_index = f_0._fields.index('c_s_0_{}{}'.format(domain, k))
-            j_li_index = f_0._fields.index('j_Li_{}{}'.format(domain, k))
+            c_s_index = f_0.var_names.index('c_s_0_{}{}'.format(domain, k))
+            j_li_index = f_0.var_names.index('j_Li_{}{}'.format(domain, k))
             mat_params = nd_model.material_parameters(material)
             T = nd_model.unscale_variables({'T': f_1.temp})['T']
             if material.D_s_Ea == 0:
@@ -291,7 +291,7 @@ class StressEnhancedSpectralModel(SpectralLegendreModel):
 
     def theta(self, material, R, T):
         if material.omega is not None and material.young is not None and material.poisson is not None:
-            return Constant((material.omega*2*material.young*material.omega)/(R*9*(1-material.poisson)))/T
+            return (material.omega*2*material.young*material.omega)/(R*9*(1-material.poisson))/T
         else:
             raise Exception('Material {} does not have mechanical properties'.format(material.index))
             # print(f'Material {material.index} does not have mechanical properties \n Ommiting particle deformation ...')
@@ -301,8 +301,8 @@ class StressEnhancedSpectralModel(SpectralLegendreModel):
         domain = self._get_domain(electrode)
         F_c_s_ret = []
         for k, material in enumerate(materials):
-            c_s_index = f_0._fields.index('c_s_0_{}{}'.format(domain, k))
-            j_li_index = f_0._fields.index('j_Li_{}{}'.format(domain, k))
+            c_s_index = f_0.var_names.index('c_s_0_{}{}'.format(domain, k))
+            j_li_index = f_0.var_names.index('j_Li_{}{}'.format(domain, k))
             theta = self.theta(material, R, f_1.temp)
             D_s_eff = self.get_value(material.D_s, material.index, f_1, electrode) * exp(material.D_s_Ea*(1/material.D_s_Tref - 1/f_1.temp)/R)
             for j in range(self.order):
@@ -321,7 +321,7 @@ class StressEnhancedSpectralModel(SpectralLegendreModel):
         assert domain.tag in ('a','c')
         c_s = []
         for i, materials in enumerate(domain.active_material):
-            c_s_index = f._fields.index('c_s_0_{}{}'.format(domain.tag, i))
+            c_s_index = f.var_names.index('c_s_0_{}{}'.format(domain.tag, i))
             F_avg = 0
             for j in range(self.order):
                 F_avg += f[c_s_index+j]*self.avg[j]

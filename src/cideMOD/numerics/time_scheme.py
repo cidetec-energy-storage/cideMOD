@@ -16,7 +16,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import Constant
+from dolfinx.fem import Constant
+from petsc4py.PETSc import ScalarType
 
 class TimeScheme:
 
@@ -30,15 +31,14 @@ class TimeScheme:
     }
 
 
-    def __init__(self,method,tau = 1):
+    def __init__(self, method, mesh, tau = 1):
         assert method in self.available_schemes , 'The method specified is not implemented'
         self.method = method
-        self.delta_t = Constant(0, name='dt')
+        self.delta_t = Constant(mesh, ScalarType(0))
         self.nodes = self.available_schemes[self.method]['nodes']
         if self.method == 'BETF':
-            self.tau = Constant(tau)
-            self.nu = Constant(self.tau*(1+self.tau)/(1+2*self.tau))
-
+            self.tau = Constant(mesh, ScalarType(0))
+            self.nu = Constant(mesh, ScalarType(0))
 
     def num_functions(self):
         return self.nodes
@@ -64,14 +64,14 @@ class TimeScheme:
         return ((1+self.tau-self.nu)/(1+self.tau)*u_2+(self.nu-1)*u_1-(self.nu*self.tau)/(1+self.tau)*u_0)/self.delta_t
 
     def set_timestep(self,timestep):
-        self.delta_t.assign(timestep)
+        self.delta_t.value = timestep
     
     def get_timestep(self):
-        return self.delta_t.values()[0]
+        return self.delta_t.value
 
     def set_tau(self,tau):
-        self.tau.assign(tau)
-        self.nu.assign(self.tau*(1+self.tau)/(1+2*self.tau))
+        self.tau.value = tau
+        self.nu.value = self.tau*(1+self.tau)/(1+2*self.tau)
     
     def update_time_step(self, error, dt, tol = 1e-6, max_step = 1e3, min_step = 1e-3):
         

@@ -16,13 +16,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import Constant, conditional, grad, inner, lt
+from ufl import conditional, grad, inner, lt, exp, sinh
 
 import re
 from typing import List
 
 import numpy as np
-from ufl.operators import exp, sinh
 
 from cideMOD.helpers.config_parser import CellParser, electrode
 from cideMOD.helpers.miscellaneous import constant_expression, get_spline

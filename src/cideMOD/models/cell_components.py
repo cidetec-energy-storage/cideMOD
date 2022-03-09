@@ -19,7 +19,8 @@
 """cell_components creates and initializes the corresponding battery components
 attributes. This also includes the functions for the weak formulation.
 """
-from dolfin import *
+import dolfinx as dfx
+import ufl
 
 import numpy
 from ufl.core.operator import Operator
@@ -33,9 +34,9 @@ def get_arr(Ea, T_ref, problem):
         '''
         if Ea != 0:
             if 'nd_model' in problem.__dict__.keys():
-                return exp((Ea / problem.R)*(1/T_ref - 1/problem.dim_variables.temp))
+                return ufl.exp((Ea / problem.R)*(1/T_ref - 1/problem.dim_variables.temp))
             else:    
-                return exp((Ea / problem.R)*(1/T_ref - 1/problem.f_1.temp))
+                return ufl.exp((Ea / problem.R)*(1/T_ref - 1/problem.f_1.temp))
         else:
             return 1
 
@@ -56,9 +57,9 @@ class Component:
         # Build length coeffs
         self.norm = []
         self.norm.append(self.L)
-        if problem.mesher.mesh.geometric_dimension() > 1:
+        if problem.mesher.mesh.geometry.dim > 1:
             self.norm.append(self.H)
-        if problem.mesher.mesh.geometric_dimension() > 2:
+        if problem.mesher.mesh.geometry.dim > 2:
             self.norm.append(self.W)
     
     def dx(self, measures):
@@ -72,7 +73,7 @@ class Component:
 
     def grad(self, arg):
         "Return normalized gradient for normalized domains"
-        return as_vector([arg.dx(i)/self.norm[i] for i in range(arg.geometric_dimension())])
+        return ufl.as_vector([arg.dx(i)/self.norm[i] for i in range(arg.geometric_dimension())])
 
     def get_value(self, variable, problem = None, default = None):
         if variable is None:
@@ -95,6 +96,19 @@ class PorousComponent(Component):
         self.bruggeman = self.get_value(self.config.bruggeman)
         self.tortuosity_e = self.get_value(self.config.tortuosity)
 
+    def _effective_value(self, value, porosity, bruggeman=None, tortuosity=None, use="tortuosity"):
+        assert value is not None
+        assert porosity is not None
+        assert use in ["tortuosity", "bruggeman"], "Correction must be tortuosity or bruggeman"
+        if use == "bruggeman":
+            assert bruggeman, "Selected bruggeman correction but not provided a value"
+            tau = porosity**bruggeman
+        if use == "tortuosity":
+            assert tortuosity, "Selected tortuosity correction but not provided a value"
+            tau = tortuosity
+        return value*porosity/tau
+
+
     def get_brug_e(self, dic, problem):
         """
         Calculate Bruggeman constant for the liquid phase in the component.
@@ -113,17 +127,7 @@ class PorousComponent(Component):
         if dic["effective"]:
             return x
         else:
-            if (dic["correction"] == "bruggeman" or self.tortuosity_e is None) and self.bruggeman is not None:
-                tortuosity_e = self.eps_e ** (1 - self.bruggeman)
-                if isinstance(x, Expression) or isinstance(x,Operator):
-                    return x * Constant(self.eps_e / tortuosity_e)
-                return Constant(x * self.eps_e / tortuosity_e)
-            elif (dic["correction"] == "tortuosity" or self.bruggeman is None) and self.tortuosity_e is not None:
-                if isinstance(x, Expression) or isinstance(x,Operator):
-                    return x * Constant(self.eps_e / self.tortuosity_e)
-                return Constant(x * self.eps_e / self.tortuosity_e)
-            else:
-                raise Exception("Cant convert to effective value")
+            return self._effective_value(x,self.eps_e,self.bruggeman, self.tortuosity_e, dic["correction"])
 
     def get_brug_s(self, dic, problem):
         '''
@@ -143,18 +147,7 @@ class PorousComponent(Component):
         else:
             eps_s = sum([self.active_material[i].eps_s for i in range(len(self.active_material))])
             tortuosity_s = self.tortuosity_s
-            if (dic["correction"] == "bruggeman" or tortuosity_s is None) and self.bruggeman is not None:
-                tortuosity_s = eps_s ** (1 - self.bruggeman)
-                if isinstance(x, Expression) or isinstance(x,Operator):
-                    return x * Constant(eps_s / tortuosity_s)
-                return Constant(x * eps_s / tortuosity_s)
-            elif (dic["correction"] == "tortuosity" or self.bruggeman is None) and self.tortuosity_s is not None:
-                tortuosity_s = self.tortuosity_s
-                if isinstance(x, Expression) or isinstance(x,Operator):
-                    return x * Constant(eps_s / tortuosity_s)
-                return Constant(x * eps_s / tortuosity_s)
-            else:
-                raise Exception("Cant convert to effective value")
+            return self._effective_value(x, eps_s, self.bruggeman, tortuosity_s, dic["correction"])
 
     def build_brg(self, problem):
         """
@@ -219,7 +212,7 @@ class Electrode(PorousComponent):
             self.R_s = self.config.particleRadius
             self.eps_s = self.config.volumeFraction
             self.porosity = self.config.porosity
-            self.k_0 = Constant(self.config.kineticConstant, name='k_0')
+            self.k_0 = self.config.kineticConstant
             self.k_0_Ea = self.config.kineticConstant_Ea
             self.k_0_Tref = self.config.kineticConstant_Tref
             self.c_s_max = self.config.maximumConcentration
@@ -239,7 +232,7 @@ class Electrode(PorousComponent):
                 self.elsheby_tensor = None
             
             if type(self.config.diffusionConstant) == int or type(self.config.diffusionConstant) == float:
-                self.D_s = Constant(self.config.diffusionConstant, name='D_s')
+                self.D_s = self.config.diffusionConstant
             elif isinstance(self.config.diffusionConstant, dict):
                 self.D_s = get_spline(self.config.diffusionConstant['value'])
             else:

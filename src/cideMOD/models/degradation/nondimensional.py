@@ -16,8 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import Constant, exp, interpolate
-from multiphenics import assign
+from ufl import exp
 
 import numpy
 from numpy.polynomial.polynomial import *
@@ -25,7 +24,7 @@ from numpy.polynomial.polynomial import *
 from cideMOD.helpers.config_parser import electrode
 from cideMOD.numerics.polynomials import Lagrange
 from cideMOD.models.base.base_nondimensional import BaseModel
-
+from cideMOD.numerics.fem_handler import interpolate
 
 class SolventLimitedSEIModel(BaseModel):
     def _unscale_sei_variables(self, variables_dict):
@@ -179,7 +178,7 @@ class SolventLimitedSEIModel(BaseModel):
                 for material in range(n_mat):
                     for j in range(self.order):
                         c_EC_index = f_0._fields.index(f'c_EC_{j}_a{material}')
-                        assign(f_0[c_EC_index], interpolate(Constant(c_0), f_0[c_EC_index].function_space()))
+                        interpolate(c_0, f_0[c_EC_index])
 
         def build_matrix(self):
             J = numpy.zeros((self.order+1, self.order+1))

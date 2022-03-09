@@ -11,7 +11,7 @@ from cideMOD import (
 
 overwrite = False
 case = "Ai_2020"
-data_path = "../data/data_{}".format(case)
+data_path = "data/data_{}".format(case)
 params = "params.json"
 
 model_options = ModelOptions(mode='P2D')
@@ -25,11 +25,12 @@ problem.set_cell_state(1, 273 + 25, 273 + 25)
 problem.setup()
 C_rate = -1
 I_app = C_rate * problem.Q
-t_f = 3600 /abs(C_rate)*1.25
+# t_f = 3600 /abs(C_rate)*1.25
+t_f = 10
 
 v_min = Trigger(3, "v")
 status = problem.solve_ie(
-    min_step=10, i_app=I_app, t_f=t_f, store_delay=10, adaptive=True, triggers=[v_min]
+    min_step=10, i_app=I_app, t_f=t_f, store_delay=10, adaptive=False, triggers=[v_min]
 )
 err = ErrorCheck(problem, status)
 

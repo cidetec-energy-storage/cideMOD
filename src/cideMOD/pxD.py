@@ -16,14 +16,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import *
-from multiphenics import *
+import dolfinx as dfx
+from dolfinx.common import Timer, timed
+from mpi4py import MPI
+from petsc4py.PETSc import ScalarType
+from ufl import grad
 
 import json
 import os
 import sys
 import numpy as np
-from collections import namedtuple
 
 from cideMOD.bms.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.config_parser import CellParser
@@ -40,17 +42,17 @@ from cideMOD.models.particle_models import *
 from cideMOD.models.thermal.equations import *
 from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
-from cideMOD.helpers.extract_fom_info import get_mesh_info, initialize_results
+# from cideMOD.helpers.extract_fom_info import get_mesh_info, initialize_results
+from cideMOD.numerics.solver import NonlinearBlockProblem, NewtonBlockSolver
+from cideMOD.numerics.fem_handler import interpolate, assign, block_derivative, assemble_scalar as assemble, BlockFunction, BlockFunctionSpace
 
 # Activate this only for production
 # set_log_active(False)
 
-comm = MPI.comm_world
-if MPI.size(comm) > 1:
-    parameters["ghost_mode"] = "shared_facet"
+comm = MPI.COMM_WORLD
 
 def _print(*args, **kwargs):
-    if MPI.rank(comm) == 0:
+    if comm.rank == 0:
         print(*args, **kwargs)
         sys.stdout.flush()
 
@@ -81,8 +83,14 @@ class Problem:
     def set_cell_state(self, SOC, T_ext:float = 298.15, T_ini=None):
         if T_ini is None:
             T_ini = T_ext
-        self.T_ini.assign(T_ini)
-        self.T_ext.assign(T_ext)
+        if hasattr(self,'T_ini'):
+            self.T_ini.value = T_ini
+        else:
+            self._T_ini = T_ini
+        if hasattr(self,'T_ext'):
+            self.T_ext.value = T_ext
+        else:
+            self._T_ext = T_ext
         self.SOC_ini = SOC
 
     def mesh(self, mesh_engine=DolfinMesher, copy=False):
@@ -101,8 +109,8 @@ class Problem:
         self.Q = self.cell.capacity
         self.area = min([i for i in [self.cell.negative_electrode.area, self.cell.positive_electrode.area] if i])
 
-        self.T_ini = Constant(298.15, name='T_ini')
-        self.T_ext = Constant(298.15, name='T_ext')
+        self._T_ini = 298.15
+        self._T_ext = 298.15
 
     def _build_nonlinear_properties(self):
         self.D_e = constant_expression(self.cell.electrolyte.diffusionConstant, **{**self.f_1._asdict(), 'T_0':self.T_ini, 't_p':self.t_p})
@@ -112,6 +120,8 @@ class Problem:
     def build_transport_properties(self):
         self.h_t = self.cell.heatConvection
         self.t_p = self.cell.electrolyte.transferenceNumber
+        self.T_ini = dfx.fem.Constant(self.mesher.mesh, ScalarType(self._T_ini))
+        self.T_ext = dfx.fem.Constant(self.mesher.mesh, ScalarType(self._T_ext))
 
         self._build_nonlinear_properties()
         self.D_e_Ea = self.cell.electrolyte.diffusionConstant_Ea
@@ -138,9 +148,8 @@ class Problem:
         # TODO: Review
         _print('\r - Initializing state ... ', end='\r')
         self.initial_guess()
-        block_assign(self.u_2, self.u_1)
-        block_assign(self.u_0, self.u_1)
-
+        assign(self.u_2, self.u_1)
+        assign(self.u_0, self.u_1)
         self.solver_0.solve()
 
         _print(' - Initializing state - Done ')
@@ -176,10 +185,10 @@ class Problem:
             # TODO: write in a generalized way for more than one material
 
             ######################## cs ########################
-            fields = self.f_0._fields
+            fields = self.f_0.var_names
 
             # Get the number of mesh dofs
-            ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
+            ndofs = self.f_0[fields.index("c_s_0_a0")].vector.array[:].shape[0]
 
             # Add values of the first coefficients to the cs_surf calculation
             cs_0 = new_state['cs'][:ndofs]
@@ -225,10 +234,10 @@ class Problem:
             # TODO: write in a generalized way for more than one material
 
             ######################## cs ########################
-            fields = self.f_0._fields
+            fields = self.f_0.var_names
 
             # Get the number of mesh dofs
-            ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
+            ndofs = self.f_0[fields.index("c_s_0_a0")].vector.array[:].shape[0]
 
             # Add values of the first coefficients to the cs_surf calculation
             cs_0 = new_state['cs'][:ndofs]
@@ -254,8 +263,8 @@ class Problem:
             assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':adim_cs_a}))
             assign(self.f_0[fields.index("c_s_0_c0")], self.P1_map.generate_function({'cathode':adim_cs_c}))
 
-        block_assign(self.u_2, self.u_1)
-        block_assign(self.u_0, self.u_1)
+        assign(self.u_2, self.u_1)
+        assign(self.u_0, self.u_1)
         
         # Save mesh information to avoid obtain it again
         mesh_  = self.fom2rom['mesh'].copy()
@@ -278,7 +287,7 @@ class Problem:
     def setup(self, mesh_engine=None):
         if not 'mesher' in self.__dict__:
             self.mesh(mesh_engine)
-        timer = Timer('Problem Setup')
+        timer = Timer('Problem Setup'); timer.start()
 
         self._build_extra_models()        
         self.use_options = False
@@ -286,10 +295,10 @@ class Problem:
         _print('\r - Build cell parameters ... ', end='\r')
 
         # Internal switches
-        self.DT = TimeScheme(self.model_options.time_scheme)
-        self.beta = Constant(0, name='beta')
-        self.v_app = Constant(0, name='v_app')
-        self.i_app = Constant(0, name='i_app')
+        self.DT = TimeScheme(self.model_options.time_scheme, self.mesher.mesh)
+        self.beta = dfx.fem.Constant(self.mesher.mesh, ScalarType(0))
+        self.v_app = dfx.fem.Constant(self.mesher.mesh, ScalarType(0))
+        self.i_app = dfx.fem.Constant(self.mesher.mesh, ScalarType(0))
         self.time = 0.
 
         self.build_implicit_sgm()
@@ -299,16 +308,16 @@ class Problem:
             self.build_explicit_sgm()
 
         # Extract mesh info needed for ROM model
-        results_label = 'scaled' if not hasattr(self, 'nd_model') else 'unscaled'
-        if not 'mesh' in self.fom2rom.keys():
-            # Empty dictionary
-            get_mesh_info(self, results_label)
+        # results_label = 'scaled' if not hasattr(self, 'nd_model') else 'unscaled'
+        # if not 'mesh' in self.fom2rom.keys():
+        #     # Empty dictionary
+        #     get_mesh_info(self, results_label)
 
         # Store 'Cs' SGM matrices
-        self.fom2rom['SGM'] = dict()
-        self.fom2rom['SGM']['M'] = self.SGM.M
-        self.fom2rom['SGM']['K'] = self.SGM.K
-        self.fom2rom['SGM']['P'] = self.SGM.P
+        # self.fom2rom['SGM'] = dict()
+        # self.fom2rom['SGM']['M'] = self.SGM.M
+        # self.fom2rom['SGM']['K'] = self.SGM.K
+        # self.fom2rom['SGM']['P'] = self.SGM.P
 
         _print(' - Build cell parameters - Done ')
 
@@ -335,15 +344,14 @@ class Problem:
 
         _print('\r - Initializing state ... ', end='\r')
         self.initial_guess()
-        block_assign(self.u_2, self.u_1)
-        block_assign(self.u_0, self.u_1)
+        assign(self.u_2, self.u_1)
+        assign(self.u_0, self.u_1)
         self.build_wf_0()
-        self.problem_0 = BlockNonlinearProblem(
-            self.F_var_0,  self.u_2, self.bc, self.J_var_0)
-        self.solver_0 = BlockPETScSNESSolver(self.problem_0)
-        self.set_use_options(self.solver_0,use_options=self.use_options)
+        self.problem_0 = NonlinearBlockProblem(
+            self.F_var_0,  self.u_2.functions, self.bc, self.J_var_0, self.W.restrictions)
+        self.solver_0 = NewtonBlockSolver(comm, self.problem_0)
         self.solver_0.solve()
-        block_assign(self.u_1, self.u_2)
+        assign(self.u_1, self.u_2)
         _print(' - Initializing state - Done ')
 
         _print('\r - Build variational formulation ... ', end='\r')
@@ -354,31 +362,8 @@ class Problem:
 
         timer.stop()
         _print('Problem Setup finished.')
-        _print("Problem has {} dofs.\n".format(MPI.sum(comm,len(self.u_2.block_vector()))))
+        _print("Problem has {} dofs.\n".format( comm.allreduce(self.solver_0.solution.size, MPI.SUM)))
         self.ready=True
-
-    def set_use_options(self, solver, pc='hypre', use_options=False):
-        if use_options:
-            if pc == 'hypre':
-                num_functions = len(self.f_1._fields)
-                petsc_options = solver_conf.hypre()
-                petsc_options['pc_hypre_boomeramg_numfunctions']=num_functions
-            if pc == 'gamg':
-                petsc_options = solver_conf.gamg()
-        else:
-            petsc_options = solver_conf.base_options
-        petsc_options['log_view'] = ':{}'.format(os.path.join(self.save_path,'snes_profile.log'))
-        for key, value in petsc_options.items():
-            if value is not None:
-                PETScOptions.set(key, value)
-            else:
-                PETScOptions.set(key)
-
-        if use_options:
-            solver.set_from_options()
-        else:
-            solver.parameters.update(
-                self.snes_solver_parameters["snes_solver"])
 
     def set_storage_order(self):
         self.internal_storage_order = ['c_e', 'phi_e', 'phi_s', 'j_Li']
@@ -436,124 +421,71 @@ class Problem:
                 'header': 'Average SEI thickness [m]'
             }
 
+    @timed('Building function space')
     def build_fs(self):
-        timer = Timer('Building function space')
-        P1 = FunctionSpace(self.mesher.mesh, 'CG', 1)
-        LM = FunctionSpace(self.mesher.mesh, 'R', 0)
+        P1 = dfx.fem.FunctionSpace(self.mesher.mesh, ('CG', 1))
+        # LM = dfx.fem.FunctionSpace(self.mesher.mesh, ('R', 0))
 
         elements = []
         # Add electrochemical model elements
+        elements.append( ('c_e', P1.clone(), self.mesher.electrolyte) )
+        elements.append( ('phi_e', P1.clone(), self.mesher.electrolyte) )
+        elements.append( ('phi_s', P1.clone(), self.mesher.electrodes) )
         if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
             # Add phi_s for Current Colectors if present
-            elements += ['c_e', 'phi_e', 'phi_s', 'phi_s_cc', 'lm_phi_s']
-        else:
-            elements += ['c_e','phi_e','phi_s']
-        elements.append('lm_app')
-        elements += ['j_Li_a{}'.format(i) for i in range(self.number_of_anode_materials)]
-        elements += ['j_Li_c{}'.format(i) for i in range(self.number_of_cathode_materials)]
+            elements.append( ('phi_s_cc', P1.clone(), self.mesher.current_colectors) )
+            elements.append( ('lm_phi_s', P1.clone(), self.mesher.electrode_cc_interfaces ) )
+        elements.append( ('lm_app', P1.clone(), self.mesher.positive_tab) )
+        elements.extend( [(f'j_Li_a{i}', P1.clone(), self.mesher.anode) for i in range(self.number_of_anode_materials)] )
+        elements.extend( [(f'j_Li_c{i}', P1.clone(), self.mesher.cathode) for i in range(self.number_of_cathode_materials)] )
         if self.model_options.solve_SEI:
+            # TODO: fix this
             elements += ['j_sei_a{}'.format(i) for i in range(self.number_of_anode_materials)]
             elements += ['delta_a{}'.format(i) for i in range(self.number_of_anode_materials)]
             # Add c_EC elements
             elements += self.SEI_model.fields(self.number_of_anode_materials)
         if self.c_s_implicit_coupling:
             # Add SGM elements
-            elements += self.SGM.fields(self.number_of_anode_materials, 'anode')
-            elements += self.SGM.fields(self.number_of_cathode_materials, 'cathode')
+            elements.extend( [(name, P1.clone(), self.mesher.anode) for name in self.SGM.fields(self.number_of_anode_materials, 'anode')] )
+            elements.extend( [(name, P1.clone(), self.mesher.cathode) for name in self.SGM.fields(self.number_of_cathode_materials, 'cathode')] )
         # Add Temperature elements
-        elements += ['temp']
-        if self.model_options.solve_mechanic:
-            elements += self.mechanics.fields()
-        
-        self.FE = namedtuple('Finite_Element_Function',' '.join(elements))
-
-        # Define Electrochemical Function Spaces
-        E_c_e = (P1, self.mesher.electrolyte)
-        E_phi_e = (P1, self.mesher.electrolyte)
-        E_phi_s = (P1, self.mesher.electrodes)
-        E_phi_s_CC = (P1, self.mesher.current_colectors)
-        LM_phi_s_CC = (P1, self.mesher.electrode_cc_interfaces)
-        LM_app = (P1, self.mesher.positive_tab)
-        E_j_Li_a = [(P1, self.mesher.anode) for i in range(self.number_of_anode_materials)]
-        E_j_Li_c = [(P1, self.mesher.cathode) for i in range(self.number_of_cathode_materials)]
-        if self.model_options.solve_SEI:
-            E_j_sei_a = [(P1, self.mesher.anode) for i in range(self.number_of_anode_materials)]
-            E_delta_a = [(P1, self.mesher.anode) for i in range(self.number_of_anode_materials)]
-            # Define c_EC function spaces
-            E_c_EC_a = [(P1, self.mesher.anode) for fs in range(len(self.SEI_model.fields(
-                self.number_of_anode_materials)))]
-
-        E_electrochemical = [E_c_e, E_phi_e, E_phi_s]
-        if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
-            E_electrochemical.extend([ E_phi_s_CC, LM_phi_s_CC])
-        E_electrochemical.append(LM_app)
-        E_electrochemical += E_j_Li_a + E_j_Li_c
-        if self.model_options.solve_SEI:
-            E_electrochemical += E_j_sei_a + E_delta_a + E_c_EC_a
-            
-        # Define SGM function spaces
-        E_c_s = []
-        if self.c_s_implicit_coupling:
-            E_c_s_a = [(P1, self.mesher.anode) for fs in self.SGM.fields(
-                self.number_of_anode_materials, 'anode')]
-            E_c_s_c = [(P1, self.mesher.cathode) for fs in self.SGM.fields(
-                self.number_of_cathode_materials, 'cathode')]
-            E_c_s = E_c_s_a + E_c_s_c
-
-        # Define Thermal function spaces
         if self.model_options.solve_thermal:
-            E_T = (P1, None)
+            elements.append( ('temp', P1.clone(), None) )
         else:
-            E_T = (LM, None)
-        E_thermal = [E_T]
+            elements.append( ('temp', P1.clone(), None) )
 
-        # Define Mechanics function spaces
         if self.model_options.solve_mechanic:
+            # TODO: fix this
+            elements += self.mechanics.fields()
             E_mechanics = self.mechanics.shape_functions(self.mesher.mesh)
-        else:
-            E_mechanics = []
 
-        FS_total = E_electrochemical + E_c_s + E_thermal + E_mechanics
-
-        self.W = BlockFunctionSpace([FS[0] for FS in FS_total], restrict=[FS[1] for FS in FS_total])
-        self.V = FunctionSpace(self.mesher.mesh, 'CG', 1)
-        self.V_vec = VectorFunctionSpace(self.mesher.mesh, 'CG', 1)
+        self.W = BlockFunctionSpace([el[0] for el in elements], [el[1] for el in elements], [el[2] for el in elements])
+        self.V = dfx.fem.FunctionSpace(self.mesher.mesh, ('CG', 1))
+        self.V_vec = dfx.fem.VectorFunctionSpace(self.mesher.mesh, ('CG', 1))
         # self.P1_map = SubdomainMapper(self.mesher.subdomains, self.mesher.field_data, self.V)
         self.P1_map = SubdomainMapper(self.mesher.field_restrictions, self.V)
-        self.du = BlockTrialFunction(self.W)
+        self.du = self.W.create_trial_function()
 
-        self.u_2 = BlockFunction(self.W)
-        self.u_1 = BlockFunction(self.W)
-        self.u_0 = BlockFunction(self.W)
+        self.u_2 = self.W.create_block_function()
+        self.u_1 = self.W.create_block_function()
+        self.u_0 = self.W.create_block_function()
         if not self.c_s_implicit_coupling:
-            self.u_aux_1 = BlockFunction(self.W)
-            self.u_aux_2 = BlockFunction(self.W)
-        self.u_post_filter = BlockFunction(self.W)
+            self.u_aux_1 = self.W.create_block_function()
+            self.u_aux_2 = self.W.create_block_function()
 
-        self.u = BlockTestFunction(self.W)
+        self.test = self.W.create_test_function()
 
-        self.f_1 = self.FE._make(block_split(self.u_2))
-        for i, name in enumerate(self.f_1._fields):
-            self.f_1[i].rename(name, 'a Function')
-        self.f_0 = self.FE._make(block_split(self.u_1))
-        for i, name in enumerate(self.f_1._fields):
-            self.f_0[i].rename('{}_0'.format(name), 'a Function')
-
-        self.test = self.FE._make(block_split(self.u))
+        self.f_1 = self.u_2
+        self.f_0 = self.u_1
 
         # Explicit coupled SGM functions
-        self.c_s_surf_1_anode = [Function(self.V) for n in range(
-            self.number_of_anode_materials)]
-        self.c_s_surf_0_anode = [Function(self.V) for n in range(
-            self.number_of_anode_materials)]
-        self.c_s_surf_1_cathode = [Function(self.V) for n in range(
-            self.number_of_cathode_materials)]
-        self.c_s_surf_0_cathode = [Function(self.V) for n in range(
-            self.number_of_cathode_materials)]
+        self.c_s_surf_1_anode = [dfx.fem.Function(self.V) for n in range(self.number_of_anode_materials)]
+        self.c_s_surf_0_anode = [dfx.fem.Function(self.V) for n in range(self.number_of_anode_materials)]
+        self.c_s_surf_1_cathode = [dfx.fem.Function(self.V) for n in range(self.number_of_cathode_materials)]
+        self.c_s_surf_0_cathode = [dfx.fem.Function(self.V) for n in range(self.number_of_cathode_materials)]
         
-        self.eigenstrain = Function(self.V)
+        self.eigenstrain = dfx.fem.Function(self.V)
 
-        timer.stop()
 
     def build_implicit_sgm(self):
         # Build SGM with Implicit Coupling
@@ -565,9 +497,9 @@ class Problem:
         else:
             self.SGM = StrongCoupledPM()
 
+    @timed('Build SGM')
     def build_explicit_sgm(self):
         # Build SGM with Explicit Coupling
-        timer = Timer('Build SGM')
         self.build_electrode_dof_mask()
         if self.model_options.solve_mechanic:
             self.anode_particle_model = StressEnhancedIntercalation(
@@ -579,21 +511,20 @@ class Problem:
                 active_material=self.anode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
             self.cathode_particle_model = SpectralLegendreModel(
                 active_material=self.cathode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
-        timer.stop()
 
     def build_electrode_dof_mask(self):
         self.anode_dofs = self.P1_map.domain_dof_map.get('anode', [])
         self.cathode_dofs = self.P1_map.domain_dof_map.get('cathode', [])
 
+    @timed('Update SGM')
     def update_sgm(self):
         '''
         Once the macroscopic problem is solved the particle models needs
         to be updated.
         '''
-        timer = Timer('Update SGM')
-        c_e = self.f_1.c_e.vector()
-        phi = self.f_1.phi_s.vector() - self.f_1.phi_e.vector()
-        T = self.f_1.temp.vector()
+        c_e = self.f_1.c_e.vector.array
+        phi = self.f_1.phi_s.vector.array - self.f_1.phi_e.vector.array
+        T = self.f_1.temp.vector.array
         if len(T) == 1:
             temp = T[0]
             T=c_e[:].copy()
@@ -602,12 +533,12 @@ class Problem:
         if self.model_options.solve_mechanic:
             if 'a' in self.cell.structure:
                 P_s_a = self.mechanics.inclusion_surface_pressure(self.f_1, self.anode.grad, self.c_e_ini, self.anode, self.eigenstrain)
-                P_surf_a = project(P_s_a, self.V).vector()
+                P_surf_a = interpolate(P_s_a, self.V).vector.array
                 self.anode_particle_model.microscale_update(
                     c_e[self.anode_dofs], phi[self.anode_dofs], T[self.anode_dofs], P_surf_a[self.anode_dofs])
             if 'c' in self.cell.structure:
                 P_s_c = self.mechanics.inclusion_surface_pressure(self.f_1, self.cathode.grad, self.c_e_ini, self.cathode, self.eigenstrain)
-                P_surf_c = project(P_s_c, self.V).vector()
+                P_surf_c = interpolate(P_s_c, self.V).vector.array
                 self.cathode_particle_model.microscale_update(
                     c_e[self.cathode_dofs], phi[self.cathode_dofs], T[self.cathode_dofs], P_surf_c[self.cathode_dofs])
         else:
@@ -618,24 +549,22 @@ class Problem:
                 self.cathode_particle_model.microscale_update(
                     c_e[self.cathode_dofs], phi[self.cathode_dofs], T[self.cathode_dofs])
 
-        timer.stop()
 
+    @timed('Update C_s_surf')
     def update_c_s_surf(self, relaxation=1):
         '''
         Once the particle models problem are solved the macroscopic model needs
         to be updated. This function update the concentration on the solid
         surface for the anode and the cathode.
         '''
-        timer = Timer('Update C_s_surf')
         for i in range(self.number_of_anode_materials):
-            self.c_s_surf_1_anode[i].vector()[self.anode_dofs] = self.anode_particle_model.c_s_surf()[:, i].flatten()
+            self.c_s_surf_1_anode[i].vector.array[self.anode_dofs] = self.anode_particle_model.c_s_surf()[:, i].flatten()
             if self.model_options.solve_mechanic:
-                self.eigenstrain.vector()[self.anode_dofs] = self.anode_particle_model.eigenstrain()[:,i].flatten()
+                self.eigenstrain.vector.array[self.anode_dofs] = self.anode_particle_model.eigenstrain()[:,i].flatten()
         for j in range(self.number_of_cathode_materials):
-            self.c_s_surf_1_cathode[j].vector()[self.cathode_dofs] = self.cathode_particle_model.c_s_surf()[:, j].flatten()
+            self.c_s_surf_1_cathode[j].vector.array[self.cathode_dofs] = self.cathode_particle_model.c_s_surf()[:, j].flatten()
             if self.model_options.solve_mechanic:
-                self.eigenstrain.vector()[self.cathode_dofs] = self.cathode_particle_model.eigenstrain()[:,j].flatten()
-        timer.stop()
+                self.eigenstrain.vector.array[self.cathode_dofs] = self.cathode_particle_model.eigenstrain()[:,j].flatten()
 
     def initial_guess(self):
         # c_e initial
@@ -671,7 +600,7 @@ class Problem:
 
         if self.model_options.solve_SEI:
             self.SEI_model.initial_guess(self.f_0, self.anode.SEI.c_EC_sln * self.anode.SEI.eps)
-            assign(self.f_0.delta_a0, interpolate(Constant(self.anode.SEI.delta0), self.f_0.delta_a0.function_space()))
+            interpolate(self.anode.SEI.delta0, self.f_0.delta_a0)
             
         # Finally the values are incorporated in the Function
         assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':0, 'cathode':phi_s_c-phi_s_a }))
@@ -680,13 +609,13 @@ class Problem:
             assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':0, 'positiveCC':phi_s_c-phi_s_a }))
 
         # Initial temp
-        assign(self.f_0.temp, interpolate(Constant(self.T_ini), self.f_0.temp.function_space()))
+        interpolate(self._T_ini, self.f_0.temp)
         self.get_state()
 
     def prepare_solve(self, store_delay=1, time = 0):
-        self.i_app.assign(0)
-        self.v_app.assign(0)
-        self.beta.assign(0)
+        self.i_app.value = 0
+        self.v_app.value = 0
+        self.beta.value = 0
 
         self.WH.set_delay(store_delay)
 
@@ -694,17 +623,17 @@ class Problem:
         v = self.get_voltage(self.f_1)
         cur = self.get_current(self.f_1)
         self.state = {'t':self.time, 'v':v, 'i': cur}
-        if self.beta.values()[0]==0:
-            self.i_app.assign(cur/self.Q)
+        if self.beta.value==0:
+            self.i_app.value = cur/self.Q
         else:
-            self.v_app.assign(v)
+            self.v_app.value = v
 
 
     def solve_ie(self, i_app=30.0, v_app=None, t_f=3600, store_delay=1, max_step=3600, min_step=0.01, triggers=[], adaptive=True):
 
         store_fom = True if not adaptive else False
-        if store_fom:
-            initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
+        # if store_fom:
+        #     initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
         self.WH.store(self.time, store_fom=store_fom)
 
         if not self.ready:
@@ -731,15 +660,15 @@ class Problem:
         
         _print('Solving ...')
 
-        timer = Timer('Simulation time')
+        timer = Timer('Simulation time');timer.start()
         it = 0
-        PETScOptions.set('snes_lag_jacobian', 1)
-        PETScOptions.set('snes_max_it', 20)
+        # PETScOptions.set('snes_lag_jacobian', 1)
+        # PETScOptions.set('snes_max_it', 20)
         self.get_state()
         while self.time < t_f:
-            if it > 0 and not self.use_options:
-                PETScOptions.set('snes_lag_jacobian', 5)
-                PETScOptions.set('snes_max_it', 30)
+            # if it > 0 and not self.use_options:
+                # PETScOptions.set('snes_lag_jacobian', 5)
+                # PETScOptions.set('snes_max_it', 30)
 
             if isinstance(i_app,str):
                 i_app_t = eval( i_app, globals(), {'time': self.time} )
@@ -776,22 +705,21 @@ class Problem:
             x_a, x_c = self.get_stoichiometry()
             for i, material in enumerate(self.cathode.active_material):
                 if x_c[i] < min(material.stoichiometry0, material.stoichiometry1):
-                    block_assign(self.u_2, self.u_1)
+                    assign(self.u_2, self.u_1)
                     return 20
                 elif x_c[i] > max(material.stoichiometry1, material.stoichiometry0):
-                    block_assign(self.u_2, self.u_1)
+                    assign(self.u_2, self.u_1)
                     return 21
             for i, material in enumerate(self.anode.active_material):
                 if x_a[i] < min(material.stoichiometry0, material.stoichiometry1):
-                    block_assign(self.u_2, self.u_1)
+                    assign(self.u_2, self.u_1)
                     return 20
                 elif x_a[i] > max(material.stoichiometry1, material.stoichiometry0):
-                    block_assign(self.u_2, self.u_1)
+                    assign(self.u_2, self.u_1)
                     return 21
         return 0
-      
+    @timed('Constant TS')
     def constant_timestep(self, i_app, v_app, timestep, triggers= []):
-        timer = Timer('Constant TS')
         errorcode = self.timestep( timestep, i_app, v_app)
         self.get_state()
         try:
@@ -799,7 +727,7 @@ class Problem:
                 t.check(self.state)
         except TriggerSurpassed as e:
             new_tstep = e.new_tstep(self.get_timestep())
-            block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
+            assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
             errorcode = self.constant_timestep(i_app, v_app, new_tstep, triggers=triggers)
             return errorcode
         except TriggerDetected as e:
@@ -807,12 +735,11 @@ class Problem:
             print(f"{str(e)} at {self.state['t']:.2f} \033[K\n")
         self.time += timestep
         self.advance_problem(True)
-        timer.stop()
         return errorcode
 
     def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[]):
         # Decide wich timestep to use
-        timer = Timer('Adaptive TS')
+        timer = Timer('Adaptive TS'); timer.start()
         h = max( min( self.get_timestep()*self.tau, max_step), min_step)
         if t_max is not None:
             if self.time + h > t_max or self.time + h + min_step > t_max:
@@ -846,7 +773,7 @@ class Problem:
             except TriggerSurpassed as e:
                 timer.stop()
                 new_tstep = e.new_tstep(self.get_timestep())
-                block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
+                assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
                 errorcode = self.adaptive_timestep(i_app, v_app, new_tstep, new_tstep, t_max, triggers=triggers)
                 return errorcode
             except TriggerDetected as e:
@@ -859,14 +786,14 @@ class Problem:
 
     def advance_problem(self, store_fom=False):
         self.WH.store(self.time, force=self.time == 0, store_fom=store_fom)
-        block_assign(self.u_0, self.u_1)
-        block_assign(self.u_1, self.u_2)
+        assign(self.u_0, self.u_1)
+        assign(self.u_1, self.u_2)
         if not self.c_s_implicit_coupling:
             self.anode_particle_model.advance_problem()
             self.cathode_particle_model.advance_problem()
 
     def timestep(self, timestep, i_app=None, v_app=None):
-        timer = Timer('Basic TS')
+        timer = Timer('Basic TS'); timer.start()
         try:
             if self.c_s_implicit_coupling:
                 self.tstep_implicit(timestep, i_app=i_app, v_app=v_app)
@@ -930,10 +857,10 @@ class Problem:
                     _print('{} iter reached error: '.format(max_iter), err, "\033[K")
                     break
                 it += 1
-                timer = Timer('Inner Loop')
+                timer = Timer('Inner Loop'); timer.start()
                 # save previous result and initialize loop result
-                block_assign(self.u_aux_2, self.u_aux_1)
-                block_assign(self.u_aux_1, self.u_2)
+                assign(self.u_aux_2, self.u_aux_1)
+                assign(self.u_aux_1, self.u_2)
                 for c_s_surf_0, c_s_surf_1 in zip(self.c_s_surf_0_anode, self.c_s_surf_1_anode):
                     assign(c_s_surf_0, c_s_surf_1)
                 for c_s_surf_0, c_s_surf_1 in zip(self.c_s_surf_0_cathode, self.c_s_surf_1_cathode):
@@ -945,14 +872,13 @@ class Problem:
                 self.solver_explicit.solve()
 
                 # Calculate errors
-                err_anode = [errornorm(c_s_surf_1, c_s_surf_0, 'l2', 0, self.mesher.mesh)
+                err_anode = [((c_s_surf_1.vector.array - c_s_surf_0.vector.array)**2).sum()**0.5
                              for c_s_surf_1, c_s_surf_0 in zip(self.c_s_surf_1_anode, self.c_s_surf_0_anode)]
-                err_cathode = [errornorm(c_s_surf_1, c_s_surf_0, 'l2', 0, self.mesher.mesh)
+                err_cathode = [((c_s_surf_1.vector.array - c_s_surf_0.vector.array)**2).sum()**0.5
                                for c_s_surf_1, c_s_surf_0 in zip(self.c_s_surf_1_cathode, self.c_s_surf_0_cathode)]
                 err_mesoscale = [0 for i in range(self.W.num_sub_spaces())]
                 for i in range(self.W.num_sub_spaces()):
-                    err_mesoscale[i] = errornorm(self.u_aux_1.sub(i), self.u_2.sub(
-                        i), degree_rise=0, mesh=self.mesher.mesh)
+                    err_mesoscale[i] = ((self.u_aux_1.sub(i) - self.u_2.sub(i))**2).sum()**0.5
                 err = max(max(max(err_anode or [0]), max(
                     err_cathode or [0])), max(err_mesoscale))
 
@@ -968,6 +894,7 @@ class Problem:
 
         return it, err
 
+    @timed('SGM Timestep')
     def sgm_timestep(self, relaxation=1):
         '''
         Needed operations for each time step for the SGM, solving
@@ -980,15 +907,13 @@ class Problem:
 
         '''
 
-        timer = Timer('SGM Timestep')
         self.update_sgm()
 
         self.anode_particle_model.solve()
         self.cathode_particle_model.solve()
 
         self.update_c_s_surf(relaxation=relaxation)
-        timer.stop()
-
+        
     def build_wf_0(self):
         # Notice that some of them could be list.
         d = self.mesher.get_measures()
@@ -1021,11 +946,11 @@ class Problem:
         F_phi_e_s = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_s, c_e=self.f_1.c_e, j_Li=None, kappa=self.separator.kappa, kappa_D=self.separator.kappa_D, domain_grad=self.separator.grad, L=self.separator.L)
         F_phi_e_c = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_Li=self.j_Li_e_c, kappa=self.cathode.kappa, kappa_D=self.cathode.kappa_D, domain_grad=self.cathode.grad, L=self.cathode.L)
 
-        self.F_phi_e = F_phi_e_a \
+        F_phi_e = F_phi_e_a \
                      + F_phi_e_s \
                      + F_phi_e_c
 
-        self.F_phi_e = [self.F_phi_e]
+        self.F_phi_e = [F_phi_e]
 
         # phi_s
         if 'ncc' in self.cell.structure:
@@ -1068,10 +993,10 @@ class Problem:
 
         # ANODE
         for i, material in enumerate(self.anode.active_material):
-            j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
+            j_li_index = self.f_1.var_names.index(f'j_Li_a{i}')
             if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
-                j_sei_index = self.f_1._fields.index(f'j_sei_a{i}')
+                delta_index = self.f_1.var_names.index(f'delta_a{i}')
+                j_sei_index = self.f_1.var_names.index(f'j_sei_a{i}')
                 J_total= self.f_1[j_sei_index]+self.f_1[j_li_index]
                 j_li = j_Li_equation(material, self.f_1.c_e, c_s_surf_a[i],
                                     self.alpha, self.f_1.phi_s, self.f_1.phi_e, self.F, self.R, self.f_1.temp, self.i_app,
@@ -1090,7 +1015,7 @@ class Problem:
 
         # CATHODE
         for i, material in enumerate(self.cathode.active_material):
-            j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
+            j_li_index = self.f_1.var_names.index(f'j_Li_c{i}')
             j_li = j_Li_equation(material, self.f_1.c_e, c_s_surf_c[i], self.alpha, self.f_1.phi_s, 
             self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app)
 
@@ -1106,11 +1031,13 @@ class Problem:
 
         # Boundary Conditions
         # - anode: Dirichlet
-        
+        negative_tab = self.mesher.boundaries.indices[self.mesher.boundaries.values==self.mesher.field_data['negativePlug']]
         if 'ncc' in self.cell.structure:
-            bcs = [DirichletBC(self.W.sub(3), Constant(0), self.mesher.boundaries, self.mesher.field_data['negativePlug'])]
+            negative_tab_dofs = dfx.fem.locate_dofs_topological(self.W('phi_s_cc'), self.mesher.boundaries.dim, negative_tab)
+            bcs = [dfx.fem.dirichletbc(dfx.fem.Constant(self.mesher.mesh, ScalarType(0)), negative_tab_dofs, self.W('phi_s_cc'))]
         else:
-            bcs = [DirichletBC(self.W.sub(2), Constant(0), self.mesher.boundaries, self.mesher.field_data['negativePlug'])]
+            negative_tab_dofs = dfx.fem.locate_dofs_topological(self.W('phi_s'), self.mesher.boundaries.dim, negative_tab)
+            bcs = [dfx.fem.dirichletbc(dfx.fem.Constant(self.mesher.mesh, ScalarType(0)), negative_tab_dofs, self.W('phi_s'))]
         
         if 'pcc' in self.cell.structure:
             phi_s = self.f_1.phi_s_cc
@@ -1164,10 +1091,10 @@ class Problem:
             + F_T_0 \
             + self.F_mechanics
 
-        J_var_0 = block_derivative(F_var_0, self.u_2, self.du)
-        self.F_var_0 = BlockForm(F_var_0)
-        self.J_var_0 = BlockForm(J_var_0)
-        self.bc = BlockDirichletBC(bcs, self.W)
+        J_var_0 = block_derivative(F_var_0, self.u_2.functions, self.du.functions)
+        self.F_var_0 = F_var_0
+        self.J_var_0 = J_var_0
+        self.bc = bcs
 
     def implicit_sgm_wf(self):
         d = self.mesher.get_measures()
@@ -1212,9 +1139,9 @@ class Problem:
         # j_Li
         F_j_Li = []
         for i, material in enumerate(self.anode.active_material):
-            j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
+            j_li_index = self.f_1.var_names.index(f'j_Li_a{i}')
             if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
+                delta_index = self.f_1.var_names.index(f'delta_a{i}')
                 j_li = j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_a[i],
                                     alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=self.i_app,
                                     J=self.j_Li_e_a/material.a_s, SEI=self.anode.SEI, delta=self.f_1[delta_index])
@@ -1229,7 +1156,7 @@ class Problem:
                 F_j_Li.append(self.SEI_model.equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.F, self.R, self.DT))
 
         for i, material in enumerate(self.cathode.active_material):
-            j_li_index = self.f_1._fields.index('j_Li_c0')
+            j_li_index = self.f_1.var_names.index('j_Li_c0')
             j_li = j_Li_equation(material, self.f_1.c_e, self.c_s_surf_c[i], self.alpha, self.f_1.phi_s, 
                 self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app)
             F_j_Li.append(
@@ -1288,10 +1215,10 @@ class Problem:
             j_li_c = []
 
             for i, material in enumerate(self.anode.active_material):
-                j_li_index = self.f_1._fields.index('j_Li_a0')
+                j_li_index = self.f_1.var_names.index('j_Li_a0')
                 j_li_a.append(self.f_1[j_li_index+i])
             for i, material in enumerate(self.cathode.active_material):
-                j_li_index = self.f_1._fields.index('j_Li_c0')
+                j_li_index = self.f_1.var_names.index('j_Li_c0')
                 j_li_c.append(self.f_1[j_li_index+i])
 
             q_ncc = q_equation(self.negativeCC, self.f_1, None, self.test.temp, d.x_ncc, None)
@@ -1330,14 +1257,13 @@ class Problem:
             + self.F_T \
             + self.F_mechanics
 
-        J_var_implicit = block_derivative(F_var_implicit, self.u_2, self.du)
-        self.F_var_implicit = BlockForm(F_var_implicit)
-        self.J_var_implicit = BlockForm(J_var_implicit)
+        J_var_implicit = block_derivative(F_var_implicit, self.u_2.functions, self.du.functions)
+        self.F_var_implicit = F_var_implicit
+        self.J_var_implicit = J_var_implicit
 
-        self.problem_implicit = BlockNonlinearProblem(
-            self.F_var_implicit,  self.u_2, self.bc, self.J_var_implicit)
-        self.solver_implicit = BlockPETScSNESSolver(self.problem_implicit)
-        self.set_use_options(self.solver_implicit, use_options=self.use_options)
+        self.problem_implicit = NonlinearBlockProblem(
+            self.F_var_implicit,  self.u_2.functions, self.bc, self.J_var_implicit, self.W.restrictions)
+        self.solver_implicit = NewtonBlockSolver(comm, self.problem_implicit)
 
     def build_wf_explicit_coupling_problem(self):
 
@@ -1345,7 +1271,7 @@ class Problem:
         # j_Li
         F_j_Li = []
         for i, material in enumerate(self.anode.active_material):
-            j_li_index = self.f_1._fields.index('j_Li_a0')
+            j_li_index = self.f_1.var_names.index('j_Li_a0')
             j_li = j_Li_equation(material, self.f_1.c_e, self.c_s_surf_1_anode[i], self.alpha, self.f_1.phi_s,
                                  self.f_1.phi_e, self.F, self.R, self.f_1.temp, self.i_app)
 
@@ -1354,7 +1280,7 @@ class Problem:
             )
 
         for i, material in enumerate(self.cathode.active_material):
-            j_li_index = self.f_1._fields.index('j_Li_c0')
+            j_li_index = self.f_1.var_names.index('j_Li_c0')
             j_li = j_Li_equation(material, self.f_1.c_e, self.c_s_surf_1_cathode[i], self.alpha, self.f_1.phi_s,
                                  self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app)
 
@@ -1370,18 +1296,13 @@ class Problem:
             + self.F_T \
             + self.F_mechanics
 
-        J_var_explicit = block_derivative(F_var_explicit, self.u_2, self.du)
-        self.F_var_explicit = BlockForm(F_var_explicit)
-        self.J_var_explicit = BlockForm(J_var_explicit)
+        J_var_explicit = block_derivative(F_var_explicit, self.u_2.functions, self.du.functions)
+        self.F_var_explicit = F_var_explicit
+        self.J_var_explicit = J_var_explicit
 
-        self.problem_explicit = BlockNonlinearProblem(
-            self.F_var_explicit,  self.u_2, self.bc, self.J_var_explicit)
-        self.solver_explicit = BlockPETScSNESSolver(self.problem_explicit)
-        if self.use_options:
-            self.solver_explicit.set_from_options()
-        else:
-            self.solver_explicit.parameters.update(
-                self.snes_solver_parameters["snes_solver"])
+        self.problem_explicit = NonlinearBlockProblem(
+            self.F_var_explicit,  self.u_2.functions, self.bc, self.J_var_explicit, self.W.restrictions)
+        self.solver_explicit = NewtonBlockSolver(comm, self.problem_explicit)
 
         self.anode_particle_model.setup()
         self.cathode_particle_model.setup()
@@ -1443,21 +1364,18 @@ class Problem:
             assemble(x.temp*self.mesher.dx_s)*self.separator.L + 
             assemble(x.temp*self.mesher.dx_c)*self.cathode.L)/(self.anode.L+self.separator.L+self.cathode.L)
 
+    @timed('TF Error')
     def get_time_filter_error(self):
-        t=Timer('TF Error')
         error = []
-        for index in range(len(self.u_2.block_split())):
+        for index in range(len(self.u_2.functions)):
             try:
-                self.u_post_filter[index].assign(
-                    self.nu/2*(2/(1+self.tau)*self.u_2[index]-2*self.u_1[index]+2*self.tau/(1+self.tau)*self.u_0[index]))
-                # error.append(assemble(self.u_post_filter[index]**2*dx)**0.5)
-                if not self.c_s_implicit_coupling:
-                    error.append(self.anode_particle_model.get_time_filter_error(self.nu, self.tau))
-                    error.append(self.cathode_particle_model.get_time_filter_error(self.nu, self.tau))
+                error.append(
+                    (self.nu/2*(2/(1+self.tau)*self.u_2[index].vector-2*self.u_1[index].vector+2*self.tau/(1+self.tau)*self.u_0[index].vector)).norm())
             except Exception as e:
                 raise e
-        error.append(self.u_post_filter.block_vector().norm('linf'))
-        t.stop()
+        if not self.c_s_implicit_coupling:
+            error.append(self.anode_particle_model.get_time_filter_error(self.nu, self.tau))
+            error.append(self.cathode_particle_model.get_time_filter_error(self.nu, self.tau))
         return error
 
     def get_current(self, x=None):
@@ -1480,13 +1398,13 @@ class Problem:
         return self.Q_sei
 
     def get_L_sei(self):
-        L_sei = [assemble(self.f_1[self.f_1._fields.index(f'delta_a{i}')]*self.mesher.dx_a) for i in range(self.number_of_anode_materials)]
+        L_sei = [assemble(self.f_1[self.f_1.var_names.index(f'delta_a{i}')]*self.mesher.dx_a) for i in range(self.number_of_anode_materials)]
         return L_sei
 
     def get_stoichiometry(self):
         self.calc_SOC()
-        X_c = [max(project(x, self.V).vector()[self.P1_map.domain_dof_map['cathode']]) for x in self.x_c]
-        X_a = [max(project(x, self.V).vector()[self.P1_map.domain_dof_map['anode']]) for x in self.x_a]
+        X_c = [max(interpolate(x, self.V).vector.array[self.P1_map.domain_dof_map['cathode']]) for x in self.x_c]
+        X_a = [max(interpolate(x, self.V).vector.array[self.P1_map.domain_dof_map['anode']]) for x in self.x_a]
         return [X_a, X_c]
 
     def get_eps_s_approx_a(self):
@@ -1497,12 +1415,12 @@ class Problem:
 
     def set_voltage(self, v=None):
 
-        self.beta.assign(1)
+        self.beta.value = 1
 
         if v == None:
-            self.v_app.assign(self.get_voltage(self.f_0))
+            self.v_app.value = self.get_voltage(self.f_0)
         else:
-            self.v_app.assign(v)
+            self.v_app.value = v
 
     def set_current(self, i=None):
         """
@@ -1514,12 +1432,12 @@ class Problem:
             Current in Amperes (A), by default None
         """
 
-        self.beta.assign(0)
+        self.beta.value = 0
 
         if i == None:
-            self.i_app.assign(self.get_current(self.f_0)/self.Q)
+            self.i_app.value = self.get_current(self.f_0)/self.Q
         else:
-           self.i_app.assign(i/self.Q)
+           self.i_app.value = i/self.Q
 
     def exit(self, errorcode):
         self.fom2rom['results']['time']    = self.WH.global_var_arrays[0].copy()
@@ -1528,11 +1446,9 @@ class Problem:
         self.WH.write_globals(self.model_options.clean_on_exit)
         if self.c_s_implicit_coupling:
             for i, _ in enumerate(self.c_s_surf_1_anode):
-                assign(self.c_s_surf_1_anode[i], project(
-                    self.SGM.c_s_surf(self.f_1, 'anode')[i]))
+                interpolate(self.SGM.c_s_surf(self.f_1, 'anode')[i], self.c_s_surf_1_anode[i])
             for i, _ in enumerate(self.c_s_surf_1_cathode):
-                assign(self.c_s_surf_1_cathode[i], project(
-                    self.SGM.c_s_surf(self.f_1, 'cathode')[i]))
+                interpolate(self.SGM.c_s_surf(self.f_1, 'cathode')[i], self.c_s_surf_1_cathode[i])
         return errorcode
 
 
@@ -1587,9 +1503,9 @@ class StressProblem(Problem):
                     (c_avg_cathode[i] - material.c_s_ini)
 
         else:
-            c_avg_anode = [Function(self.V)
+            c_avg_anode = [dfx.fem.Function(self.V)
                            for material in self.anode.active_material]
-            c_avg_cathode = [Function(self.V)
+            c_avg_cathode = [dfx.fem.Function(self.V)
                              for material in self.cathode.active_material]
 
             c_s_avg_anode = self.anode_particle_model.get_average_c_s()
@@ -1597,7 +1513,7 @@ class StressProblem(Problem):
 
             dV = 0
             for i, material in enumerate(self.anode.active_material):
-                c_avg_anode[i].vector()[self.anode_dofs] = c_s_avg_anode[:, i]
+                c_avg_anode[i].vector.array[self.anode_dofs] = c_s_avg_anode[:, i]
                 dV += material.eps_s * material.omega * \
                     (c_avg_anode[i] - material.c_s_ini)
 
@@ -1683,9 +1599,9 @@ class NDProblem(Problem):
             os.makedirs(mesh_save_path)
             with open(f'{mesh_save_path}/field_data.json','w') as fout:
                 json.dump(self.mesher.field_data,fout,indent=4)
-            XDMFFile(f"{mesh_save_path}/mesh.xdmf").write(self.mesher.mesh)
-            XDMFFile(f"{mesh_save_path}/mesh_physical_region.xdmf").write(self.mesher.subdomains)
-            XDMFFile(f"{mesh_save_path}/mesh_facet_region.xdmf").write(self.mesher.boundaries)
+            dfx.io.XDMFFile(f"{mesh_save_path}/mesh.xdmf").write(self.mesher.mesh)
+            dfx.io.XDMFFile(f"{mesh_save_path}/mesh_physical_region.xdmf").write(self.mesher.subdomains)
+            dfx.io.XDMFFile(f"{mesh_save_path}/mesh_facet_region.xdmf").write(self.mesher.boundaries)
 
     def build_implicit_sgm(self):
         # Build SGM with Implicit Coupling
@@ -1733,7 +1649,7 @@ class NDProblem(Problem):
         if self.model_options.solve_SEI:
             # TODO: scale variables
             self.SEI_model.initial_guess(self.f_0, self.nd_model.scale_variables({'c_EC_a0':self.anode.SEI.c_EC_sln * self.anode.SEI.eps})['c_EC_a0'])
-            assign(self.f_0.delta_a0, interpolate(Constant(self.nd_model.scale_variables({'delta_sei_a0':self.anode.SEI.delta0})['delta_sei_a0']), self.f_0.delta_a0.function_space()))
+            interpolate(self.nd_model.scale_variables({'delta_sei_a0':self.anode.SEI.delta0})['delta_sei_a0'], self.f_0.delta_a0)
 
         if 'pcc' in self.cell.structure or 'ncc' in self.cell.structure:
             phi_s_a_cc = self.nd_model.scale_variables({'phi_s_cc': 0})['phi_s_cc']
@@ -1743,7 +1659,7 @@ class NDProblem(Problem):
             
         # Initial temp
         temp_ini = self.nd_model.scale_variables( {'T': self.T_ini} )['T']
-        assign(self.f_0.temp, interpolate(Constant(temp_ini), self.f_0.temp.function_space()))
+        interpolate(temp_ini, self.f_0.temp)
 
     def build_wf_0(self):
         # Notice that some of them could be list.
@@ -1752,7 +1668,7 @@ class NDProblem(Problem):
         self.j_Li_e_a = sum((self.f_1._asdict()['j_Li_a{}'.format(i)] for i, material in enumerate(self.anode.active_material)))
         self.j_Li_e_c = sum((self.f_1._asdict()['j_Li_c{}'.format(i)] for i, material in enumerate(self.cathode.active_material)))
         if self.model_options.solve_SEI:
-            self.j_Li_e_a += sum((self.f_1[self.f_1._fields.index(f'j_sei_a{i}')] for i, mat in enumerate(self.anode.active_material)))
+            self.j_Li_e_a += sum((self.f_1[self.f_1.var_names.index(f'j_sei_a{i}')] for i, mat in enumerate(self.anode.active_material)))
             
         # c_e_0
         F_c_e_0 = [ (self.f_1.c_e - self.f_0.c_e) * self.test.c_e * d.x_a +
@@ -1811,9 +1727,9 @@ class NDProblem(Problem):
 
         F_j_Li = []
         for i, material in enumerate(self.anode.active_material):
-            j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
+            j_li_index = self.f_1.var_names.index(f'j_Li_a{i}')
             if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
+                delta_index = self.f_1.var_names.index(f'delta_a{i}')
                 j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=c_s_surf_a[i],
                                     alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=self.i_app,
                                     J=self.j_Li_e_a/material.a_s, SEI=self.anode.SEI, delta=self.f_1[delta_index])
@@ -1829,7 +1745,7 @@ class NDProblem(Problem):
             F_j_Li.extend(self.nd_model.SEI_equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material))
 
         for i, material in enumerate(self.cathode.active_material):
-            j_li_index = self.f_1._fields.index('j_Li_c0')
+            j_li_index = self.f_1.var_names.index('j_Li_c0')
             j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=c_s_surf_c[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=-self.i_app)
 
             F_j_Li.append(
@@ -1851,7 +1767,9 @@ class NDProblem(Problem):
             phi_s_bound_field = self.nd_model.phi_s_ref+ self.nd_model.solid_potential*self.f_1.phi_s
             bc_value = self.nd_model.scale_variables({'phi_s': 0})['phi_s']
         # - anode: Dirichlet
-        self.bc = BlockDirichletBC([DirichletBC(self.W.sub(phi_s_bound_index), Constant(bc_value), self.mesher.boundaries, self.mesher.field_data['negativePlug'])])
+        negative_tab = self.mesher.boundaries.indices[self.mesher.boundaries.values==self.mesher.field_data['negativePlug']]
+        negative_tab_dofs = dfx.fem.locate_dofs_topological(self.W[phi_s_bound_index], self.mesher.boundaries.dim, negative_tab)
+        self.bc = [dfx.fem.dirichletbc(dfx.fem.Constant(self.mesher.mesh, ScalarType(0)), negative_tab_dofs, self.W[phi_s_bound_index])]
         # - cathode: Newman or Dirichlet via Lagrange multiplier
         self.F_lm_app = [
             (1 - self.beta) * (self.f_1.lm_app - self.i_app) * self.test.lm_app * d.s_c +
@@ -1865,9 +1783,9 @@ class NDProblem(Problem):
                      + F_T_0 \
                      + F_c_s_0
 
-        J_var_0 = block_derivative(F_var_0, self.u_2, self.du)
-        self.F_var_0 = BlockForm(F_var_0)
-        self.J_var_0 = BlockForm(J_var_0)
+        J_var_0 = block_derivative(F_var_0, self.u_2.functions, self.du.functions)
+        self.F_var_0 = F_var_0
+        self.J_var_0 = J_var_0
 
     def implicit_sgm_wf(self):
         d = self.mesher.get_measures()
@@ -1902,9 +1820,9 @@ class NDProblem(Problem):
 
         F_j_Li = []
         for i, material in enumerate(self.anode.active_material):
-            j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
+            j_li_index = self.f_1.var_names.index(f'j_Li_a{i}')
             if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
+                delta_index = self.f_1.var_names.index(f'delta_a{i}')
                 j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_a[i],
                                     alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=self.i_app,
                                     J=self.j_Li_e_a/material.a_s, SEI=self.anode.SEI, delta=self.f_1[delta_index])
@@ -1919,7 +1837,7 @@ class NDProblem(Problem):
             F_j_Li.extend(self.nd_model.SEI_equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.DT))
 
         for i, material in enumerate(self.cathode.active_material):
-            j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
+            j_li_index = self.f_1.var_names.index(f'j_Li_c{i}')
             j_li = self.nd_model.j_Li_equation(material = material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_c[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=-self.i_app)
 
             F_j_Li.append(
@@ -1947,12 +1865,12 @@ class NDProblem(Problem):
                         + self.F_T \
                         + F_c_s 
 
-        J_var_implicit = block_derivative(F_var_implicit, self.u_2, self.du)
-        self.F_var_implicit = BlockForm(F_var_implicit)
-        self.J_var_implicit = BlockForm(J_var_implicit)
+        J_var_implicit = block_derivative(F_var_implicit, self.u_2.functions, self.du.functions)
+        self.F_var_implicit = F_var_implicit
+        self.J_var_implicit = J_var_implicit
 
-        self.problem_implicit = BlockNonlinearProblem(self.F_var_implicit,  self.u_2, self.bc, self.J_var_implicit)
-        self.solver_implicit = BlockPETScSNESSolver(self.problem_implicit)
+        self.problem_implicit = NonlinearBlockProblem(self.F_var_implicit,  self.u_2.functions, self.bc, self.J_var_implicit, self.W.restrictions)
+        self.solver_implicit = NewtonBlockSolver(comm, self.problem_implicit)
         self.set_use_options(self.solver_implicit, use_options=self.use_options)
 
     def set_timestep(self, timestep):
@@ -1979,7 +1897,7 @@ class NDProblem(Problem):
     def get_temperature(self, x=None):
         if x is None:
             x=self.f_1
-        return self.nd_model.T_ref+ self.nd_model.thermal_gradient*x.temp.vector().max()
+        return self.nd_model.T_ref+ self.nd_model.thermal_gradient*x.temp.vector.array.max()
 
     def get_Q_sei(self):
         if 'Q_sei' not in self.__dict__:
@@ -1990,6 +1908,6 @@ class NDProblem(Problem):
         return self.Q_sei
 
     def get_L_sei(self):
-        L_sei = [self.f_1[self.f_1._fields.index(f'delta_a{i}')].vector()[self.P1_map.domain_dof_map['anode']].mean()* self.nd_model.delta_sei_a[i] for i in range(self.number_of_anode_materials)]
+        L_sei = [self.f_1[self.f_1.var_names.index(f'delta_a{i}')].vector.array[self.P1_map.domain_dof_map['anode']].mean()* self.nd_model.delta_sei_a[i] for i in range(self.number_of_anode_materials)]
         return L_sei
 

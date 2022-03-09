@@ -18,7 +18,7 @@
 #
 
 import numpy as np
-import dolfin as df
+import dolfinx as dfx
 from sys import exit
 
 #######################################################

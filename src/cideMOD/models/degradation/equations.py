@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import *
+from ufl import Measure
 
 from typing import List
 
@@ -24,8 +24,10 @@ import numpy
 from numpy.polynomial.legendre import *
 
 from cideMOD.numerics.polynomials import Lagrange
+from cideMOD.numerics.fem_handler import interpolate
+
 from numpy.polynomial.polynomial import *
-from ufl.operators import exp, sinh
+from ufl import exp
 
 __all__= [
     "SEI",
@@ -62,8 +64,8 @@ class SEI:
             for material in range(n_mat):
                 c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(material))
                 for j in range(self.order):
-                    assign(f_0[c_EC_index+j], interpolate(Constant(c_0), f_0[c_EC_index+j].function_space()))
-
+                    interpolate(c_0, f_0[c_EC_index+j])
+                    
     def j_SEI(self, j_SEI, test, dx, i_0s, phi_s, phi_e, T, J, G_film, SEI, F, R):
 
         eta = self.SEI_overpotential(phi_s, phi_e, J, G_film, SEI)

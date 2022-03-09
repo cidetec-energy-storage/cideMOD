@@ -16,18 +16,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import (
-    MPI,
-    Constant,
-    Function,
-    FunctionSpace,
-    Timer,
-    TimingClear,
-    TimingType,
-    XDMFFile,
-    project,
-    timings,
-)
+import dolfinx as dfx
+from mpi4py import MPI
+from dolfinx.common import Timer, timed
 
 import os
 import shutil
@@ -37,11 +28,12 @@ from sys import getsizeof
 
 from numpy import array, concatenate, newaxis, savetxt
 from cideMOD.helpers.extract_fom_info import store_results
+from cideMOD.numerics.fem_handler import interpolate
 
 class Warehouse:
     def __init__(self, save_path, problem, delay = 1):
         self.save_path = save_path
-        self.comm = MPI.comm_world
+        self.comm = MPI.COMM_WORLD
         self.problem = problem
         self.delay = delay
         self.counter = 0
@@ -54,41 +46,37 @@ class Warehouse:
 
     def internal_variables(self, fields:list):
         self.field_vars = {}
+        self.xdmf = self._create_storing_file(self.save_path, '', 'results')
+        self.xdmf.write_mesh(self.problem.mesher.mesh)
         for name in fields:
             if not isinstance(name, (list, tuple)):
                 name = [name]
             if len(name) == 1:  # Store scalar
-                xdmf = self._create_storing_file(self.save_path, name[0], name[0])
                 fnc = self._create_storing_function(name[0])
-                self.field_vars[name[0]] = (xdmf, fnc)
+                self.field_vars[name[0]] = fnc
             elif len(name) > 1:  # Store vector or list
                 valid_types = ('vector','list_of_scalar','list_of_vector')
                 assert name[1] in valid_types, "Type invalid. Valid types are {}".format(valid_types)
                 if name[1] == 'vector':
-                    xdmf = self._create_storing_file(self.save_path, name[0], name[0])
                     fnc = self._create_storing_function(name[0],vector=True)
-                    self.field_vars[name[0]] = (xdmf, fnc)
+                    self.field_vars[name[0]] = fnc
                 else:
                     assert len(name) == 3, "Must specify list lenght. Format: (name[, type[, len]])"
                     assert isinstance(name[2], int), "List lenght must be an integer"
-                    xdmf = [self._create_storing_file(self.save_path, name[0], '{}_{}'.format(name[0],i)) for i in range(name[2])]
                     fnc = [self._create_storing_function('{}_{}'.format(name[0],i),vector=bool(name[1]=='list_of_vector')) for i in range(name[2])]
-                    self.field_vars[name[0]] = (xdmf, fnc)
+                    self.field_vars[name[0]] = fnc
             else:
                 raise Exception("Internal variable only supports 3 args. Format: (name[, type[, len]])")
                 
     def _create_storing_file(self, save_path, folder, name):
-        xdmf = XDMFFile(self.comm ,os.path.join(save_path, folder,'{}.xdmf'.format(name)))
-        xdmf.parameters['rewrite_function_mesh'] = False
-        xdmf.parameters['functions_share_mesh'] = True
-        xdmf.parameters['flush_output'] = True
+        xdmf = dfx.io.XDMFFile(self.comm ,os.path.join(save_path, folder,'{}.xdmf'.format(name)),'w')
         return xdmf
 
     def _create_storing_function(self, name, vector=False):
         if vector:
-            fnc = Function(self.problem.V_vec, name=name)
+            fnc = dfx.fem.Function(self.problem.V_vec, name=name)
         else:
-            fnc = Function(self.problem.V, name=name)
+            fnc = dfx.fem.Function(self.problem.V, name=name)
         return fnc
 
     def global_variables(self, params:dict):
@@ -98,33 +86,31 @@ class Warehouse:
     def post_processing_functions(self, functions:list):
         self.post_processing = functions
 
+    @timed('Post-processing')
     def _post_process(self):
-        timer = Timer('Post-processing')
         for func in self.post_processing:
             func()
-        timer.stop()
-        
+    
+    @timed('Store Internals')
     def _store_internals(self, time):
-        timer = Timer('Store Internals')
-        for name, (file, func) in self.field_vars.items():
+        for name, func in self.field_vars.items():
             try:
                 if 'nd_model' in self.problem.__dict__.keys():
                     variables = self.problem.nd_model.physical_variables(self.problem) 
                     var = variables[name]
-                    self._store_var( var, func, file, time)
+                    self._store_var( var, func, self.xdmf, time)
                 else:    
-                    index = self.problem.f_1._fields.index(name)
+                    index = self.problem.f_1.var_names.index(name)
                     var = self.problem.f_1[index]
-                    self._store_var( var, func, file, time)
+                    self._store_var( var, func, self.xdmf, time)
             except (ValueError, KeyError) as e:
                 if name in self.problem.__dict__.keys():
                     var = self.problem.__dict__[name]
-                    self._store_var( var, func, file, time)
+                    self._store_var( var, func, self.xdmf, time)
                 else:
                     pass
                     # TODO: Print warning and quit name, file and func from variable lists
-                    # raise Exception("Attribute '{}' not found in f_1 nor in the problem object".format(name))                
-        timer.stop()
+                    # raise Exception("Attribute '{}' not found in f_1 nor in the problem object".format(name))
 
     def _store_var(self, var, func, file, time):
         if not isinstance(var,(list,tuple)):
@@ -133,26 +119,20 @@ class Warehouse:
             func = [func]
             file = [file]
         assert len(var) == len(func), "Specified variable length does not match"
-        for (v, fnc, fout) in zip(var,func,file):
-            if isinstance(var, Function):
-                fout.write(fnc,time)
-            else:
-                if isinstance(v,(float, int)):
-                    v=Constant(v)
-                fnc.assign(project(v, fnc.function_space()))
-                fout.write(fnc,time)
+        for (v, fnc) in zip(var,func):
+            interpolate(v, fnc)
+            self.xdmf.write_function(fnc,time)
 
+    @timed('Store Globals')
     def _store_globals(self, time):
-        timer = Timer('Store Globals')
         self.global_var_arrays[0].append(time)
         for i, f in enumerate(self.global_vars.values(), 1):
             self.global_var_arrays[i].append(f['fnc']())
-        timer.stop()
 
     def store(self, time, force = False, store_fom = True):
         self._store_globals(time)
-        if store_fom:
-            self._store_2_rom()
+        # if store_fom:
+        #     self._store_2_rom()
         if isinstance(self.delay, list):
             if time in self.delay or any(k<time and k>self.counter for k in self.delay):
                 self._post_process()
@@ -167,7 +147,7 @@ class Warehouse:
                 self._store_internals(time)
                 self.counter = 0
 
-
+    @timed('Store_2_ROM')
     def _store_2_rom(self):
         # Save current time step solution
         store_results(self.problem, 'unscaled' if hasattr(self.problem,'nd_model') else 'scaled')
@@ -178,8 +158,8 @@ class Warehouse:
             if key != 'time' and key != 'voltage':
                 self.problem.fom2rom['results'][key] = self.problem.fom2rom['results'][key][:,:self.problem.current_timestep]
 
-    def write_globals(self, clean=True):
-        if MPI.rank(self.comm) == 0:
+    def write_globals(self, clean=True, debug=False):
+        if self.comm.rank == 0:
             for i, key in enumerate(self.global_vars.keys(), 1):
                 global_var_array = array(self.global_var_arrays[i])
                 if global_var_array.ndim == 1:
@@ -199,10 +179,9 @@ class Warehouse:
             # Write condensated
             self._write_compiled_output()
             # Write timings table
-            timing_table = timings(TimingClear.keep, [TimingType.wall, TimingType.user, TimingType.system])
-            with open(os.path.join(self.save_path,'timings.log'), 'w') as out:
-                out.write(timing_table.str(True))
-
+            if debug:
+                dfx.list_timings(self.comm, [dfx.TimingType.wall, dfx.TimingType.user, dfx.TimingType.system])
+            
             # Reset globals container
             if clean:
                 self.global_variables(self.global_vars)

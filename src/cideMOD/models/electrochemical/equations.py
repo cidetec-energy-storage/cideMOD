@@ -16,10 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import conditional, inner, lt
-
-from ufl.operators import exp, sinh
-
+from ufl import conditional, inner, lt, exp, sinh
 
 def phi_e_equation(phi_e, test, dx, c_e, j_Li, kappa, kappa_D, domain_grad=None, L=None, scale_factor=1):
     """
@@ -51,7 +48,7 @@ def phi_e_equation(phi_e, test, dx, c_e, j_Li, kappa, kappa_D, domain_grad=None,
     Form
         Electrolyte Potential Equation
     """
-    if dx.subdomain_data().where_equal(dx.subdomain_id()):
+    if dx.subdomain_id() in dx.subdomain_data().values:
         F_phi = scale_factor*L*kappa * inner(domain_grad(phi_e), domain_grad(test))*dx(metadata={"quadrature_degree":0}) + \
             (scale_factor*L*kappa_D/c_e)*inner(domain_grad(c_e), domain_grad(test))*dx(metadata={"quadrature_degree":2})
         if j_Li is not None:
@@ -94,7 +91,7 @@ def phi_s_equation(phi_s, test, dx, j_Li, sigma, domain_grad=None, L=None, scale
     Form
         Electrode Potential Equation
     """
-    if dx.subdomain_data().where_equal(dx.subdomain_id()):
+    if dx.subdomain_id() in dx.subdomain_data().values:
         F_phi_s = 0
         if sigma is not None:
             F_phi_s += scale_factor*L * sigma * inner(domain_grad(phi_s), domain_grad(test)) * dx
@@ -162,7 +159,7 @@ def c_e_equation(c_e_0, c_e, test, dx, DT, j_Li, D_e, eps_e, t_p, F, domain_grad
     Form
         Electrolyte Concentration Equation
     """
-    if dx.subdomain_data().where_equal(dx.subdomain_id()):
+    if dx.subdomain_id() in dx.subdomain_data().values:
         F_c = (scale_factor*L * eps_e) * DT.dt(c_e_0, c_e) * test * dx + \
             (scale_factor*L*D_e) * inner(domain_grad(c_e), domain_grad(test)) * dx
         if j_Li is not None:
