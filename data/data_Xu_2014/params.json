@@ -1,0 +1,148 @@
+{
+    "references": {
+        "1": "Mevawalla (2020)",
+        "2": "Xu (2015)"
+    },
+    "results": {
+    },
+    "constants": {
+        "R": {"unit": "J/K mol", "value": 8.314472},
+        "F": {"unit": "C/mol", "value": 96485.3365},
+        "alpha": {"unit": "-", "value": 0.5}
+    },
+    "properties": {
+        "heatConvection": {"unit": "W/m^2 K", "value": 0}
+    },
+    "negativeCurrentCollector": {
+        "name": "Cu",
+        "thickness": {"unit": "m", "value": 9e-06},
+        "height": {"unit": "m", "value": 105e-3},
+        "width": {"unit": "m", "value": 67e-3},
+        "density": {"unit": "kg/m3", "value": 8900},
+        "specificHeat": {"unit": "J/kg K", "value": 385.0},
+        "thermalConductivity": {"unit": "W/mK", "value": 400},
+        "electronicConductivity": {"unit": "S/m", "value": 6.33e7}
+    },
+    "negativeElectrode": {
+        "name": "LiC6",
+        "thickness": {"unit": "m", "value": 59e-06},
+        "height": {"unit": "m", "value": 105e-3},
+        "width": {"unit": "m", "value": 67e-3},
+        "porosity": {"unit": "-", "value": 0.3},
+        "bruggeman": {"unit": "-", "value": 1.5},
+        "electronicConductivity": {"unit": "S/m", "value": 100.0, "effective": true},
+        "thermalConductivity": {"unit": "W/mK", "value": 1.04, "effective": true},
+        "specificHeat": {"unit": "J/kg K",  "value": 1450.2, "effective": true},
+        "density": {"unit": "kg/m3", "value": 2225},
+        "active_materials": 
+        [
+	      {
+            "volFrac_active": {"unit": "-", "value": 0.56},
+            "particleRadius": {"unit": "m", "value": 14.75e-06},
+            "stoichiometry1": {"unit": "-", "value": 0.51873811},
+            "stoichiometry0": {"unit": "-", "value": 0.001},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 1.764e-11, "arrhenius": {"activationEnergy": 4000, "referenceTemperature":298.15}},
+            "maximumConcentration": {"unit": "mol/m3", "value": 31540.0},
+            "diffusionConstant": {"unit": "m^2/s", "value": "3.9e-14*pow(1.5-x,3)", "arrhenius": {"activationEnergy": 4000, "referenceTemperature":298.15}},
+            "openCircuitPotential": {
+                "unit": ["-", "V"], 
+                "type": "spline", 
+                "spline_type": "not-a-knot", 
+                "source": "file", 
+                "value": "OCV_G.txt"
+            },
+            "entropyCoefficient": {
+                "unit": ["-", "kJ/(mol*K)"], 
+                "type": "spline", 
+                "spline_type": "not-a-knot", 
+                "source": "file", 
+                "value": "dOCP_dT_G.txt"
+            }
+          }
+        ]
+    },
+    "separator": {
+        "name": "Not specified",
+        "thickness": {"unit": "m", "value": 20e-06},
+        "height": {"unit": "m", "value": 105e-3},
+        "width": {"unit": "m", "value": 67e-3},
+        "density": {"unit": "kg/m3", "value": 779.2},
+        "porosity": {"unit": "-", "value": 0.4},
+        "bruggeman": {"unit": "-", "value": 1.5},
+        "thermalConductivity": {"unit": "W/mK", "value": 0.334, "effective": true},
+        "specificHeat": {"unit": "J/kg K", "value": 1692.3, "effective": true}
+    },
+    "positiveElectrode": {
+        "name": "LiFePO",
+        "thickness": {"unit": "m", "value": 92e-06},
+        "height": {"unit": "m", "value": 105e-3},
+        "width": {"unit": "m", "value": 67e-3},
+        "porosity": {"unit": "-", "value": 0.28},
+        "bruggeman": {"unit": "-", "value": 1.5},
+        "electronicConductivity": {"unit": "S/m", "value": 0.01, "effective": true},
+        "thermalConductivity": {"unit": "W/mK", "value": 1.48, "effective": true},
+        "specificHeat": {"unit": "J/kg K", "value": 1321.6, "effective": true},
+        "density": {"unit": "kg/m3", "value": 1418},
+        "active_materials": 
+        [
+	      {
+		    "volFrac_active": {"unit": "-", "value": 0.435},
+            "particleRadius": {"unit": "m", "value": 1.15e-06},
+            "stoichiometry1": {"unit": "-", "value": 0.14778},
+            "stoichiometry0": {"unit": "-", "value": 0.999},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.626e-11, "arrhenius": {"activationEnergy": 4000, "referenceTemperature":298.15}},
+            "maximumConcentration": {"unit": "mol/m3", "value": 26390.0},
+            "diffusionConstant": {"unit": "m^2/s", "value": 1.25e-15, "arrhenius": {"activationEnergy": 20000, "referenceTemperature":298.15}},
+            "openCircuitPotential": {
+                "unit": ["-", "V"], 
+                "type": "spline", 
+                "spline_type": "not-a-knot", 
+                "source": "file", 
+                "value": "OCV_LFP.txt"
+            },
+            "entropyCoefficient": {
+                "unit": ["-", "V/K"], 
+                "type": "spline", 
+                "spline_type": "not-a-knot", 
+                "source": "file", 
+                "value": "dOCP_dT_LFP.txt"
+            }
+          }
+        ]
+    },
+    "positiveCurrentCollector": {
+        "name": "Al",
+        "thickness": {"unit": "m", "value": 16e-06},
+        "height": {"unit": "m", "value": 105e-3},
+        "width": {"unit": "m", "value": 67e-3},
+        "density": {"unit": "kg/m3", "value": 2700},
+        "specificHeat": {"unit": "J/kg K", "value": 903.0},
+        "thermalConductivity": {"unit": "W/mK", "value": 160},
+        "electronicConductivity": {"unit": "S/m", "value": 3.83e7}
+    },
+    "electrolyte": {
+        "name": "LiPF6",
+        "diffusionConstant": {
+            "unit": "m^2/s", 
+            "value": "pow(10,-0.22*0.001*c_e-8.43-54/(temp-229-5*0.001*c_e))",
+            "_value": 6e-12, "effective": false, "correction":"bruggeman"
+        },
+        "ionicConductivity": {
+            "unit": "S/m", 
+            "value": "c_e*1e-4*1.2544*(-8.2488+0.053248*temp-2.987e-5*pow(temp,2)+0.26235e-3*c_e-9.3063e-6*c_e*temp+8.069e-9*c_e*pow(temp,2)+2.2002e-7*pow(c_e,2)-1.765e-10*temp*pow(c_e,2))",
+            "_value": 0.7, "effective": false, "correction":"bruggeman"
+        },
+        "transferenceNumber": {"unit": "-", "value": 0.363},
+        "activityDependence": {
+            "unit":"-", 
+            "note": "This is the (dln(f)/dln(c_e)+1) term in the potential equation",
+            "value": "(1-0.363)/(1-0.399)*(0.601-0.24e-2*pow(c_e,0.5)+0.982*(1-0.0052*(temp-294))*pow(1e-3*c_e,1.5))/(1-t_p)",
+            "_value": 1
+        },
+        "initialConcentration": {"unit": "mol/m3", "value": 1500},
+        "density": {"unit":"kg/m3", "value": 1210},
+        "specificHeat": {"unit": "J/kg K", "value": 1518},
+        "thermalConductivity": {"unit":"W/mK", "value":0.099}
+    },
+    "structure": ["ncc","a","s","c","pcc"]
+}
