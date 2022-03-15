@@ -32,8 +32,8 @@
         "bruggeman": {"unit": "-", "value": 1.5},
         "electronicConductivity": {"unit": "S/m", "value": 2.0, "effective": true},
         "thermalConductivity": {"unit": "W/mK", "value": 1.04, "effective": true},
-        "specificHeat": {"unit": "J/kg K",  "value": 1437, "effective": true},
-        "density": {"unit": "kg/m3", "value": 2660},
+        "specificHeat": {"unit": "J/kg K",  "value": 1453, "effective": true},
+        "density": {"unit": "kg/m3", "value": 1852},
         "active_materials": 
         [
 	      {
@@ -66,11 +66,11 @@
         "thickness": {"unit": "m", "value": 20e-06},
         "height": {"unit": "m", "value": 105e-3},
         "width": {"unit": "m", "value": 67e-3},
-        "density": {"unit": "kg/m3", "value": 492},
+        "density": {"unit": "kg/m3", "value": 779},
         "porosity": {"unit": "-", "value": 0.4},
         "bruggeman": {"unit": "-", "value": 1.5},
         "thermalConductivity": {"unit": "W/mK", "value": 0.334, "effective": true},
-        "specificHeat": {"unit": "J/kg K", "value": 1978, "effective": true}
+        "specificHeat": {"unit": "J/kg K", "value": 1692, "effective": true}
     },
     "positiveElectrode": {
         "name": "LiFePO",
@@ -81,8 +81,8 @@
         "bruggeman": {"unit": "-", "value": 1.5},
         "electronicConductivity": {"unit": "S/m", "value": 0.01, "effective": true},
         "thermalConductivity": {"unit": "W/mK", "value": 1.48, "effective": true},
-        "specificHeat": {"unit": "J/kg K", "value": 1260.2, "effective": true},
-        "density": {"unit": "kg/m3", "value": 1500},
+        "specificHeat": {"unit": "J/kg K", "value": 1348, "effective": true},
+        "density": {"unit": "kg/m3", "value": 991},
         "active_materials": 
         [
 	      {
