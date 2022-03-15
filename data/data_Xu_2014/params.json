@@ -30,10 +30,10 @@
         "width": {"unit": "m", "value": 67e-3},
         "porosity": {"unit": "-", "value": 0.3},
         "bruggeman": {"unit": "-", "value": 1.5},
-        "electronicConductivity": {"unit": "S/m", "value": 100.0, "effective": true},
+        "electronicConductivity": {"unit": "S/m", "value": 2.0, "effective": true},
         "thermalConductivity": {"unit": "W/mK", "value": 1.04, "effective": true},
-        "specificHeat": {"unit": "J/kg K",  "value": 1450.2, "effective": true},
-        "density": {"unit": "kg/m3", "value": 2225},
+        "specificHeat": {"unit": "J/kg K",  "value": 1437, "effective": true},
+        "density": {"unit": "kg/m3", "value": 2660},
         "active_materials": 
         [
 	      {
@@ -43,7 +43,7 @@
             "stoichiometry0": {"unit": "-", "value": 0.001},
             "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 1.764e-11, "arrhenius": {"activationEnergy": 4000, "referenceTemperature":298.15}},
             "maximumConcentration": {"unit": "mol/m3", "value": 31540.0},
-            "diffusionConstant": {"unit": "m^2/s", "value": "3.9e-14*pow(1.5-x,3)", "arrhenius": {"activationEnergy": 4000, "referenceTemperature":298.15}},
+            "diffusionConstant": {"unit": "m^2/s", "value": "3.9e-14*pow(1.5-x,3.5)", "arrhenius": {"activationEnergy": 4000, "referenceTemperature":298.15}},
             "openCircuitPotential": {
                 "unit": ["-", "V"], 
                 "type": "spline", 
@@ -66,11 +66,11 @@
         "thickness": {"unit": "m", "value": 20e-06},
         "height": {"unit": "m", "value": 105e-3},
         "width": {"unit": "m", "value": 67e-3},
-        "density": {"unit": "kg/m3", "value": 779.2},
+        "density": {"unit": "kg/m3", "value": 492},
         "porosity": {"unit": "-", "value": 0.4},
         "bruggeman": {"unit": "-", "value": 1.5},
         "thermalConductivity": {"unit": "W/mK", "value": 0.334, "effective": true},
-        "specificHeat": {"unit": "J/kg K", "value": 1692.3, "effective": true}
+        "specificHeat": {"unit": "J/kg K", "value": 1978, "effective": true}
     },
     "positiveElectrode": {
         "name": "LiFePO",
@@ -81,8 +81,8 @@
         "bruggeman": {"unit": "-", "value": 1.5},
         "electronicConductivity": {"unit": "S/m", "value": 0.01, "effective": true},
         "thermalConductivity": {"unit": "W/mK", "value": 1.48, "effective": true},
-        "specificHeat": {"unit": "J/kg K", "value": 1321.6, "effective": true},
-        "density": {"unit": "kg/m3", "value": 1418},
+        "specificHeat": {"unit": "J/kg K", "value": 1260.2, "effective": true},
+        "density": {"unit": "kg/m3", "value": 1500},
         "active_materials": 
         [
 	      {
@@ -125,12 +125,12 @@
         "diffusionConstant": {
             "unit": "m^2/s", 
             "value": "pow(10,-0.22*0.001*c_e-8.43-54/(temp-229-5*0.001*c_e))",
-            "_value": 6e-12, "effective": false, "correction":"bruggeman"
+            "effective": false, "correction":"bruggeman"
         },
         "ionicConductivity": {
             "unit": "S/m", 
             "value": "c_e*1e-4*1.2544*(-8.2488+0.053248*temp-2.987e-5*pow(temp,2)+0.26235e-3*c_e-9.3063e-6*c_e*temp+8.069e-9*c_e*pow(temp,2)+2.2002e-7*pow(c_e,2)-1.765e-10*temp*pow(c_e,2))",
-            "_value": 0.7, "effective": false, "correction":"bruggeman"
+            "effective": false, "correction":"bruggeman"
         },
         "transferenceNumber": {"unit": "-", "value": 0.363},
         "activityDependence": {

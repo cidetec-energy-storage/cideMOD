@@ -24,14 +24,14 @@ from cideMOD.models.cell_components import CurrentColector, Electrode, Separator
 def electrolyte_ohmic_heat_equation(kappa, kappa_D, phi_e, c_e, test, dx, grad, L, eps):
     F_q = 0
     if phi_e is not None and kappa is not None and kappa_D is not None and c_e is not None:
-        F_q += L * eps * kappa * inner(grad(phi_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":1}) + \
-            L * eps * (kappa_D/c_e) * inner(grad(c_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":2})
+        F_q += L *  kappa * inner(grad(phi_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":1}) + \
+            L * (kappa_D/c_e) * inner(grad(c_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":2})
     return F_q
 
 def solid_ohmic_heat_equation(sigma, phi_s, test, dx, grad, L, eps):
     F_q = 0
     if phi_s is not None and sigma is not None:
-        F_q += L * (1-eps) * sigma * inner(grad(phi_s), grad(phi_s)) * test * dx(metadata={"quadrature_degree":1})
+        F_q += L * sigma * inner(grad(phi_s), grad(phi_s)) * test * dx(metadata={"quadrature_degree":1})
     return F_q
 
 def reaction_irreversible_heat(material, j_Li, c_s_surf, phi_s, phi_e, test, current, dx, L):

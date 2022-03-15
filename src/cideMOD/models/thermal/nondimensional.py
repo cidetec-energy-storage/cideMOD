@@ -63,26 +63,27 @@ class ThermalModel(BaseModel):
         return {}
 
     def T_equation(self, domain, DT, T, T_0, test, f_1, c_s_surf, current, dx, **kwargs):
-        accumulation_term = (domain.rho*domain.c_p / (self.rho_ref*self.c_p_ref)) * DT.dt(T_0,T) * test * dx
-        diffusion_term = domain.k_t/(self.delta_k * self.k_t_reff) * inner(grad(T), grad(test)) * dx(metadata={"quadrature_degree":0})
+        domain_scale = 2*domain.k_t/(domain.norm[1]+domain.norm[2])
+        accumulation_term = (domain.rho*domain.c_p / (self.rho_ref*self.c_p_ref*domain_scale)) * DT.dt(T_0,T) * test * dx
+        diffusion_term = domain.k_t/(self.delta_k * self.k_t_reff*domain_scale) * inner(grad(T), grad(test)) * dx(metadata={"quadrature_degree":0})
         source_term = 0
         # Heat generated in electrolyte
         if isinstance(domain, (Electrode, Separator)):
-            source_term += domain.eps_e * domain.kappa/(self.delta_K*self.K_eff_ref) * inner(grad(f_1.phi_e),grad(f_1.phi_e))*test*dx(metadata={"quadrature_degree":1})
-            source_term -= domain.eps_e * domain.kappa/(self.delta_K_D*self.K_eff_ref) * (1+self.thermal_gradient/self.T_ref * T)/(1+self.delta_c_e_ref/self.c_e_0 * f_1.c_e) *inner(grad(f_1.c_e),grad(f_1.phi_e))*test*dx
+            source_term += domain.kappa/(self.delta_K*self.K_eff_ref*domain_scale) * inner(grad(f_1.phi_e),grad(f_1.phi_e))*test*dx(metadata={"quadrature_degree":1})
+            source_term -= domain.kappa/(self.delta_K_D*self.K_eff_ref*domain_scale) * (1+self.thermal_gradient/self.T_ref * T)/(1+self.delta_c_e_ref/self.c_e_0 * f_1.c_e) *inner(grad(f_1.c_e),grad(f_1.phi_e))*test*dx
         # Heat generated in solid
         if isinstance(domain, Electrode):
-            source_term += (1-domain.eps_e) * domain.sigma/(self.delta_sigma*self.sigma_ref*(self.thermal_potential/self.solid_potential)) * inner(grad(f_1.phi_s),grad(f_1.phi_s))*test*dx(metadata={"quadrature_degree":1})
+            source_term += domain.sigma/(self.delta_sigma*self.sigma_ref*(self.thermal_potential/self.solid_potential)*domain_scale) * inner(grad(f_1.phi_s),grad(f_1.phi_s))*test*dx(metadata={"quadrature_degree":1})
         if isinstance(domain, CurrentColector):
-            source_term += domain.sigma/(self.delta_sigma*self.sigma_ref*(self.thermal_potential/self.solid_potential)) * inner(grad(f_1.phi_s_cc),grad(f_1.phi_s_cc))*test*dx(metadata={"quadrature_degree":1})
+            source_term += domain.sigma/(self.delta_sigma*self.sigma_ref*(self.thermal_potential/self.solid_potential)*domain_scale) * inner(grad(f_1.phi_s_cc),grad(f_1.phi_s_cc))*test*dx(metadata={"quadrature_degree":1})
         # Heat generated at the active material interface
         if isinstance(domain, Electrode):
             for i, material in enumerate(domain.active_material):
                 j_Li_index = f_1._fields.index(f"j_Li_{domain.tag}{i}")
                 entropy = self.scale_variables({'dU/dT': material.delta_S})['dU/dT']
-                source_term+= f_1[j_Li_index] * (self.T_ref/self.thermal_gradient + T) * entropy(c_s_surf[i], current) * test * dx
+                source_term+= f_1[j_Li_index]/domain_scale * (self.T_ref/self.thermal_gradient + T) * entropy(c_s_surf[i], current) * test * dx
                 eta = self.overpotential(material, f_1.phi_s, f_1.phi_e, current, c_s_surf[i], kwargs=kwargs)
-                source_term+= f_1[j_Li_index] * eta * test * dx
+                source_term+= f_1[j_Li_index]/domain_scale * eta * test * dx
         return accumulation_term + diffusion_term - source_term
 
     def T_bc_equation(self, T, T_ext, h_t, test, ds):

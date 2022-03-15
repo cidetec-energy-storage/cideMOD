@@ -327,7 +327,7 @@ class Problem:
                 # "relative_tolerance": 1e-7,
                 "maximum_iterations": 10,
                 "report": False,
-                "line_search": "basic",
+                "line_search": "bt",
                 "error_on_nonconvergence": True,
                 # "preconditioner": "ilu"
             }
@@ -1311,9 +1311,7 @@ class Problem:
             F_T_pcc = T_equation(T_0=self.f_0.temp, T=self.f_1.temp, test=self.test.temp, dx=d.x_pcc, DT=self.DT, rho=self.positiveCC.rho,
                                  c_p=self.positiveCC.c_p, k_t=self.positiveCC.k_t, q=q_pcc, grad=self.positiveCC.grad, L=self.positiveCC.L, alpha=1e-3)
 
-            F_T_boundary = self.h_t * (self.f_1.temp - self.T_ext) * self.test.temp * \
-                d.s_a + self.h_t * \
-                (self.f_1.temp - self.T_ext)* self.test.temp * d.s_c
+            F_T_boundary = self.h_t * (self.f_1.temp - self.T_ext) * self.test.temp * d.s
 
             self.F_T = [F_T_ncc+F_T_a +
                         F_T_s +
@@ -1439,9 +1437,7 @@ class Problem:
     def get_temperature(self, x=None):
         if x is None:
             x=self.f_1
-        return (assemble(x.temp*self.mesher.dx_a)*self.anode.L + 
-            assemble(x.temp*self.mesher.dx_s)*self.separator.L + 
-            assemble(x.temp*self.mesher.dx_c)*self.cathode.L)/(self.anode.L+self.separator.L+self.cathode.L)
+        return x.temp.vector().max() 
 
     def get_time_filter_error(self):
         t=Timer('TF Error')
@@ -1944,8 +1940,7 @@ class NDProblem(Problem):
                         + self.F_phi_e \
                         + self.F_phi_s + self.F_lm_app\
                         + F_j_Li \
-                        + self.F_T \
-                        + F_c_s 
+                        + F_c_s + self.F_T
 
         J_var_implicit = block_derivative(F_var_implicit, self.u_2, self.du)
         self.F_var_implicit = BlockForm(F_var_implicit)
