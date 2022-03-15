@@ -112,11 +112,13 @@ class SolventLimitedSEIModel(BaseModel):
         eta_sei -= sei_resistance/self.thermal_potential * J * self.I_0/(self.L_0*material.a_s) 
         return eta_sei
 
-    def overpotential(self, material, phi_s, phi_e, current, c_s_surf, **kwargs):
+    def overpotential(self, material, phi_s, phi_e, current, c_s_surf, T, **kwargs):
         SEI = material.electrode.SEI
         mat_dp = self.material_parameters(material)
-        ocv = self.scale_variables({'OCV': material.U})['OCV']
-        eta = self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - ocv(c_s_surf, current)
+        ocv_ref = self.scale_variables({'OCV': material.U})['OCV']
+        delta_S = self.scale_variables({'dU/dT': material.delta_S})['dU/dT']
+        ocv = ocv_ref(c_s_surf, current)+delta_S*(T+(self.T_ref-material.U.T_ref)/self.thermal_gradient)
+        eta = self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - ocv
         if all(key in kwargs for key in ('delta','J')):
             sei_resistance = SEI.R+mat_dp['delta_ref_sei']*kwargs['delta']/SEI.k 
             eta -= sei_resistance/self.thermal_potential * kwargs['J'] * self.I_0/(self.L_0*material.a_s)        

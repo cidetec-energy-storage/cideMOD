@@ -277,6 +277,7 @@ class Electrode(PorousComponent):
                         'charge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
                         'discharge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
                     })
+                self.U.T_ref = self.config.openCircuitPotential_Tref
             else:
                 raise NameError('Unknown type of OCP for active_material {}'.format(self.config.name))
 

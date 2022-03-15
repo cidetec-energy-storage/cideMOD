@@ -82,7 +82,7 @@ class ThermalModel(BaseModel):
                 j_Li_index = f_1._fields.index(f"j_Li_{domain.tag}{i}")
                 entropy = self.scale_variables({'dU/dT': material.delta_S})['dU/dT']
                 source_term+= f_1[j_Li_index]/domain_scale * (self.T_ref/self.thermal_gradient + T) * entropy(c_s_surf[i], current) * test * dx
-                eta = self.overpotential(material, f_1.phi_s, f_1.phi_e, current, c_s_surf[i], kwargs=kwargs)
+                eta = self.overpotential(material, f_1.phi_s, f_1.phi_e, current, c_s_surf[i], T, kwargs=kwargs)
                 source_term+= f_1[j_Li_index]/domain_scale * eta * test * dx
         return accumulation_term + diffusion_term - source_term
 
