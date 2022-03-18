@@ -23,6 +23,9 @@ import meshio
 import numpy as np
 import pygmsh
 
+from mpi4py import MPI
+import multiphenicsx.mesh.gmsh_to_fenicsx as gmsh_to_fenicsx
+import dolfinx as dfx
 
 class GmshGenerator:
     def __init__(self):
@@ -32,7 +35,11 @@ class GmshGenerator:
             's': 'separator',
             'c': 'cathode',
             'ncc': 'negativeCC',
-            'pcc': 'positiveCC'
+            'pcc': 'positiveCC',
+            'a-s': 'anode-separator',
+            'c-s': 'cathode-separator',
+            'a-ncc': 'anode-CC',
+            'c-pcc': 'cathode-CC',
         }
         self.discretization={
             'a': {'n':30, 'type': 'Progression', 'par': 1},
@@ -68,10 +75,11 @@ class GmshGenerator:
     def gmshEnvironment(func):
         def decorated(self, *args, **kwargs):
             self.geom.__enter__()
-            gmsh.option.setNumber("General.ExpertMode",1)
-            gmsh.option.setNumber("General.Verbosity",0)
             try:
-                func(self, *args, **kwargs)
+                if MPI.COMM_WORLD.rank == 0:
+                    gmsh.option.setNumber("General.ExpertMode",1)
+                    gmsh.option.setNumber("General.Verbosity",0)
+                    func(self, *args, **kwargs)
             finally:
                 self.geom.__exit__()
         return decorated
@@ -86,6 +94,7 @@ class GmshGenerator:
         gmsh.open(filename)
         gmsh.model.mesh.generate(dim)
         gmsh.write(output)
+        self.write_to_dolfinx(dim, filename)
         gmsh.finalize()
 
     @gmshEnvironment
@@ -98,7 +107,7 @@ class GmshGenerator:
         for i in range(n_elements):
             lines[i] = self.geom.add_line(points[i], points[i+1]) 
         
-        self._label_physical_elements(lines, structure)
+        self._label_physical_elements(lines, points, structure)
 
         ncc = self.geom.add_physical(points[0],label='negativePlug')
         pcc = self.geom.add_physical(points[-1],label='positivePlug')
@@ -110,6 +119,7 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 1, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
+            self.write_to_dolfinx(1, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
@@ -135,8 +145,9 @@ class GmshGenerator:
             curve_loops[i] = self.geom.add_curve_loop([lines[3*i+1],lines[3*(i+1)],lines[3*i+2],-lines[3*i]])
             surfaces[i] = self.geom.add_plane_surface(curve_loops[i])
 
+        lines_to_label = [lines[3*i] for i in range(n_elements+1)]
         # Label physical entities
-        self._label_physical_elements(surfaces, structure)
+        self._label_physical_elements(surfaces, lines_to_label, structure)
 
         ncc = self.geom.add_physical(lines[0],label='negativePlug')
         pcc = self.geom.add_physical(lines[-1],label='positivePlug')
@@ -155,6 +166,7 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 2, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
+            self.write_to_dolfinx(2, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
@@ -215,9 +227,9 @@ class GmshGenerator:
         for i in range(n_elements):
             surface_loops[i] = self.geom.add_surface_loop([surfaces[5*i+j] for j in range(6)])
             volumes[i] = self.geom.add_volume(surface_loops[i])
-
+        surfaces_to_label = [surfaces[5*i] for i in range(n_elements+1)]
         # Label physical entities
-        self._label_physical_elements(volumes, structure)
+        self._label_physical_elements(volumes, surfaces_to_label, structure)
 
         ncc = self.geom.add_physical(surfaces[0],label='negativePlug')
         pcc = self.geom.add_physical(surfaces[-1],label='positivePlug')
@@ -241,6 +253,7 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 3, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
+            self.write_to_dolfinx(3, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
@@ -391,7 +404,8 @@ class GmshGenerator:
                 volumes_to_label[tab[2]].append(tab_volumes[i])
 
         # Label physical entities
-        self._label_physical_elements(volumes_to_label, structure)
+        surfaces_to_label = [[[surfaces[0][i][j][k] for i in range(5)] for j in range(5)] for k in range(n_elements+1)]
+        self._label_physical_elements(volumes_to_label, surfaces_to_label, structure)
 
         if 'pcc' in structure or 'ncc' in structure:
             ncc = self.geom.add_physical(self._flatten_list([ tab_surfaces[i][j] for j in range(5) for i, tab in enumerate(tab_indexes) if tab[3] == 'ncc' ]), label='negativePlug')
@@ -448,16 +462,30 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 3, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
+            self.write_to_dolfinx(3, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
-    def _label_physical_elements(self, elements:list, structure:list):
+    def _label_physical_elements(self, elements:list, facets:list, structure:list):
         assert len(elements) == len(structure), "Element number incorrect" 
+        assert len(elements) == len(facets)-1 
         keys = np.array(structure)
         ind = np.arange(len(structure))
         key_dict = {}
         for k in set(keys):
             key_dict[k] = ind[k==keys]
+        interface_dict = {}
+        for k in set(keys):
+            has_interface = key_dict[k][key_dict[k]>0]
+            for j in set(keys):
+                if j!=k:
+                    interfaces = has_interface[keys[has_interface-1]==j]
+                    tag = '-'.join(sorted([j,k]))
+                    if len(interfaces)>0:
+                        if tag in interface_dict.keys():
+                            interface_dict[tag]= np.concatenate([interface_dict[tag],interfaces])
+                        else:
+                            interface_dict[tag] = interfaces
 
         for k in key_dict:
             objects = []
@@ -466,6 +494,13 @@ class GmshGenerator:
                 for item in flattened_elements:
                     objects.append(item)
             self.geom.add_physical(objects,label=self.labels[k])
+        for k in interface_dict:
+            facet_objects = []
+            for index in interface_dict[k]:
+                flattened_elements = self._flatten_list(facets[index])
+                for item in flattened_elements:
+                    facet_objects.append(item)
+            self.geom.add_physical(facet_objects,label=self.labels[k])
 
     def _flatten_list(self, elements):
         if not isinstance(elements, list):
@@ -518,10 +553,6 @@ class GmshGenerator:
         points[-1] = self.geom.add_point(x.copy(), min(lcar,L[-1]/self.discretization[structure[-1]]['n']))
         return points
 
-    def custom_mesh(self, file_name):
-        self.gmsh_mesh = meshio.read(file_name)
-        self.write_to_fenics()
-        
     def _get_gmsh_mesh(self):
         temp = tempfile.NamedTemporaryFile(suffix='.msh')
         try:
@@ -539,4 +570,10 @@ class GmshGenerator:
     def get_field_data(self):
         return {key: value[0] for key, value in self.field_data.items()}
 
-
+    def write_to_dolfinx(self, dim:int, filename:str):
+        fname = filename.rsplit('.',1)[0]+".xdmf"
+        mesh, subdomains, boundaries = gmsh_to_fenicsx(gmsh.model, gdim=dim)
+        xdmf = dfx.io.XDMFFile(MPI.COMM_SELF, fname, 'w')
+        xdmf.write_mesh(mesh)
+        xdmf.write_meshtags(subdomains)
+        xdmf.write_meshtags(boundaries)

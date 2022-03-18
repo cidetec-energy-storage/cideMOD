@@ -71,7 +71,7 @@ def get_current_results(problem, label):
         dofs_cathodeCC = problem.fom2rom['mesh']['interfaces_dofs']['cathodeCC']
 
     # Get FOM fields
-    fields = problem.f_1._fields
+    fields = problem.f_1.var_names
     # problem.f_1 has the adimensional solution for the problem variables
     # problem.dim_variables is the dimensional version of problem.f_1
 

@@ -57,7 +57,7 @@ def q_equation(domain, f_1, c_s_surf, test, dx, current):
     if isinstance(domain, Electrode):
         q+= solid_ohmic_heat_equation(domain.sigma, f_1.phi_s, test, dx, domain.grad, domain.L, domain.eps_e)
         for i, material in enumerate(domain.active_material):
-            j_li_index = f_1._fields.index(f'j_Li_{domain.tag}{i}')
+            j_li_index = f_1.var_names.index(f'j_Li_{domain.tag}{i}')
             q += reaction_irreversible_heat(material, f_1[j_li_index], c_s_surf[i], f_1.phi_s, f_1.phi_e, test, current, dx, domain.L )
             q += reaction_reversible_heat(material, f_1[j_li_index], f_1.temp, c_s_surf[i], current, test, dx, domain.L )
     return q

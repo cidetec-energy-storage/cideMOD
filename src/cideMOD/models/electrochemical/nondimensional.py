@@ -257,6 +257,6 @@ class ElectrochemicalModel(BaseModel):
 
     def get_j_total(self, f, material):
         regex = r"j_\w*({tag}{i})".format(tag=material.electrode.tag, i=material.index)
-        indexes = [i for i, field in enumerate(f._fields) if re.search(regex,field)]
+        indexes = [i for i, field in enumerate(f.var_names) if re.search(regex,field)]
         j_total = sum(field for i, field in enumerate(f) if i in indexes)
         return j_total

@@ -35,7 +35,7 @@ __all__= [
 
 def _get_n_mat(f):
         n = 0
-        for name in f._fields:
+        for name in f.var_names:
             if name.startswith('c_EC_0_a'):
                 n += 1
         return n
@@ -62,7 +62,7 @@ class SEI:
         n_mat = _get_n_mat(f_0)
         if n_mat!=0:
             for material in range(n_mat):
-                c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(material))
+                c_EC_index = f_0.var_names.index('c_EC_0_a{}'.format(material))
                 for j in range(self.order):
                     interpolate(c_0, f_0[c_EC_index+j])
                     
@@ -89,10 +89,10 @@ class SEI:
         SEI = active_material[0].electrode.SEI
         F_SEI = []
         for i, material in enumerate(active_material):
-            j_sei_index = f_1._fields.index(f'j_sei_a{i}')
-            delta_index = f_1._fields.index(f'delta_a{i}')
-            c_EC_index = f_1._fields.index(f'c_EC_0_a{i}')
-            j_int_index = f_1._fields.index(f'j_Li_a{i}')
+            j_sei_index = f_1.var_names.index(f'j_sei_a{i}')
+            delta_index = f_1.var_names.index(f'delta_a{i}')
+            c_EC_index = f_1.var_names.index(f'c_EC_0_a{i}')
+            j_int_index = f_1.var_names.index(f'j_Li_a{i}')
             
             i_0s = F * f_1[c_EC_index] * SEI.k_f_s
             G_film = SEI.R + f_1[delta_index] / SEI.kappa
@@ -155,7 +155,7 @@ class SEI:
             n_mat = _get_n_mat(f_0)
             F_EC_0 = []
             for material in range(n_mat):
-                c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(material))
+                c_EC_index = f_0.var_names.index('c_EC_0_a{}'.format(material))
                 for j in range(self.order):
                     F_EC_0.append([(f_1[c_EC_index+j] - f_0[c_EC_index+j]) * test[c_EC_index+j] * dx])
             return F_EC_0
@@ -164,9 +164,9 @@ class SEI:
 
             F_EC_ret = []
             for k, material in enumerate(materials):
-                c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(k))
-                j_SEI_index = f_0._fields.index('j_sei_a{}'.format(k))
-                delta_index = f_0._fields.index('delta_a{}'.format(k))
+                c_EC_index = f_0.var_names.index('c_EC_0_a{}'.format(k))
+                j_SEI_index = f_0.var_names.index('j_sei_a{}'.format(k))
+                delta_index = f_0.var_names.index('delta_a{}'.format(k))
                 self.K = 1 / f_1[delta_index] * DT.dt(f_0[delta_index], f_1[delta_index]) * self.K1 + 1 / f_1[delta_index]**2 * SEI.D_EC * self.K2
                 for j in range(self.order):
                     F_EC = 0

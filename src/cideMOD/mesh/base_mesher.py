@@ -98,26 +98,6 @@ class SubdomainGenerator:
         index_list = [index for index, element in enumerate(structure) if (element == 'a' or element == 'c')]
         return lambda x: inside_element_expression(index_list, x)
 
-def get_local_dofs_on_restriction(V, restriction):
-    """
-    Computes dofs of W[component] which are on the provided restriction, which can be smaller or equal to the restriction
-    provided at construction time of W (or it can be any restriction if W[component] is unrestricted). 
-    Returns a list that stores local dof numbering with respect to W[component], e.g. to be used to fetch data
-    from FEniCS solution vectors.
-    """
-    # Prepare an auxiliary block function space, restricted on the boundary
-    W_restricted = BlockFunctionSpace([V], restrict=[restriction])
-    component_restricted = 0 # there is only one block in the W_restricted space
-    # Get list of all local dofs on the restriction, numbered according to W_restricted. This will be a contiguous list
-    # [1, 2, ..., # local dofs on the restriction]
-    restricted_dofs = W_restricted.block_dofmap().block_owned_dofs__local_numbering(component_restricted)
-    # Get the mapping of local dofs numbering from W_restricted[0] to V
-    restricted_to_original = W_restricted.block_dofmap().block_to_original(component_restricted)
-    # Get list of all local dofs on the restriction, but numbered according to V. Note that this list will not be
-    # contiguous anymore, because there are DOFs on V other than the ones in the restriction (i.e., the ones in the
-    # interior)
-    original_dofs = [restricted_to_original[restricted] for restricted in restricted_dofs]
-    return original_dofs
 
 class SubdomainMapper:
     @timed('Build SubdomainMapper')
@@ -135,9 +115,9 @@ class SubdomainMapper:
         for domain_name, source in source_dict.items():
             if domain_name in self.domain_dof_map.keys():
                 if isinstance(source,dfx.fem.Function):
-                    if len(source.vector()) == len(out_array):
+                    if source.vector.size == len(out_array):
                         out_array[self.domain_dof_map[domain_name]] = source.vector.array[self.domain_dof_map[domain_name]]
-                    elif len(source.vector()) == 1:
+                    elif source.vector.size == 1:
                         out_array[self.domain_dof_map[domain_name]] = source.vector.array[0]
                     else:
                         raise Exception('Invalid source for domain mapper, number of dofs have to coincide')
@@ -173,7 +153,7 @@ class BaseMesher:
         self.num_components = len(self.structure)
         self.field_data = {}
         
-    def get_dims(self):
+    def get_dims(self, scale=1):
         domain_dict = {
             'a': self.cell.negative_electrode,
             's': self.cell.separator,
@@ -186,9 +166,9 @@ class BaseMesher:
         W = []
         for element in self.structure:
             data = domain_dict[element]
-            L.append(data.thickness)
-            H.append(data.height)
-            W.append(data.width)
+            L.append(data.thickness/scale)
+            H.append(data.height/scale)
+            W.append(data.width/scale)
         return L, H, W
 
     def get_measures(self):
@@ -221,11 +201,11 @@ class BaseMesher:
         #         else:
         #             assert sd in (sd_array[i+1], sd_array[i-1]), 'A subdomain has only one element'
         # Ensure electrode subdomains have higest values
-        assert max([val for val in field_data.values() if isinstance(val,int)]) < 10, 'Unusualy high subdomain id'
-        subdomains.values[subdomains.values==field_data['anode']] = 11
-        subdomains.values[subdomains.values==field_data['cathode']] = 12
-        field_data['anode'] = 11
-        field_data['cathode'] = 12
+        assert max([val for val in field_data.values() if isinstance(val,int)]) < 20, 'Unusualy high subdomain id'
+        subdomains.values[subdomains.values==field_data['anode']] = 21
+        subdomains.values[subdomains.values==field_data['cathode']] = 22
+        field_data['anode'] = 21
+        field_data['cathode'] = 22
         return subdomains, field_data
 
     def calc_area_ratios(self, scale):
@@ -272,14 +252,12 @@ class DolfinMesher(BaseMesher):
         self.field_data['cathode'] = 3
         self.field_data['negativeCC'] = 4
         self.field_data['positiveCC'] = 5
-        self.field_data['negativePlug'] = 6
-        self.field_data['positivePlug'] = 7
-        self.field_data['facets'] = {
-            'anode-separator': 1,
-            'cathode-separator': 2,
-            'anode-CC': 3,
-            'cathode-CC': 4,
-        }
+        self.field_data['anode-separator'] = 6
+        self.field_data['cathode-separator'] = 7
+        self.field_data['anode-CC'] = 8
+        self.field_data['cathode-CC'] = 9
+        self.field_data['negativePlug'] = 10
+        self.field_data['positivePlug'] = 11
 
         # Mark boundaries
 
@@ -345,10 +323,10 @@ class DolfinMesher(BaseMesher):
         cathode_CC_interface = subdomain_generator.set_interface(cathode_CC_interface_list)
         
         inters = [
-            (self.field_data['facets']['anode-separator'], anode_separator_interface),
-            (self.field_data['facets']['cathode-separator'], cathode_separator_interface),
-            (self.field_data['facets']['anode-CC'], anode_CC_interface),
-            (self.field_data['facets']['cathode-CC'], cathode_CC_interface),
+            (self.field_data['anode-separator'], anode_separator_interface),
+            (self.field_data['cathode-separator'], cathode_separator_interface),
+            (self.field_data['anode-CC'], anode_CC_interface),
+            (self.field_data['cathode-CC'], cathode_CC_interface),
         ]
         interfaces = mark(self.mesh, self.mesh.topology.dim-1,inters)
         self.interfaces = interfaces
@@ -391,12 +369,12 @@ class DolfinMesher(BaseMesher):
         self.ds_a = self.ds(self.field_data['negativePlug'])
         self.ds_c = self.ds(self.field_data['positivePlug'])
         self.dS = Measure('dS', domain=self.mesh, subdomain_data=interfaces, metadata=meta)
-        self.dS_as = self.dS(self.field_data['facets']['anode-separator'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_sa = self.dS(self.field_data['facets']['anode-separator'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_sc = self.dS(self.field_data['facets']['cathode-separator'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_cs = self.dS(self.field_data['facets']['cathode-separator'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_cc_a = self.dS(self.field_data['facets']['anode-CC'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_a_cc = self.dS(self.field_data['facets']['anode-CC'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_cc_c = self.dS(self.field_data['facets']['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_c_cc = self.dS(self.field_data['facets']['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_as = self.dS(self.field_data['anode-separator'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_sa = self.dS(self.field_data['anode-separator'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_sc = self.dS(self.field_data['cathode-separator'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_cs = self.dS(self.field_data['cathode-separator'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_cc_a = self.dS(self.field_data['anode-CC'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_a_cc = self.dS(self.field_data['anode-CC'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_cc_c = self.dS(self.field_data['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_c_cc = self.dS(self.field_data['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
         print('Finished building mesh')

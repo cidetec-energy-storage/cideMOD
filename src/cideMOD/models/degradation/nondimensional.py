@@ -132,10 +132,10 @@ class SolventLimitedSEIModel(BaseModel):
         F_SEI = []
         for i, material in enumerate(active_material):
             SEI = material.electrode.SEI
-            j_sei_index = f_1._fields.index(f'j_sei_a{i}')
-            delta_index = f_1._fields.index(f'delta_a{i}')
-            c_EC_index = f_1._fields.index(f'c_EC_0_a{i}')
-            j_int_index = f_1._fields.index(f'j_Li_a{i}')
+            j_sei_index = f_1.var_names.index(f'j_sei_a{i}')
+            delta_index = f_1.var_names.index(f'delta_a{i}')
+            c_EC_index = f_1.var_names.index(f'c_EC_0_a{i}')
+            j_int_index = f_1.var_names.index(f'j_Li_a{i}')
             
             i_0s = self.cell.F * self.unscale_variables({f'c_EC_0_a{i}': f_1[c_EC_index]})[f'c_EC_0_a{i}'] * SEI.k_f_s
             J = f_1[j_int_index] + f_1[j_sei_index] 
@@ -163,7 +163,7 @@ class SolventLimitedSEIModel(BaseModel):
 
         def _get_n_mat(self, f):
             n = 0
-            for name in f._fields:
+            for name in f.var_names:
                 if name.startswith('c_EC_0_a'):
                     n += 1
             return n
@@ -177,7 +177,7 @@ class SolventLimitedSEIModel(BaseModel):
             if n_mat!=0:
                 for material in range(n_mat):
                     for j in range(self.order):
-                        c_EC_index = f_0._fields.index(f'c_EC_{j}_a{material}')
+                        c_EC_index = f_0.var_names.index(f'c_EC_{j}_a{material}')
                         interpolate(c_0, f_0[c_EC_index])
 
         def build_matrix(self):
@@ -217,7 +217,7 @@ class SolventLimitedSEIModel(BaseModel):
             F_EC_0 = []
             for material in range(n_mat):
                 for j in range(self.order):
-                    c_EC_index = f_0._fields.index(f'c_EC_{j}_a{material}')
+                    c_EC_index = f_0.var_names.index(f'c_EC_{j}_a{material}')
                     F_EC_0.append([(f_1[c_EC_index] - f_0[c_EC_index]) * test[c_EC_index] * dx])
             return F_EC_0
 
@@ -226,9 +226,9 @@ class SolventLimitedSEIModel(BaseModel):
             F_EC_ret = []
             for k, material in enumerate(materials):
                 SEI = material.electrode.SEI
-                c_EC_index = f_0._fields.index(f'c_EC_0_a{k}')
-                j_SEI_index = f_0._fields.index(f'j_sei_a{k}')
-                delta_index = f_0._fields.index(f'delta_a{k}')
+                c_EC_index = f_0.var_names.index(f'c_EC_0_a{k}')
+                j_SEI_index = f_0.var_names.index(f'j_sei_a{k}')
+                delta_index = f_0.var_names.index(f'delta_a{k}')
                 self.K = 1 / f_1[delta_index] * DT.dt(f_0[delta_index], f_1[delta_index]) * self.K1 + SEI.D_EC * nd_model.t_c / (nd_model.delta_sei_a[k]**2 *f_1[delta_index]**2) * self.K2
                 for j in range(self.order):
                     F_EC = 0

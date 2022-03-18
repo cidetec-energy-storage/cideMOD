@@ -47,7 +47,6 @@ class Warehouse:
     def internal_variables(self, fields:list):
         self.field_vars = {}
         self.xdmf = self._create_storing_file(self.save_path, '', 'results')
-        self.xdmf.write_mesh(self.problem.mesher.mesh)
         for name in fields:
             if not isinstance(name, (list, tuple)):
                 name = [name]
@@ -70,6 +69,7 @@ class Warehouse:
                 
     def _create_storing_file(self, save_path, folder, name):
         xdmf = dfx.io.XDMFFile(self.comm ,os.path.join(save_path, folder,'{}.xdmf'.format(name)),'w')
+        xdmf.write_mesh(self.problem.mesher.mesh)
         return xdmf
 
     def _create_storing_function(self, name, vector=False):
@@ -213,8 +213,9 @@ class Warehouse:
         
     def clean(self):
         # Close files
-        for name, (file, func) in self.field_vars.items():
-            file.close()
+        self.xdmf.close()
+        # for name, (file, func) in self.field_vars.items():
+        #     file.close()
         # Write globals
         self.write_globals(True)
 

@@ -78,9 +78,9 @@ class ErrorCheck:
         If electrolyte concentration is zero or below, numeric crashes.
         """
         if 'nd_model' in self.problem.__dict__:
-            c_e = interpolate(self.problem.dim_variables.c_e, self.problem.V).vector()[self.subdomains.electrolyte]
+            c_e = interpolate(self.problem.dim_variables.c_e, self.problem.V).vector.array[self.subdomains.electrolyte]
         else:
-            c_e = self.problem.u_1.sub(0).vector()[self.subdomains.electrolyte]
+            c_e = self.problem.u_1.c_e.vector.array[self.subdomains.electrolyte]
         min_c_e = min(1e12, min(c_e))
         min_c_e = comm.allreduce(min_c_e, MPI.MIN)
         if min_c_e<=0:

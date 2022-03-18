@@ -326,29 +326,16 @@ class Problem:
         self.WH.post_processing_functions(self.post_processing_functions)
         self.WH.internal_variables(self.internal_storage_order)
         self.WH.global_variables(self.global_storage_order)
-
-        # Solver parameters
-        self.snes_solver_parameters = {
-            "nonlinear_solver": "snes",
-            "snes_solver": {
-                "linear_solver": "mumps",
-                "absolute_tolerance": 1e-4 if self.model_options.mode=='P4D' else 1e-6,
-                # "relative_tolerance": 1e-7,
-                "maximum_iterations": 10,
-                "report": False,
-                "line_search": "basic",
-                "error_on_nonconvergence": True,
-                # "preconditioner": "ilu"
-            }
-        }
-
+        
         _print('\r - Initializing state ... ', end='\r')
+        self._compile_state_forms()
         self.initial_guess()
         assign(self.u_2, self.u_1)
         assign(self.u_0, self.u_1)
         self.build_wf_0()
+        c_index = self.u_2.var_names.index('c_s_0_a0')
         self.problem_0 = NonlinearBlockProblem(
-            self.F_var_0,  self.u_2.functions, self.bc, self.J_var_0, self.W.restrictions)
+            self.F_var_0[1:c_index],  self.u_2.functions[1:c_index], self.bc, [J[1:c_index] for J in self.J_var_0[1:c_index]], self.W.restrictions[1:c_index])
         self.solver_0 = NewtonBlockSolver(comm, self.problem_0)
         self.solver_0.solve()
         assign(self.u_1, self.u_2)
@@ -619,9 +606,10 @@ class Problem:
 
         self.WH.set_delay(store_delay)
 
+    @timed("get_state")
     def get_state(self):
-        v = self.get_voltage(self.f_1)
-        cur = self.get_current(self.f_1)
+        v = self.get_voltage()
+        cur = self.get_current()
         self.state = {'t':self.time, 'v':v, 'i': cur}
         if self.beta.value==0:
             self.i_app.value = cur/self.Q
@@ -784,6 +772,7 @@ class Problem:
             timer.stop()
             return errorcode
 
+    @timed("advance problem")
     def advance_problem(self, store_fom=False):
         self.WH.store(self.time, force=self.time == 0, store_fom=store_fom)
         assign(self.u_0, self.u_1)
@@ -1348,21 +1337,22 @@ class Problem:
         for i, material in enumerate(self.cathode.active_material):
             self.x_c[i] = c_s_surf_c[i]/material.c_s_max
 
-    def get_voltage(self, x=None):
-        if x is None:
-            x = self.f_1
+    def _compile_state_forms(self):
         if 'pcc' in self.cell.structure or not 'c' in self.cell.structure:
-            phi_s = x.phi_s_cc
+            phi_s = self.f_1.phi_s_cc
         else:
-            phi_s = x.phi_s
-        return assemble(phi_s * self.mesher.ds_c)
+            phi_s = self.f_1.phi_s
+        self._voltage_form = dfx.fem.form(phi_s * self.mesher.ds_c)
+        self._current_form = dfx.fem.form(self.f_1.lm_app * self.mesher.ds_c)
+        self._pcc_area_form = dfx.fem.form(1*self.mesher.ds_c)
+
+    def get_voltage(self):
+        return dfx.fem.assemble_scalar(self._voltage_form)
 
     def get_temperature(self, x=None):
         if x is None:
             x=self.f_1
-        return (assemble(x.temp*self.mesher.dx_a)*self.anode.L + 
-            assemble(x.temp*self.mesher.dx_s)*self.separator.L + 
-            assemble(x.temp*self.mesher.dx_c)*self.cathode.L)/(self.anode.L+self.separator.L+self.cathode.L)
+        return x.temp.vector.max()
 
     @timed('TF Error')
     def get_time_filter_error(self):
@@ -1379,9 +1369,7 @@ class Problem:
         return error
 
     def get_current(self, x=None):
-        if x is None:
-            x = self.f_1
-        return assemble(x.lm_app * self.mesher.ds_c) * self.area
+        return dfx.fem.assemble_scalar(self._current_form) * self.area
 
     def get_capacity(self):
         if 'Q_out' not in self.__dict__:
@@ -1443,7 +1431,7 @@ class Problem:
         self.fom2rom['results']['time']    = self.WH.global_var_arrays[0].copy()
         v_index = [i+1 for i,v in enumerate(self.WH.global_vars.keys()) if v=='voltage'][0]
         self.fom2rom['results']['voltage'] = self.WH.global_var_arrays[v_index].copy()
-        self.WH.write_globals(self.model_options.clean_on_exit)
+        self.WH.write_globals(self.model_options.clean_on_exit, True)
         if self.c_s_implicit_coupling:
             for i, _ in enumerate(self.c_s_surf_1_anode):
                 interpolate(self.SGM.c_s_surf(self.f_1, 'anode')[i], self.c_s_surf_1_anode[i])
@@ -1576,7 +1564,7 @@ class NDProblem(Problem):
     
     def _build_nonlinear_properties(self):
         dim_f_1 = self.nd_model.dimensional_variables(self.f_1)
-        self.dim_variables = self.FE._make(dim_f_1)
+        self.dim_variables = BlockFunction(dim_f_1, self.f_1.var_names)
         self.D_e = constant_expression(self.cell.electrolyte.diffusionConstant, **{**self.dim_variables._asdict(), 'T_0':self.T_ini, 't_p':self.t_p})
         self.kappa = constant_expression(self.cell.electrolyte.ionicConductivity, **{**self.dim_variables._asdict(), 'T_0':self.T_ini, 't_p':self.t_p})
         self.activity = constant_expression(self.cell.electrolyte.activityDependence, **{**self.dim_variables._asdict(), 'T_0':self.T_ini, 't_p':self.t_p})
@@ -1610,6 +1598,7 @@ class NDProblem(Problem):
         else:
             self.SGM = StrongCoupledPM()
 
+    @timed("Initial guess")
     def initial_guess(self):
         
         # c_e initial
@@ -1769,7 +1758,7 @@ class NDProblem(Problem):
         # - anode: Dirichlet
         negative_tab = self.mesher.boundaries.indices[self.mesher.boundaries.values==self.mesher.field_data['negativePlug']]
         negative_tab_dofs = dfx.fem.locate_dofs_topological(self.W[phi_s_bound_index], self.mesher.boundaries.dim, negative_tab)
-        self.bc = [dfx.fem.dirichletbc(dfx.fem.Constant(self.mesher.mesh, ScalarType(0)), negative_tab_dofs, self.W[phi_s_bound_index])]
+        self.bc = [dfx.fem.dirichletbc(dfx.fem.Constant(self.mesher.mesh, ScalarType(bc_value)), negative_tab_dofs, self.W[phi_s_bound_index])]
         # - cathode: Newman or Dirichlet via Lagrange multiplier
         self.F_lm_app = [
             (1 - self.beta) * (self.f_1.lm_app - self.i_app) * self.test.lm_app * d.s_c +
@@ -1862,16 +1851,16 @@ class NDProblem(Problem):
                         + self.F_phi_e \
                         + self.F_phi_s + self.F_lm_app\
                         + F_j_Li \
-                        + self.F_T \
-                        + F_c_s 
+                        + F_c_s \
+                        + self.F_T 
+                        
 
-        J_var_implicit = block_derivative(F_var_implicit, self.u_2.functions, self.du.functions)
+        J_var_implicit = block_derivative(F_var_implicit[:-1], self.u_2.functions[:-1], self.du.functions[:-1])
         self.F_var_implicit = F_var_implicit
         self.J_var_implicit = J_var_implicit
 
-        self.problem_implicit = NonlinearBlockProblem(self.F_var_implicit,  self.u_2.functions, self.bc, self.J_var_implicit, self.W.restrictions)
+        self.problem_implicit = NonlinearBlockProblem(self.F_var_implicit[:-1],  self.u_2.functions[:-1], self.bc, self.J_var_implicit, self.W.restrictions[:-1])
         self.solver_implicit = NewtonBlockSolver(comm, self.problem_implicit)
-        self.set_use_options(self.solver_implicit, use_options=self.use_options)
 
     def set_timestep(self, timestep):
         ts = timestep/self.nd_model.t_c
@@ -1881,18 +1870,14 @@ class NDProblem(Problem):
         ts = self.DT.get_timestep()
         return ts*self.nd_model.t_c
 
-    def get_voltage(self, x=None):
-        if x is None:
-            x = self.f_1
+    def get_voltage(self):
         if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (assemble( x.phi_s_cc * self.mesher.ds_c) / assemble(1*self.mesher.ds_c) )
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (dfx.fem.assemble_scalar( self._voltage_form) / dfx.fem.assemble_scalar(self._pcc_area_form) )
         else:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (assemble( x.phi_s * self.mesher.ds_c) / assemble(1*self.mesher.ds_c))
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (dfx.fem.assemble_scalar( self._voltage_form) / dfx.fem.assemble_scalar(self._pcc_area_form) )
 
-    def get_current(self, x=None):
-        if x is None:
-            x = self.f_1
-        return assemble( x.lm_app * self.mesher.ds_c ) / assemble(1*self.mesher.ds_c) * self.Q
+    def get_current(self):
+        return dfx.fem.assemble_scalar( self._current_form ) / dfx.fem.assemble_scalar(self._pcc_area_form) * self.Q
 
     def get_temperature(self, x=None):
         if x is None:

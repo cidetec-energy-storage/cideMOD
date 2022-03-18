@@ -1,3 +1,4 @@
+from click import option
 import dolfinx as dfx
 import multiphenicsx.fem
 import typing
@@ -106,12 +107,15 @@ class NonlinearBlockProblem(object):
 
 
 class NewtonBlockSolver:
-    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem, conf='hypre'):
+    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem, conf='mumps'):
         """A Newton solver for non-linear block problems."""
         self.problem = problem
         self.snes = petsc4py.PETSc.SNES().create(comm)
+        # self._set_options([
+        #     # ("snes_linesearch_type",'basic')
+        # ])
         self.snes.setType('newtontr')
-        self.snes.setTolerances(max_it=20, atol=1e-6, rtol=1e-9)
+        self.snes.setTolerances(max_it=20, atol=1e-9, rtol=1e-9)
 
         # Create matrix and vector to be used for assembly
         # of the non-linear problem
@@ -149,7 +153,7 @@ class NewtonBlockSolver:
         if self.snes.converged:
             return self.snes.its, self.snes.converged
         else:
-            raise Exception('Solver not Converged')
+            raise Exception(f'Solver not Converged: {self._snes_reason_message()}')
 
     def reset_snes_solution(self):
         with self.solution.localForm() as b_local:
@@ -160,3 +164,67 @@ class NewtonBlockSolver:
             for x_wrapper_local, component in zip(x_wrapper, self.problem._solutions):
                 with component.vector.localForm() as component_local:
                     x_wrapper_local[:] = component_local
+
+    def _snes_reason_message(self):
+        reason = self.snes.reason
+        reasons = {
+            2: "||F|| < atol",
+            3: "||F|| < rtol*||F_initial||",
+            4: "Newton computed step size small; || delta x || < stol || x ||",
+            5: "maximum iterations reached",
+            6: "Flag to break out of inner loop after checking custom convergence",
+            -1: "the new x location passed the function is not in the domain of F",
+            -2: "maximum function count reached",
+            -3: "the linear solve failed",
+            -4: "Fnorm NAN",
+            -5: "maximum iterations reached",
+            -6: "the line search failed",
+            -7: "inner solve failed",
+            -8: "|| J^T b || is small, implies converged to local minimum of F()",
+            -9: "|| F || > divtol*||F_initial||",
+            -10: "Jacobian calculation does not make sense",
+            -11: "Trust Region delta",
+            0: "Iterating"
+        }
+        assert reason in reasons.keys()
+        message = reasons[reason] 
+        if reason == -3:
+            message += f". KSP: {self._ksp_reason_message()}"    
+        return message
+
+    def _ksp_reason_message(self):
+        reasons = {
+            2: "residual 2-norm decreased by a factor of rtol, from 2-norm of right hand side",
+            3: "residual 2-norm less than abstol",
+            4: "maximum PC iterations reached",
+            5: "NewtonTR specific",
+            6: "NewtonTR specific",
+            -2: "KSP_DIVERGED_NULL",
+            -3: "required more than its to reach convergence",
+            -4: "residual norm increased by a factor of divtol",
+            -5: "KSP_DIVERGED_BREAKDOWN",
+            -6: "Initial residual is orthogonal to preconditioned initial residual. Try a different preconditioner, or a different initial Level",
+            -7: "KSP_DIVERGED_NONSYMMETRIC",
+            -8: "KSP_DIVERGED_INDEFINITE_PC",
+            -9: "residual norm became NAN or Inf likely due to 0/0",
+            -10: "KSP_DIVERGED_INDEFINITE_MAT",
+            -11: "It was not possible to build or use the requested preconditioner. This is usually due to a zero pivot in a factorization.",
+        }
+        reason = self.snes.ksp.reason
+        assert reason in reasons.keys()
+        return reasons[reason]
+
+    def _view(self, filename) -> None:
+        viewer = v=petsc4py.PETSc.Viewer().createASCII('test.txt','w')
+        self.snes.view(viewer)
+
+    def _set_options(self, options:typing.List[typing.Tuple[str, typing.Any]]) -> None:
+        petsc_options = petsc4py.PETSc.Options()
+        for (name, value) in options:
+            petsc_options.setValue(name, value)
+        self.snes.setFromOptions()
+
+    def _clear_options(self):
+        petsc_options = petsc4py.PETSc.Options()
+        for k in petsc_options.getAll():
+            petsc_options.delValue(k)

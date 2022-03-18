@@ -10,7 +10,6 @@ def interpolate(ex, V:Union[dfx.fem.FunctionSpace,dfx.fem.Function]):
     if isinstance(V, dfx.fem.FunctionSpace):
         points = V.element.interpolation_points
         f = dfx.fem.Function(V)
-        expr = dfx.fem.Expression(ex, V.element.interpolation_points)
     elif isinstance(V, dfx.fem.Function):
         points = V.function_space.element.interpolation_points
         f = V

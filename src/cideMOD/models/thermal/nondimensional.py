@@ -78,7 +78,7 @@ class ThermalModel(BaseModel):
         # Heat generated at the active material interface
         if isinstance(domain, Electrode):
             for i, material in enumerate(domain.active_material):
-                j_Li_index = f_1._fields.index(f"j_Li_{domain.tag}{i}")
+                j_Li_index = f_1.var_names.index(f"j_Li_{domain.tag}{i}")
                 entropy = self.scale_variables({'dU/dT': material.delta_S})['dU/dT']
                 source_term+= f_1[j_Li_index] * (self.T_ref/self.thermal_gradient + T) * entropy(c_s_surf[i], current) * test * dx
                 eta = self.overpotential(material, f_1.phi_s, f_1.phi_e, current, c_s_surf[i], kwargs=kwargs)

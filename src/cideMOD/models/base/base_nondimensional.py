@@ -28,7 +28,7 @@ class BaseModel:
         self.calc_dimensionless_parameters()
 
     def dimensional_variables(self, f_1):
-        fields = f_1._fields
+        fields = f_1.var_names
         new_f = []
         for i, fname in enumerate(fields):
             unscaled_field = self.unscale_variables({fname: f_1[i]}).get(fname, f_1[i])

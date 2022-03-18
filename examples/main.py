@@ -14,13 +14,13 @@ case = "Ai_2020"
 data_path = "data/data_{}".format(case)
 params = "params.json"
 
-model_options = ModelOptions(mode='P2D')
+model_options = ModelOptions(mode='P4D')
 
 save_path = init_results_folder(
     case, overwrite=overwrite, copy_files=[f"{data_path}/{params}"]
 )
 cell = CellParser(params, data_path=data_path)
-problem = Problem(cell, model_options, save_path=save_path)
+problem = NDProblem(cell, model_options, save_path=save_path)
 problem.set_cell_state(1, 273 + 25, 273 + 25)
 problem.setup()
 C_rate = -1

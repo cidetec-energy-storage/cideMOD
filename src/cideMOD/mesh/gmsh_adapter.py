@@ -115,15 +115,6 @@ class GmshConverter(BaseMesher):
     def get_field_data(self):
         msh = meshio.read(self._mesh_store('mesh.msh'))
         field_data = {key: int(item[0]) for key, item in msh.field_data.items()}
-        field_data['facets'] = {
-            'positivePlug': 1,
-            'negativePlug': 2,
-            'anode-separator': 3,
-            'cathode-separator': 4,
-            'anode-CC': 5,
-            'cathode-CC': 6
-            
-        }
         return field_data
 
     def build_mesh(self, scale = 1, tab_geometry=None):
@@ -138,13 +129,11 @@ class GmshConverter(BaseMesher):
 
         # Get field data
         self.field_data = self.get_field_data()
-        self.field_data['anode'] = 11
-        self.field_data['cathode'] = 12
-        # Scale mesh and get dimensions
-        self.mesh.geometry.x = self.mesh.geometry.x/scale
+        self.field_data['anode'] = 21
+        self.field_data['cathode'] = 22
+        # Get mesh dimensions
         self.dimension = self.mesh.topology.dim
         # Load restrictions
-        ext = 'xdmf' # "xdmf" or "xml"
         self.anode = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['anode']])
         self.separator = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['separator']])
         self.cathode = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['cathode']])
@@ -157,10 +146,10 @@ class GmshConverter(BaseMesher):
         self.electrolyte = (self.dimension, np.unique(np.concatenate([self.anode[1], self.separator[1] ,self.cathode[1]])))
         # self.solid_conductor = self._subdomain_restriction(['anode','cathode', 'positiveCC', 'negativeCC']) #This is not being used right now
         self.current_colectors = (self.dimension, np.unique(np.concatenate([self.positiveCC[1], self.negativeCC[1] ])))
-        anode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['facets']['anode-CC']]
-        cathode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['facets']['anode-CC']]
+        anode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['anode-CC']]
+        cathode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['cathode-CC']]
         self.electrode_cc_interfaces = (self.boundaries.dim, np.unique(np.concatenate([ anode_cc_interface, cathode_cc_interface ])))
-        self.positive_tab = (self.boundaries.dim, self.subdomains.indices[self.subdomains.values==self.field_data['positivePlug']])
+        self.positive_tab = (self.boundaries.dim, self.boundaries.indices[self.boundaries.values==self.field_data['positivePlug']])
 
         # Generate measures
         a_s_c_order = all([self.structure[i+1]=='s' for i, el in enumerate(self.structure) if el == 'a'])
@@ -179,58 +168,59 @@ class GmshConverter(BaseMesher):
         self.ds_a = self.ds(self.field_data['negativePlug'])
         self.ds_c = self.ds(self.field_data['positivePlug'])
         self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.boundaries, metadata=meta)
-        self.dS_as = self.dS(self.field_data['facets']['anode-separator'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_sa = self.dS(self.field_data['facets']['anode-separator'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_sc = self.dS(self.field_data['facets']['cathode-separator'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_cs = self.dS(self.field_data['facets']['cathode-separator'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_a_cc = self.dS(self.field_data['facets']['anode-CC'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_cc_a = self.dS(self.field_data['facets']['anode-CC'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_c_cc = self.dS(self.field_data['facets']['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_cc_c = self.dS(self.field_data['facets']['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_as = self.dS(self.field_data['anode-separator'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_sa = self.dS(self.field_data['anode-separator'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_sc = self.dS(self.field_data['cathode-separator'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_cs = self.dS(self.field_data['cathode-separator'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_a_cc = self.dS(self.field_data['anode-CC'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_cc_a = self.dS(self.field_data['anode-CC'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_c_cc = self.dS(self.field_data['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
+        self.dS_cc_c = self.dS(self.field_data['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
 
         self.calc_area_ratios(scale)
         t.stop()
 
-    def read_gmsh(self)-> typing.Tuple[dfx.mesh.Mesh, dfx.cpp.mesh.MeshTags_int32, dfx.cpp.mesh.MeshTags_int32]:
+    def read_gmsh(self)-> typing.Tuple[dfx.mesh.Mesh, dfx.cpp.mesh.MeshTags_int32, dfx.cpp.mesh.MeshTags_int32]:            
         xdmf = dfx.io.XDMFFile(comm, self._mesh_store("mesh.xdmf"),'r')
         mesh = xdmf.read_mesh()
+        mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
         subdomains = xdmf.read_meshtags(mesh, 'subdomains')
         boundaries = xdmf.read_meshtags(mesh, 'boundaries')
+        
         field_data = self.get_field_data()
         subdomains, field_data = self.check_subdomains(subdomains, field_data)
         return mesh, subdomains, boundaries
 
 class TemplateMesher(GmshConverter):
-    def prepare_mesh(self, mtype:str='standard'):
+    def prepare_mesh(self, mtype:str='standard', **kwargs):
         template_path = self._mesh_template(mtype,'{}.geo'.format(self.mode.lower()))
         parameters = self.prepare_parameters(mtype)
         assert os.path.exists(template_path), "Cannot find template mesh in '{}'".format(template_path)
         if not self.mesh_updated(parameters):
             gm = GmshGenerator()
-            gm.generate_mesh_from_template(template_path, self._mesh_store('mesh.msh2'), dim=int(self.mode[1])-1, parameters=parameters)
+            gm.generate_mesh_from_template(template_path, self._mesh_store('mesh.msh'), dim=int(self.mode[1])-1, parameters=parameters)
             with open(self._mesh_store('log'), 'w') as fout:
                 json.dump(parameters, fout)
 
 
 class GmshMesher(GmshConverter):
-    def prepare_mesh(self):
-        # Note: This should be run allways in non-parallel model
+    def prepare_mesh(self, scale=1):
         parameters = self.prepare_parameters()
         is_updated = self.mesh_updated(parameters)
         if not is_updated:
             self.clean_mesh_files()
-            self.generate_gmsh_mesh()
+            self.generate_gmsh_mesh(scale)
             with open(self._mesh_store('log'), 'w') as fout:
                 json.dump(parameters, fout)
         return not is_updated
 
-    def generate_gmsh_mesh(self):
-        filename = self._mesh_store('mesh.msh2')
+    def generate_gmsh_mesh(self, scale=1):
+        filename = self._mesh_store('mesh.msh')
         N_x = self.options.N_x
         N_y = self.options.N_y
         N_z = self.options.N_z
         gm = GmshGenerator()
-        L, H, W = self.get_dims()
+        L, H, W = self.get_dims(scale)
         H = [h for h in H if h]
         W = [w for w in W if w]
         if self.mode == 'P2D':
@@ -242,4 +232,3 @@ class GmshMesher(GmshConverter):
             H=min(H)
             W=min(W)
             gm.create_3D_mesh_with_tabs(filename=filename,structure=self.structure, H=H, Z=W, nH = N_y, nZ=N_z, L=L)
-        
