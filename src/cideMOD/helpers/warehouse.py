@@ -18,11 +18,9 @@
 #
 import dolfinx as dfx
 from mpi4py import MPI
-from dolfinx.common import Timer, timed
+from dolfinx.common import timed
 
 import os
-import shutil
-from array import array as pyarray
 from itertools import chain
 from sys import getsizeof
 
@@ -241,72 +239,6 @@ class Warehouse:
         else:
             return total_size(self.global_var_arrays)
 
-    # TODO: Method doesn't work as expected. Need to review compatibility between FEniCS and meshio.
-    #       Better not use it for now. 
-    # headers needed:
-            # import meshio
-            # from meshio.xdmf.common import xdmf_to_meshio_type
-    # Needs HDF5 same version as current FEniCS version has. To have it:
-    #       HDF5_VERSION=1.10.0 pip install --no-binary=h5py h5py
-    #       pip install meshio
-    def pack_stored_files(self):
-        # Close FEniCS files
-        for xdmf, _ in self.field_vars.values():
-            xdmf.close()
-
-        # Init temp containers
-        pts = []
-        cs = []
-
-        ts = []
-        pdata=[]
-        cdata = []
-
-        dirs = os.walk(self.save_path)
-        files = []
-        to_delete = []
-        names = []
-        for i in dirs:
-            for fieldfile in i[2]:
-                if fieldfile.endswith('.xdmf'):
-                    files.append(os.path.join(i[0],fieldfile))
-                    names.append(fieldfile.split('.')[0])
-                if fieldfile.endswith('.xdmf') or fieldfile.endswith('.h5'):
-                    to_delete.append(os.path.join(i[0],fieldfile))
-        if len(files) == 0:
-            print('No files found, unable to merge')
-            
-        # Aggregate output data
-        for i, filename in enumerate(files):            
-            with meshio.xdmf.TimeSeriesReader(filename) as reader:
-                points, cells = _read_points_cells(reader)
-                pts.append(points)
-                cs.append(cells)
-                for k in range(reader.num_steps):
-                    t, point_data, cell_data = reader.read_data(k)
-                    if t in ts:
-                        for key, val in point_data.items():
-                            pdata[k][key]=val
-                        cdata[k][names[i]]=cell_data
-                    else:
-                        ts.append(t)
-                        pdata.append({})
-                        for key, val in point_data.items():
-                            pdata[k][key]=val
-                        cdata.append({})
-                        cdata[k][names[i]]=cell_data
-
-        # Delete output files
-        for aux_file in to_delete:
-            os.remove(aux_file)
-
-        # Write merged output file
-        with meshio.xdmf.TimeSeriesWriter(os.path.join(self.save_path,'internal_variables.xdmf')) as writer:
-            writer.write_points_cells(points, cells)
-            for i, t in enumerate(ts):
-                writer.write_data(t, point_data=pdata[i])
-        
-        print('Files succesfully merged')
 
 def total_size(o, handlers={}):
     """ Returns the approximate memory footprint an object and all of its contents.
@@ -343,53 +275,3 @@ def total_size(o, handlers={}):
         return s
 
     return sizeof(o)
-
-
-# Override of mesh reader because mismatch in atributes between FEniCS and meshio
-def _read_points_cells(tsreader):
-    grid = tsreader.mesh_grid
-
-    points = None
-    cells = []
-
-    for c in grid:
-        if c.tag == "Topology":
-            data_items = list(c)
-            if len(data_items) != 1:
-                raise ReadError()
-            data_item = data_items[0]
-
-            data = tsreader._read_data_item(data_item)
-
-            # The XDMF2 key is `TopologyType`, just `Type` for XDMF3.
-            # Allow both.
-            if c.get("Type"):
-                if c.get("TopologyType"):
-                    raise ReadError()
-                cell_type = c.get("Type")
-            else:
-                cell_type = c.get("TopologyType")
-
-            if cell_type == "Mixed":
-                cells = translate_mixed_cells(data)
-            else:
-                cell_type = 'Polyline' if cell_type == 'PolyLine' else cell_type
-                cells.append(meshio.CellBlock(xdmf_to_meshio_type[cell_type], data))
-
-        elif c.tag == "Geometry":
-            try:
-                geometry_type = c.get("GeometryType")
-            except KeyError:
-                pass
-            else:
-                if geometry_type not in ["XY", "XYZ"]:
-                    raise ReadError()
-
-            data_items = list(c)
-            if len(data_items) != 1:
-                raise ReadError()
-            data_item = data_items[0]
-            points = tsreader._read_data_item(data_item)
-
-    tsreader.cells = cells
-    return points, cells

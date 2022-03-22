@@ -119,7 +119,7 @@ class GmshConverter(BaseMesher):
 
     def build_mesh(self, scale = 1, tab_geometry=None):
         if not self.mesh_updated(self.prepare_parameters()):
-            self.prepare_mesh()
+            self.prepare_mesh(scale)
         
         t = Timer('Load Mesh'); t.start()
         self.mesh, cell_tags, facet_tags = self.read_gmsh()
@@ -137,8 +137,8 @@ class GmshConverter(BaseMesher):
         self.anode = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['anode']])
         self.separator = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['separator']])
         self.cathode = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['cathode']])
-        self.positiveCC = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['positiveCC']])
-        self.negativeCC = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data['negativeCC']])
+        self.positiveCC = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data.get('positiveCC')])
+        self.negativeCC = (self.dimension, self.subdomains.indices[self.subdomains.values==self.field_data.get('negativeCC')])
         self.field_restrictions = {
             'anode':self.anode, 'separator':self.separator, 'cathode':self.cathode, 'positiveCC':self.positiveCC, 'negativeCC':self.negativeCC
         }
@@ -146,8 +146,8 @@ class GmshConverter(BaseMesher):
         self.electrolyte = (self.dimension, np.unique(np.concatenate([self.anode[1], self.separator[1] ,self.cathode[1]])))
         # self.solid_conductor = self._subdomain_restriction(['anode','cathode', 'positiveCC', 'negativeCC']) #This is not being used right now
         self.current_colectors = (self.dimension, np.unique(np.concatenate([self.positiveCC[1], self.negativeCC[1] ])))
-        anode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['anode-CC']]
-        cathode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data['cathode-CC']]
+        anode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data.get('anode-CC')]
+        cathode_cc_interface = self.boundaries.indices[self.boundaries.values==self.field_data.get('cathode-CC')]
         self.electrode_cc_interfaces = (self.boundaries.dim, np.unique(np.concatenate([ anode_cc_interface, cathode_cc_interface ])))
         self.positive_tab = (self.boundaries.dim, self.boundaries.indices[self.boundaries.values==self.field_data['positivePlug']])
 
@@ -172,10 +172,10 @@ class GmshConverter(BaseMesher):
         self.dS_sa = self.dS(self.field_data['anode-separator'], metadata={**meta, "direction": int_dir("-")})
         self.dS_sc = self.dS(self.field_data['cathode-separator'], metadata={**meta, "direction": int_dir("+")})
         self.dS_cs = self.dS(self.field_data['cathode-separator'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_a_cc = self.dS(self.field_data['anode-CC'], metadata={**meta, "direction": int_dir("-")})
-        self.dS_cc_a = self.dS(self.field_data['anode-CC'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_c_cc = self.dS(self.field_data['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
-        self.dS_cc_c = self.dS(self.field_data['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
+        self.dS_a_cc = self.dS(self.field_data.get('anode-CC',999), metadata={**meta, "direction": int_dir("-")})
+        self.dS_cc_a = self.dS(self.field_data.get('anode-CC',999), metadata={**meta, "direction": int_dir("+")})
+        self.dS_c_cc = self.dS(self.field_data.get('cathode-CC',999), metadata={**meta, "direction": int_dir("+")})
+        self.dS_cc_c = self.dS(self.field_data.get('cathode-CC',999), metadata={**meta, "direction": int_dir("-")})
 
         self.calc_area_ratios(scale)
         t.stop()

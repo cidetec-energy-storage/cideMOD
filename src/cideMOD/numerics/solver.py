@@ -1,4 +1,4 @@
-from click import option
+from dolfinx.common import timed
 import dolfinx as dfx
 import multiphenicsx.fem
 import typing
@@ -6,7 +6,6 @@ import ufl
 import petsc4py
 import numpy as np
 from mpi4py import MPI
-
 
 class NonlinearBlockProblem(object):
     """Define a nonlinear problem, interfacing with SNES."""
@@ -81,6 +80,7 @@ class NonlinearBlockProblem(object):
             restriction_x0=self._restriction,
         )
 
+    @timed('Build Jacobian')
     def J(
         self,
         snes: petsc4py.PETSc.SNES,
@@ -107,15 +107,17 @@ class NonlinearBlockProblem(object):
 
 
 class NewtonBlockSolver:
-    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem, conf='mumps'):
+    log = [("snes_monitor",":snes_log.txt"),("ksp_monitor",":ksp_log.txt"),
+        ("options_view",True), ("options_left",True)]
+    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem, conf='hypre'):
         """A Newton solver for non-linear block problems."""
         self.problem = problem
         self.snes = petsc4py.PETSc.SNES().create(comm)
-        # self._set_options([
-        #     # ("snes_linesearch_type",'basic')
-        # ])
-        self.snes.setType('newtontr')
-        self.snes.setTolerances(max_it=20, atol=1e-9, rtol=1e-9)
+        self._set_options([
+            ("snes_linesearch_type",'bt')
+        ])
+        self.snes.setType('newtonls')
+        self.snes.setTolerances(max_it=20, atol=1e-6, rtol=1e-9)
 
         # Create matrix and vector to be used for assembly
         # of the non-linear problem
@@ -134,15 +136,21 @@ class NewtonBlockSolver:
             self.snes.getKSP().getPC().setType("lu")
             self.snes.getKSP().getPC().setFactorSolverType("mumps")
         elif conf == 'hypre':
-            self.snes.getKSP().setType("bcgs")
+            self.snes.getKSP().setType("gmres")
             self.snes.getKSP().getPC().setType("hypre")
             self.snes.getKSP().getPC().setHYPREType("boomeramg")
-
-
+            self._set_options([
+                ("ksp_max_it", int(5e3)),
+                ("pc_hypre_boomeramg_numfunctions", len(self.problem._F)-3),
+                ('pc_hypre_boomeramg_print_statistics', 2),
+                ("pc_hypre_boomeramg_strong_threshold", 0.25),
+                ("pc_hypre_boomeramg_grid_sweeps_all", 3)
+            ])
+        
+        self._set_options(self.log)
         self.snes.setObjective(problem.obj)
         self.snes.setFunction(problem.F, self._b)
         self.snes.setJacobian(problem.J, J=self._A, P=None)
-        self.snes.setMonitor(lambda _, it, residual: print(it, residual))
 
     def solve(self):
         """Solve non-linear problem into function u. Returns the number

@@ -1753,7 +1753,7 @@ class NDProblem(Problem):
             bc_value = self.nd_model.scale_variables({'phi_s_cc': 0})['phi_s_cc']
         else:
             phi_s_bound_index = 2
-            phi_s_bound_field = self.nd_model.phi_s_ref+ self.nd_model.solid_potential*self.f_1.phi_s
+            phi_s_bound_field = self.nd_model.phi_s_ref + self.nd_model.solid_potential*self.f_1.phi_s
             bc_value = self.nd_model.scale_variables({'phi_s': 0})['phi_s']
         # - anode: Dirichlet
         negative_tab = self.mesher.boundaries.indices[self.mesher.boundaries.values==self.mesher.field_data['negativePlug']]
@@ -1769,8 +1769,8 @@ class NDProblem(Problem):
                      + self.F_phi_e \
                      + self.F_phi_s + self.F_lm_app \
                      + F_j_Li  \
-                     + F_T_0 \
-                     + F_c_s_0
+                     + F_c_s_0 \
+                     + F_T_0
 
         J_var_0 = block_derivative(F_var_0, self.u_2.functions, self.du.functions)
         self.F_var_0 = F_var_0
@@ -1854,12 +1854,18 @@ class NDProblem(Problem):
                         + F_c_s \
                         + self.F_T 
                         
+        if not self.model_options.solve_thermal:
+            J_var_implicit = block_derivative(F_var_implicit[:-1], self.u_2.functions[:-1], self.du.functions[:-1])
+            self.F_var_implicit = F_var_implicit[:-1]
+            self.J_var_implicit = J_var_implicit
 
-        J_var_implicit = block_derivative(F_var_implicit[:-1], self.u_2.functions[:-1], self.du.functions[:-1])
-        self.F_var_implicit = F_var_implicit
-        self.J_var_implicit = J_var_implicit
+            self.problem_implicit = NonlinearBlockProblem(self.F_var_implicit,  self.u_2.functions[:-1], self.bc, self.J_var_implicit, self.W.restrictions[:-1])
+        else:
+            J_var_implicit = block_derivative(F_var_implicit, self.u_2.functions, self.du.functions)
+            self.F_var_implicit = F_var_implicit
+            self.J_var_implicit = J_var_implicit
 
-        self.problem_implicit = NonlinearBlockProblem(self.F_var_implicit[:-1],  self.u_2.functions[:-1], self.bc, self.J_var_implicit, self.W.restrictions[:-1])
+            self.problem_implicit = NonlinearBlockProblem(self.F_var_implicit,  self.u_2.functions, self.bc, self.J_var_implicit, self.W.restrictions)
         self.solver_implicit = NewtonBlockSolver(comm, self.problem_implicit)
 
     def set_timestep(self, timestep):
