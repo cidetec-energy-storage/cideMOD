@@ -23,13 +23,12 @@ import os
 
 from numpy import array, ndarray
 
-comm =MPI.COMM_WORLD
-
 class ErrorCheck:
     def print(self, *args):
         self.log.append(' '.join(str(arg) for arg in args)+'\n')
                 
     def __init__(self, problem, status, name='', debug=False):
+        self.comm = problem._comm
         self.problem = problem
         self.subdomains = self.problem.mesher.get_subdomains_coord(problem.P1_map)
         if status != 0:
@@ -55,7 +54,7 @@ class ErrorCheck:
                 self.print(str(e))
                 # raise e
             finally:
-                if comm.rank==0:
+                if self.comm.rank==0:
                     with open(os.path.join(problem.save_path,'error_check_{}.txt'.format(name)),'w') as f:
                         f.writelines(self.log)
 
@@ -82,7 +81,7 @@ class ErrorCheck:
         else:
             c_e = self.problem.u_1.c_e.vector.array[self.subdomains.electrolyte]
         min_c_e = min(1e12, min(c_e))
-        min_c_e = comm.allreduce(min_c_e, MPI.MIN)
+        min_c_e = self.comm.allreduce(min_c_e, MPI.MIN)
         if min_c_e<=0:
             self.print('\tERROR - Electrolyte has depleted!! (min c_e =',"{:.2e}".format(min_c_e),')')
         else:
@@ -97,7 +96,7 @@ class ErrorCheck:
                 max_x = max(x)
             else:
                 max_x = 0
-            max_x_a = comm.allreduce(max_x, MPI.MAX)
+            max_x_a = self.comm.allreduce(max_x, MPI.MAX)
             if max_x_a > 1:
                 self.print('\tERROR - Anode material {} overloaded!! (max c_s_a ='.format(i),"{:.2f}%".format(max_x_a*100),')')
             else:
@@ -107,7 +106,7 @@ class ErrorCheck:
                 max_x = max(x)
             else:
                 max_x = 0
-            max_x_c = comm.allreduce(max_x, MPI.MAX)
+            max_x_c = self.comm.allreduce(max_x, MPI.MAX)
             if max_x_c > 1:
                 self.print('\tERROR - Cathode material {} overloaded!! (max c_s_c ='.format(i),"{:.2f}%".format(max_x_c*100),')')
             else:
@@ -123,7 +122,7 @@ class ErrorCheck:
                 min_x = min(x)
             else:
                 min_x = 1
-            min_x_a = comm.allreduce(min_x, MPI.MIN)
+            min_x_a = self.comm.allreduce(min_x, MPI.MIN)
             if min_x_a <= 0:
                 self.print('\tERROR - Anode material {} depleted!! (min c_s_a ='.format(i),"{:.2f}%".format(min_x_a*100),')')
             else:
@@ -133,7 +132,7 @@ class ErrorCheck:
                 min_x = min(x)
             else:
                 min_x = 1
-            min_x_c = comm.allreduce(min_x, MPI.MIN)
+            min_x_c = self.comm.allreduce(min_x, MPI.MIN)
             if min_x_c <= 0:
                 self.print('\tERROR - Cathode material {} depleted!! (min c_s_c ='.format(i),"{:.2f}%".format(min_x_c*100),')')
             else:
@@ -193,7 +192,7 @@ class ErrorCheck:
         else:
             vmax = -9e99
             vmin = 9e99
-        vmax = comm.allreduce(vmax, MPI.MAX)
-        vmin = comm.allreduce(vmin, MPI.MIN)
+        vmax = self.comm.allreduce(vmax, MPI.MAX)
+        vmin = self.comm.allreduce(vmin, MPI.MIN)
         return [vmax, vmin]
         

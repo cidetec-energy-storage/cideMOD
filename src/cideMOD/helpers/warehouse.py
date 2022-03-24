@@ -66,9 +66,9 @@ class Warehouse:
                 raise Exception("Internal variable only supports 3 args. Format: (name[, type[, len]])")
                 
     def _create_storing_file(self, save_path, folder, name):
-        xdmf = dfx.io.XDMFFile(self.comm ,os.path.join(save_path, folder,'{}.xdmf'.format(name)),'w')
-        xdmf.write_mesh(self.problem.mesher.mesh)
-        return xdmf
+        with dfx.io.XDMFFile(self.comm ,os.path.join(save_path, folder,'{}.xdmf'.format(name)),'w') as file:
+            file.write_mesh(self.problem.mesher.mesh)
+        return os.path.join(save_path, folder,'{}.xdmf'.format(name))
 
     def _create_storing_function(self, name, vector=False):
         if vector:
@@ -115,11 +115,11 @@ class Warehouse:
             var = [var]
         if not isinstance(func,(list,tuple)):
             func = [func]
-            file = [file]
         assert len(var) == len(func), "Specified variable length does not match"
-        for (v, fnc) in zip(var,func):
-            interpolate(v, fnc)
-            self.xdmf.write_function(fnc,time)
+        with dfx.io.XDMFFile(self.comm ,self.xdmf,'a') as file:
+            for (v, fnc) in zip(var,func):
+                interpolate(v, fnc)
+                file.write_function(fnc,time)
 
     @timed('Store Globals')
     def _store_globals(self, time):
@@ -176,13 +176,13 @@ class Warehouse:
 
             # Write condensated
             self._write_compiled_output()
-            # Write timings table
-            if debug:
-                dfx.list_timings(self.comm, [dfx.TimingType.wall, dfx.TimingType.user, dfx.TimingType.system])
             
             # Reset globals container
             if clean:
                 self.global_variables(self.global_vars)
+        # Write timings table
+        if debug:
+            dfx.list_timings(self.comm, [dfx.TimingType.wall, dfx.TimingType.user, dfx.TimingType.system])
 
     def _save_txt_file(self, fname, data, fmt, headers):
         if os.path.exists(fname):

@@ -20,6 +20,7 @@ import dolfinx as dfx
 from dolfinx.common import Timer, timed
 from mpi4py import MPI
 from petsc4py.PETSc import ScalarType
+from petsc4py import PETSc
 from ufl import grad
 
 import json
@@ -46,20 +47,15 @@ from cideMOD.numerics.time_scheme import TimeScheme
 from cideMOD.numerics.solver import NonlinearBlockProblem, NewtonBlockSolver
 from cideMOD.numerics.fem_handler import interpolate, assign, block_derivative, assemble_scalar as assemble, BlockFunction, BlockFunctionSpace
 
-# Activate this only for production
-# set_log_active(False)
-
-comm = MPI.COMM_WORLD
-
 def _print(*args, **kwargs):
-    if comm.rank == 0:
+    if MPI.COMM_WORLD.rank == 0:
         print(*args, **kwargs)
         sys.stdout.flush()
 
 class Problem:
 
-    def __init__(self, cell:CellParser, model_options:ModelOptions, save_path):
-
+    def __init__(self, cell:CellParser, model_options:ModelOptions, save_path, comm=MPI.COMM_WORLD):
+        self._comm = comm
         self.model_options = model_options
         self.c_s_implicit_coupling = model_options.particle_coupling == 'implicit'
 
@@ -97,7 +93,7 @@ class Problem:
         if mesh_engine is None:
             mesh_engine = DolfinMesher
         self.mesher = mesh_engine(options=self.model_options, cell=self.cell)
-        self.mesher.build_mesh()
+        self.mesher.build_mesh(self._comm)
 
     def build_cell_properties(self):
         self.R = self.cell.R
@@ -336,7 +332,7 @@ class Problem:
         c_index = self.u_2.var_names.index('c_s_0_a0')
         self.problem_0 = NonlinearBlockProblem(
             self.F_var_0[1:c_index],  self.u_2.functions[1:c_index], self.bc, [J[1:c_index] for J in self.J_var_0[1:c_index]], self.W.restrictions[1:c_index])
-        self.solver_0 = NewtonBlockSolver(comm, self.problem_0)
+        self.solver_0 = NewtonBlockSolver(self._comm, self.problem_0,'mumps')
         self.solver_0.solve()
         assign(self.u_1, self.u_2)
         _print(' - Initializing state - Done ')
@@ -349,7 +345,7 @@ class Problem:
 
         timer.stop()
         _print('Problem Setup finished.')
-        _print("Problem has {} dofs.\n".format( comm.allreduce(self.solver_0.solution.size, MPI.SUM)))
+        _print("Problem has {} dofs.\n".format( self._comm.allreduce(self.solver_0.solution.size, MPI.SUM)))
         self.ready=True
 
     def set_storage_order(self):
@@ -654,8 +650,9 @@ class Problem:
         # PETScOptions.set('snes_max_it', 20)
         self.get_state()
         while self.time < t_f:
-            # if it > 0 and not self.use_options:
-                # PETScOptions.set('snes_lag_jacobian', 5)
+            if it==1:
+                self.solver_implicit._set_options([('snes_lag_jacobian', 5)])
+                self.solver_implicit.snes.setFromOptions()
                 # PETScOptions.set('snes_max_it', 30)
 
             if isinstance(i_app,str):
@@ -1252,7 +1249,7 @@ class Problem:
 
         self.problem_implicit = NonlinearBlockProblem(
             self.F_var_implicit,  self.u_2.functions, self.bc, self.J_var_implicit, self.W.restrictions)
-        self.solver_implicit = NewtonBlockSolver(comm, self.problem_implicit)
+        self.solver_implicit = NewtonBlockSolver(self._comm, self.problem_implicit)
 
     def build_wf_explicit_coupling_problem(self):
 
@@ -1291,7 +1288,7 @@ class Problem:
 
         self.problem_explicit = NonlinearBlockProblem(
             self.F_var_explicit,  self.u_2.functions, self.bc, self.J_var_explicit, self.W.restrictions)
-        self.solver_explicit = NewtonBlockSolver(comm, self.problem_explicit)
+        self.solver_explicit = NewtonBlockSolver(self._comm, self.problem_explicit)
 
         self.anode_particle_model.setup()
         self.cathode_particle_model.setup()
@@ -1581,15 +1578,18 @@ class NDProblem(Problem):
             mesh_engine = GmshMesher
         assert mesh_engine != DolfinMesher, "Dolfin mesher can't create a good mesh for a nondimensional problem"
         self.mesher = mesh_engine(options=self.model_options, cell=self.cell)
-        self.mesher.build_mesh(scale = self.nd_model.L_0)
+        self.mesher.build_mesh(self._comm, scale = self.nd_model.L_0)
         if copy:
             mesh_save_path = os.path.join(self.save_path,'mesh')
             os.makedirs(mesh_save_path)
             with open(f'{mesh_save_path}/field_data.json','w') as fout:
                 json.dump(self.mesher.field_data,fout,indent=4)
-            dfx.io.XDMFFile(f"{mesh_save_path}/mesh.xdmf").write(self.mesher.mesh)
-            dfx.io.XDMFFile(f"{mesh_save_path}/mesh_physical_region.xdmf").write(self.mesher.subdomains)
-            dfx.io.XDMFFile(f"{mesh_save_path}/mesh_facet_region.xdmf").write(self.mesher.boundaries)
+            with dfx.io.XDMFFile(f"{mesh_save_path}/mesh.xdmf") as file: 
+                file.write(self.mesher.mesh)
+            with dfx.io.XDMFFile(f"{mesh_save_path}/mesh_physical_region.xdmf") as file:
+                file.write(self.mesher.subdomains)
+            with dfx.io.XDMFFile(f"{mesh_save_path}/mesh_facet_region.xdmf") as file:
+                file.write(self.mesher.boundaries)
 
     def build_implicit_sgm(self):
         # Build SGM with Implicit Coupling
@@ -1866,7 +1866,7 @@ class NDProblem(Problem):
             self.J_var_implicit = J_var_implicit
 
             self.problem_implicit = NonlinearBlockProblem(self.F_var_implicit,  self.u_2.functions, self.bc, self.J_var_implicit, self.W.restrictions)
-        self.solver_implicit = NewtonBlockSolver(comm, self.problem_implicit)
+        self.solver_implicit = NewtonBlockSolver(self._comm, self.problem_implicit, monitor=True)
 
     def set_timestep(self, timestep):
         ts = timestep/self.nd_model.t_c
@@ -1877,13 +1877,21 @@ class NDProblem(Problem):
         return ts*self.nd_model.t_c
 
     def get_voltage(self):
+        v = dfx.fem.assemble_scalar( self._voltage_form)
+        a = dfx.fem.assemble_scalar(self._pcc_area_form)
+        v = self._comm.allreduce(v, MPI.SUM)
+        a = self._comm.allreduce(a, MPI.SUM)
         if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (dfx.fem.assemble_scalar( self._voltage_form) / dfx.fem.assemble_scalar(self._pcc_area_form) )
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (v / a)
         else:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (dfx.fem.assemble_scalar( self._voltage_form) / dfx.fem.assemble_scalar(self._pcc_area_form) )
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (v / a)
 
     def get_current(self):
-        return dfx.fem.assemble_scalar( self._current_form ) / dfx.fem.assemble_scalar(self._pcc_area_form) * self.Q
+        i = dfx.fem.assemble_scalar( self._current_form)
+        a = dfx.fem.assemble_scalar(self._pcc_area_form)
+        i = self._comm.allreduce(i, MPI.SUM)
+        a = self._comm.allreduce(a, MPI.SUM)
+        return i / a * self.Q
 
     def get_temperature(self, x=None):
         if x is None:

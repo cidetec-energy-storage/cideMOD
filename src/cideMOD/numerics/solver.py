@@ -44,6 +44,7 @@ class NonlinearBlockProblem(object):
                     x_wrapper_local[:] = component_local
         return x
 
+    @timed('Update solutions')
     def update_solutions(self, x: petsc4py.PETSc.Vec) -> None:
         """Update `self._solutions` with data in `x`."""
         x.ghostUpdate(
@@ -57,11 +58,13 @@ class NonlinearBlockProblem(object):
                 with component.vector.localForm() as component_local:
                     component_local[:] = x_wrapper_local
 
+    @timed('Eval Objective')
     def obj(self, snes: petsc4py.PETSc.SNES, x: petsc4py.PETSc.Vec) -> np.float64:
         """Compute the norm of the residual."""
         self.F(snes, x, self._obj_vec)
         return self._obj_vec.norm()
 
+    @timed('Build Residual')
     def F(
         self, snes: petsc4py.PETSc.SNES, x: petsc4py.PETSc.Vec, b: petsc4py.PETSc.Vec
     ) -> None:
@@ -107,15 +110,17 @@ class NonlinearBlockProblem(object):
 
 
 class NewtonBlockSolver:
-    log = [("snes_monitor",":snes_log.txt"),("ksp_monitor",":ksp_log.txt"),
+    log = [("snes_monitor",":snes_log.txt"),("ksp_monitor",":ksp_log.txt"), ("snes_linesearch_monitor",":line_search_log.txt"),
         ("options_view",True), ("options_left",True)]
-    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem, conf='hypre'):
+    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem, conf='mumps', monitor = False):
         """A Newton solver for non-linear block problems."""
         self.problem = problem
+        if monitor:
+            petsc4py.PETSc.Log.begin()
         self.snes = petsc4py.PETSc.SNES().create(comm)
-        self._set_options([
-            ("snes_linesearch_type",'bt')
-        ])
+        # self._set_options([
+        #     ("snes_linesearch_type",'basic')
+        # ])
         self.snes.setType('newtonls')
         self.snes.setTolerances(max_it=20, atol=1e-6, rtol=1e-9)
 
@@ -135,22 +140,24 @@ class NewtonBlockSolver:
             self.snes.getKSP().setType("preonly")
             self.snes.getKSP().getPC().setType("lu")
             self.snes.getKSP().getPC().setFactorSolverType("mumps")
+            # self._set_options([("mat_mumps_use_omp_threads",4)])
         elif conf == 'hypre':
-            self.snes.getKSP().setType("gmres")
+            self.snes.getKSP().setType("bcgs")
             self.snes.getKSP().getPC().setType("hypre")
             self.snes.getKSP().getPC().setHYPREType("boomeramg")
             self._set_options([
                 ("ksp_max_it", int(5e3)),
-                ("pc_hypre_boomeramg_numfunctions", len(self.problem._F)-3),
-                ('pc_hypre_boomeramg_print_statistics', 2),
-                ("pc_hypre_boomeramg_strong_threshold", 0.25),
-                ("pc_hypre_boomeramg_grid_sweeps_all", 3)
+                ("pc_hypre_boomeramg_numfunctions", len(self.problem._F)-4),
+                ('pc_hypre_boomeramg_print_statistics', 1),
+                ("pc_hypre_boomeramg_strong_threshold", 0.7),
+                # ("pc_hypre_boomeramg_grid_sweeps_all", 3)
             ])
-        
-        self._set_options(self.log)
+        if monitor:
+            self._set_options(self.log[:2]+self.log[-2:])
         self.snes.setObjective(problem.obj)
         self.snes.setFunction(problem.F, self._b)
         self.snes.setJacobian(problem.J, J=self._A, P=None)
+        self.snes.setFromOptions()
 
     def solve(self):
         """Solve non-linear problem into function u. Returns the number
@@ -223,16 +230,19 @@ class NewtonBlockSolver:
         return reasons[reason]
 
     def _view(self, filename) -> None:
-        viewer = v=petsc4py.PETSc.Viewer().createASCII('test.txt','w')
+        viewer = petsc4py.PETSc.Viewer().createASCII(filename,'w')
         self.snes.view(viewer)
 
     def _set_options(self, options:typing.List[typing.Tuple[str, typing.Any]]) -> None:
         petsc_options = petsc4py.PETSc.Options()
         for (name, value) in options:
             petsc_options.setValue(name, value)
-        self.snes.setFromOptions()
 
     def _clear_options(self):
         petsc_options = petsc4py.PETSc.Options()
         for k in petsc_options.getAll():
             petsc_options.delValue(k)
+
+    def _profile(self, filename) -> None:
+        viewer = petsc4py.PETSc.Viewer().createASCII(filename,'w')
+        petsc4py.PETSc.Log.view(viewer)

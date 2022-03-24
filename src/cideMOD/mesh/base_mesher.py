@@ -20,6 +20,7 @@ import dolfinx as dfx
 from dolfinx.common import Timer, timed
 from mpi4py import MPI
 from ufl import Measure
+from petsc4py import PETSc
 
 from collections import namedtuple
 
@@ -105,19 +106,20 @@ class SubdomainMapper:
         self.domain_vertex_map = {}
         self.domain_dof_map = {}
         self.ow_range = function_space.dofmap.index_map.local_range
-        for field_name, res in field_restriction.items():
-            self.domain_dof_map[field_name] = dfx.fem.locate_dofs_topological(function_space, res[0], res[1])
-        self.base_array = np.zeros(function_space.dofmap.index_map.size_local+function_space.dofmap.index_map.num_ghosts)
+        self.base_array = np.zeros(function_space.dofmap.index_map.size_local+function_space.dofmap.index_map.num_ghosts,dtype=np.int32)
         self.base_function = dfx.fem.Function(function_space)
+        for field_name, res in field_restriction.items():
+            dofs = dfx.fem.locate_dofs_topological(function_space, res[0], res[1], False)
+            self.domain_dof_map[field_name]= dofs
 
     def generate_vector(self, source_dict:dict):
         out_array = self.base_array.copy()
         for domain_name, source in source_dict.items():
             if domain_name in self.domain_dof_map.keys():
                 if isinstance(source,dfx.fem.Function):
-                    if source.vector.size == len(out_array):
-                        out_array[self.domain_dof_map[domain_name]] = source.vector.array[self.domain_dof_map[domain_name]]
-                    elif source.vector.size == 1:
+                    if source.vector.local_size == self.base_function.vector.local_size:
+                        out_array[self.domain_dof_map[domain_name]] = source.vector.getValues([self.domain_dof_map[domain_name]])
+                    elif source.vector.local_size == 1:
                         out_array[self.domain_dof_map[domain_name]] = source.vector.array[0]
                     else:
                         raise Exception('Invalid source for domain mapper, number of dofs have to coincide')
@@ -138,8 +140,11 @@ class SubdomainMapper:
 
     def generate_function(self, source_dict:dict):
         # TODO: avoid using this deepcopy if possible
-        ou_funct = self.base_function.copy() 
-        ou_funct.vector.array = self.generate_vector(source_dict)
+        ou_funct = self.base_function.copy()
+        vec = ou_funct.vector
+        new_vec = self.generate_vector(source_dict)
+        vec.setValuesLocal(np.arange(new_vec.size,dtype=np.int32),new_vec) 
+        vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
         # vec.apply("insert")
         return ou_funct
 
@@ -209,12 +214,16 @@ class BaseMesher:
         return subdomains, field_data
 
     def calc_area_ratios(self, scale):
+        area_a = (assemble(1*self.ds_a) * scale ** 2)
+        area_a = MPI.COMM_WORLD.allreduce(area_a, MPI.SUM)
+        area_c = (assemble(1*self.ds_c) * scale ** 2)
+        area_c = MPI.COMM_WORLD.allreduce(area_c, MPI.SUM)
         if self.options.mode == 'P4D':
-            self.area_ratio_a = self.cell.area / (assemble(1*self.ds_a) * scale ** 2)
-            self.area_ratio_c = self.cell.area / (assemble(1*self.ds_c) * scale ** 2)
+            self.area_ratio_a = self.cell.area / (area_a)
+            self.area_ratio_c = self.cell.area / (area_c)
         elif self.options.mode == 'P3D':
-            self.area_ratio_a = self.cell.area / (assemble(self.cell.width*self.ds_a) * scale)
-            self.area_ratio_c = self.cell.area / (assemble(self.cell.width*self.ds_c) * scale)
+            self.area_ratio_a = self.cell.area / (self.cell.width*area_a * scale)
+            self.area_ratio_c = self.cell.area / (self.cell.width*area_c * scale)
         elif self.options.mode == 'P2D':
             self.area_ratio_a = 1
             self.area_ratio_c = 1

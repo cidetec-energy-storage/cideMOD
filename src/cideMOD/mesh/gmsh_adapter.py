@@ -45,7 +45,6 @@ from cideMOD.mesh.gmsh_generator import GmshGenerator
 dir_path = Path(appdirs.user_data_dir('cideMOD',False))
 os.makedirs(os.path.join(dir_path,'meshes','templates'), exist_ok=True)
 os.makedirs(os.path.join(dir_path,'meshes','current'), exist_ok=True)
-comm = MPI.COMM_WORLD
 
 class GmshConverter(BaseMesher):
     def _mesh_template(self, mtype, filename):
@@ -117,12 +116,12 @@ class GmshConverter(BaseMesher):
         field_data = {key: int(item[0]) for key, item in msh.field_data.items()}
         return field_data
 
-    def build_mesh(self, scale = 1, tab_geometry=None):
+    def build_mesh(self, comm, scale = 1, tab_geometry=None):
         if not self.mesh_updated(self.prepare_parameters()):
             self.prepare_mesh(scale)
-        
+        comm.barrier()
         t = Timer('Load Mesh'); t.start()
-        self.mesh, cell_tags, facet_tags = self.read_gmsh()
+        self.mesh, cell_tags, facet_tags = self.read_gmsh(comm)
         self.subdomains = cell_tags
         self.boundaries = facet_tags
         self.interfaces = facet_tags
@@ -180,12 +179,12 @@ class GmshConverter(BaseMesher):
         self.calc_area_ratios(scale)
         t.stop()
 
-    def read_gmsh(self)-> typing.Tuple[dfx.mesh.Mesh, dfx.cpp.mesh.MeshTags_int32, dfx.cpp.mesh.MeshTags_int32]:            
-        xdmf = dfx.io.XDMFFile(comm, self._mesh_store("mesh.xdmf"),'r')
-        mesh = xdmf.read_mesh()
-        mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
-        subdomains = xdmf.read_meshtags(mesh, 'subdomains')
-        boundaries = xdmf.read_meshtags(mesh, 'boundaries')
+    def read_gmsh(self, comm)-> typing.Tuple[dfx.mesh.Mesh, dfx.cpp.mesh.MeshTags_int32, dfx.cpp.mesh.MeshTags_int32]:
+        with dfx.io.XDMFFile(comm,self._mesh_store("mesh.xdmf"),'r') as file:
+            mesh = file.read_mesh()
+            mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
+            subdomains = file.read_meshtags(mesh, 'subdomains')
+            boundaries = file.read_meshtags(mesh, 'boundaries')
         
         field_data = self.get_field_data()
         subdomains, field_data = self.check_subdomains(subdomains, field_data)

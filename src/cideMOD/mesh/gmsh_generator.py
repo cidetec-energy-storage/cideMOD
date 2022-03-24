@@ -63,26 +63,31 @@ class GmshGenerator:
                 self.discretization[el]['n'] = int(max(min_cells[el], np.ceil(L[i]/2e-6))+1)
 
             elif size > 2e-6:
+                sep_index = structure.index('s')
+                sep_size = L[i]/self.discretization[el]['n']
                 if el in ['a','c']:
                     for r in [1.025, 1.05, 1.075, 1.1, 1.15, 1.2]:
-                        n = 2 * np.log(1+(r-1)*L[i]/4e-6)/np.log(r)
+                        n = 2 * np.log(1+(r-1)*L[i]/(sep_size*2))/np.log(r)
                         if n<45:
                             break
                     self.discretization[el]['n']=int(round(n))
                     self.discretization[el]['type'] = 'Bump'
                     self.discretization[el]['par']=r**((-round(n)-1)/2)
                     
-    def gmshEnvironment(func):
-        def decorated(self, *args, **kwargs):
-            self.geom.__enter__()
-            try:
+    def gmshEnvironment(dim):
+        def gmshDecorator(func):
+            def decorated_method(self, *args, **kwargs):
+                self.geom.__enter__()
                 if MPI.COMM_WORLD.rank == 0:
                     gmsh.option.setNumber("General.ExpertMode",1)
                     gmsh.option.setNumber("General.Verbosity",0)
                     func(self, *args, **kwargs)
-            finally:
+                    print("mesh.built",flush=True)
+                if 'filename' in kwargs:
+                    self.write_to_dolfinx(dim, kwargs["filename"])
                 self.geom.__exit__()
-        return decorated
+            return decorated_method
+        return gmshDecorator
 
     def generate_mesh_from_template(self, filename, output, dim=3, parameters:dict={}):
         gmsh.initialize()
@@ -97,7 +102,7 @@ class GmshGenerator:
         self.write_to_dolfinx(dim, filename)
         gmsh.finalize()
 
-    @gmshEnvironment
+    @gmshEnvironment(1)
     def create_1D_mesh(self, filename:str='', structure = ['a','s','c'], L = [76e-6, 25e-6, 68e-6]):
         self._adapt_discretization(structure, L)
         n_elements = len(structure)
@@ -119,11 +124,10 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 1, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
-            self.write_to_dolfinx(1, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
-    @gmshEnvironment
+    @gmshEnvironment(2)
     def create_2D_mesh(self, filename:str='', structure = ['a','s','c'], L = [76e-6, 25e-6, 68e-6], H = 0.01, nH:int=30):
         n_elements = len(structure)
         self._adapt_discretization(structure, L)
@@ -166,11 +170,10 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 2, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
-            self.write_to_dolfinx(2, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
-    @gmshEnvironment
+    @gmshEnvironment(3)
     def create_3D_mesh(self, filename:str='', structure = ['a','s','c'], L = [76e-6, 25e-6, 68e-6], H = 0.01, nH:int=10, Z = 0.01, nZ:int=10):
         n_elements = len(structure)
         self._adapt_discretization(structure, L)
@@ -253,11 +256,10 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 3, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
-            self.write_to_dolfinx(3, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
-    @gmshEnvironment
+    @gmshEnvironment(3)
     def create_3D_mesh_with_tabs(self, filename:str='', structure = ['a','s','c'], L = [76e-6, 25e-6, 68e-6], H = 0.01, nH:int=10, Z = 0.01, nZ:int=10, tab_locations=[('up','left'),('up','right')]):
         n_elements = len(structure)
         self._adapt_discretization(structure, L)
@@ -462,9 +464,9 @@ class GmshGenerator:
         self.geom.generate_mesh(dim = 3, verbose=True)
         if filename:
             self.write_gmsh_file(filename)
-            self.write_to_dolfinx(3, filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
+        
 
     def _label_physical_elements(self, elements:list, facets:list, structure:list):
         assert len(elements) == len(structure), "Element number incorrect" 
@@ -573,7 +575,7 @@ class GmshGenerator:
     def write_to_dolfinx(self, dim:int, filename:str):
         fname = filename.rsplit('.',1)[0]+".xdmf"
         mesh, subdomains, boundaries = gmsh_to_fenicsx(gmsh.model, gdim=dim)
-        xdmf = dfx.io.XDMFFile(MPI.COMM_SELF, fname, 'w')
+        xdmf = dfx.io.XDMFFile(MPI.COMM_WORLD, fname, 'w')
         xdmf.write_mesh(mesh)
         xdmf.write_meshtags(subdomains)
         xdmf.write_meshtags(boundaries)
