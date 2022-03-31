@@ -6,6 +6,8 @@ import ufl
 import petsc4py
 import numpy as np
 from mpi4py import MPI
+from tabulate import tabulate
+from cideMOD.helpers.miscellaneous import plot_jacobian
 
 class NonlinearBlockProblem(object):
     """Define a nonlinear problem, interfacing with SNES."""
@@ -30,6 +32,7 @@ class NonlinearBlockProblem(object):
         self._bcs = bcs
         self._restriction = restriction
         self._P = dfx.fem.form(P)
+        self.aux = []
 
     def create_snes_solution(self) -> petsc4py.PETSc.Vec:
         """Create SNES solution vector"""
@@ -107,6 +110,25 @@ class NonlinearBlockProblem(object):
                 P_mat, self._P, self._bcs, diagonal=1.0, restriction=restriction
             )
             P_mat.assemble()
+        self._view_residuals(snes, x)
+        plot_jacobian(self, x, A)
+
+    def _view_residuals(self, snes, x):
+        self.aux.append([self.obj(snes,x)]+[dfx.fem.assemble_vector(F).norm() for F in self._F])
+
+    def _print_residuals_norm(self, text='Problem Residuals'):
+        print(f'--------------- {text} ---------------')
+        print(tabulate(self.aux, headers=['objective']+[u.name for u in self._solutions],showindex=True))
+        print('--------------- End ---------------')
+        self.aux = []
+
+    def _prepare_variable_indices(self, x):
+        self.dofs = []
+        with multiphenicsx.fem.petsc.BlockVecSubVectorWrapper(
+            x, [c.function_space.dofmap for c in self._solutions], self._restriction
+        ) as x_wrapper:
+            for index in range(x_wrapper._len):
+                self.dofs.append(x_wrapper._restricted_index_sets[index].getIndices())
 
 
 class NewtonBlockSolver:
@@ -142,16 +164,19 @@ class NewtonBlockSolver:
             self.snes.getKSP().getPC().setFactorSolverType("mumps")
             # self._set_options([("mat_mumps_use_omp_threads",4)])
         elif conf == 'hypre':
-            self.snes.getKSP().setType("bcgs")
-            self.snes.getKSP().getPC().setType("hypre")
-            self.snes.getKSP().getPC().setHYPREType("boomeramg")
+            self.snes.getKSP().setType("minres")
+            self.snes.getKSP().getPC().setType("ilu")
             self._set_options([
-                ("ksp_max_it", int(5e3)),
-                ("pc_hypre_boomeramg_numfunctions", len(self.problem._F)-4),
-                ('pc_hypre_boomeramg_print_statistics', 1),
-                ("pc_hypre_boomeramg_strong_threshold", 0.7),
-                # ("pc_hypre_boomeramg_grid_sweeps_all", 3)
+                ("ksp_diagonal_scale",True), ("ksp_diagonal_scale_fix",True)
             ])
+            # self.snes.getKSP().getPC().setHYPREType("boomeramg")
+            # self._set_options([
+            #     ("ksp_max_it", int(5e3)),
+            #     ("pc_hypre_boomeramg_numfunctions", len(self.problem._F)),
+            #     # ('pc_hypre_boomeramg_print_statistics', 1),
+            #     ("pc_hypre_boomeramg_strong_threshold", 0.7),
+            #     # ("pc_hypre_boomeramg_grid_sweeps_all", 3)
+            # ])
         if monitor:
             self._set_options(self.log[:2]+self.log[-2:])
         self.snes.setObjective(problem.obj)
@@ -165,10 +190,13 @@ class NewtonBlockSolver:
         # self.problem.init_solution(self.solution)
         self.snes.solve(None, self.solution)
         self.problem.update_solutions(self.solution)
+        self.problem._view_residuals(self.snes, self.solution)
+        self.problem._print_residuals_norm()
         if self.snes.converged:
             return self.snes.its, self.snes.converged
         else:
             raise Exception(f'Solver not Converged: {self._snes_reason_message()}')
+        
 
     def reset_snes_solution(self):
         with self.solution.localForm() as b_local:

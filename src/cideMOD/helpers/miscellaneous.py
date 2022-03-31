@@ -39,7 +39,7 @@ import shutil
 import time
 
 import matplotlib.pyplot as plt
-import numpy
+import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.sparse import csr_matrix
 
@@ -70,9 +70,9 @@ def get_spline(data, spline_type = "not-a-knot", return_fenics = True):
     NameError
         'Unknown type of interpolation'
     """
-    data = numpy.array(data)
+    data = np.array(data)
     if data[0,0]>data[-1,0]:
-        data=numpy.flip(data,0)
+        data=np.flip(data,0)
     x_array = data[:,0]
     v_array = data[:,1]
 
@@ -284,16 +284,16 @@ def read_input_data(filename, init_line = 0):
         fichero.readline()
 
     while len(line)>0:
-        line = numpy.array(fichero.readline().split()).astype(float)
+        line = np.array(fichero.readline().split()).astype(float)
         if len(line)>0 :
             f.append(line)
     fichero.close()
-    return numpy.array(f)
+    return np.array(f)
 
 def analyze_jacobian(J, fields):
     J_lab = [[i for i in fields] for i in fields]
-    abs_J = numpy.zeros((len(fields),len(fields)))
-    times = numpy.zeros((len(fields),len(fields)))
+    abs_J = np.zeros((len(fields),len(fields)))
+    times = np.zeros((len(fields),len(fields)))
     start_time = time.time()
     for i, F in enumerate(fields):
         for j, fld in enumerate(fields):
@@ -314,6 +314,36 @@ def analyze_jacobian(J, fields):
     spm = csr_matrix(mat.getValuesCSR()[::-1], shape=mat.size)
     plt.spy(spm)
     plt.savefig('J.png')
+
+def plot_jacobian(problem, x, J):
+    plt.clf()
+    problem._prepare_variable_indices(x)
+    size = x.size-1
+    frontiers = [d.max() for d in problem.dofs]
+    locations = [(d.max()+d.min())/2 for d in problem.dofs]
+    fields = [sol.name for sol in problem._solutions]
+    csmat = csr_matrix(J.getValuesCSR()[::-1],shape=J.size)
+    mat_dict = csmat.todok()
+    xy = np.array(list(mat_dict.keys()))
+    vals = np.array(list(mat_dict.values()))
+    plt.scatter(xy[:,1],size-xy[:,0],s=5, c=np.log10(np.abs(vals)),cmap='inferno')
+    for line in frontiers:
+        plt.axhline(y=size-line, linestyle='--',linewidth=0.5)
+        plt.axvline(x=line, linestyle='--',linewidth=0.5)
+    for i, (text, xloc) in enumerate(zip(fields, locations)):
+        factor = 1.1 if i%2==0 else 1.05
+        plt.text(xloc, max(frontiers)*factor, text, fontsize=8, ha='center')
+    plt.colorbar()
+    plt.xlim([0,size])
+    plt.ylim([0,size])
+    plt.xticks([],[])
+    plt.yticks([],[])
+    j=0
+    while os.path.exists(f'J_{j}.png'):
+        j+=1
+    plt.savefig(f'J_{j}.png')
+    
+
 
 def format_time(timespan, small=True):
     # we have more than a minute, format that in a human readable form
@@ -345,11 +375,11 @@ def create_problem_json(problem_dic, V):
                  problem_dic_json[key] = problem_dic[key]
              elif problem_dic[key][0] in [str, float, int, bool]:
                  problem_dic_json[key] = problem_dic[key]
-             elif problem_dic[key][0] is numpy.ndarray:
+             elif problem_dic[key][0] is np.ndarray:
                  problem_dic_json[key] = []
                  for element, index in enumerate(problem_dic[key]):
                      problem_dic_json[key].append(element.tolist())
-         elif type(problem_dic[key]) is numpy.ndarray:
+         elif type(problem_dic[key]) is np.ndarray:
              problem_dic_json[key] = problem_dic[key].tolist()
          elif problem_dic[key] is None:
              problem_dic_json[key] = problem_dic[key]
