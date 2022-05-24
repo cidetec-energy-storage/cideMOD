@@ -793,21 +793,7 @@ class Problem:
     def constant_timestep(self, i_app, v_app, timestep, triggers= []):
         timer = Timer('Constant TS')
         errorcode = self.timestep( timestep, i_app, v_app)
-        self.get_state()
-        try:
-            for t in triggers:
-                t.check(self.state)
-        except TriggerSurpassed as e:
-            new_tstep = e.new_tstep(self.get_timestep())
-            block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
-            errorcode = self.constant_timestep(i_app, v_app, new_tstep, triggers=triggers)
-            return errorcode
-        except TriggerDetected as e:
-            errorcode = e
-            print(f"{str(e)} at {self.state['t']:.2f} \033[K\n")
-        self.time += timestep
-        self.advance_problem(True)
-        timer.stop()
+        errorcode = self.accept_timestep(i_app, v_app, timestep, triggers, timer, errorcode)
         return errorcode
 
     def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[]):
@@ -827,7 +813,7 @@ class Problem:
                 timer.stop()
                 self.tau = 0.5
                 self.nu = self.tau*(1+self.tau)/(1+2*self.tau)
-                errorcode = self.adaptive_timestep(i_app, v_app, max_step, min_step, t_max)
+                errorcode = self.adaptive_timestep(i_app, v_app, max_step, min_step, t_max, triggers=triggers)
                 return errorcode
         error = self.get_time_filter_error()
         self.tau = self.DT.update_time_step(max(error), h, tol = 1e-2, max_step = max_step, min_step = min_step)
@@ -835,27 +821,31 @@ class Problem:
         if self.tau < 1:
             # This means the result is not accurate, need to recompute
             timer.stop()
-            errorcode = self.adaptive_timestep(i_app, v_app, max_step, min_step, t_max)
+            errorcode = self.adaptive_timestep(i_app, v_app, max_step, min_step, t_max, triggers=triggers)
             return errorcode
         elif self.tau >= 1:
             # This means the result is acepted, advance
-            self.get_state()
-            try:
-                for t in triggers:
-                    t.check(self.state)
-            except TriggerSurpassed as e:
-                timer.stop()
-                new_tstep = e.new_tstep(self.get_timestep())
-                block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
-                errorcode = self.adaptive_timestep(i_app, v_app, new_tstep, new_tstep, t_max, triggers=triggers)
-                return errorcode
-            except TriggerDetected as e:
-                errorcode = e
-                print(f"{str(e)} at {self.state['t']:.2f} s \033[K\n")
-            self.time += h
-            self.advance_problem()
-            timer.stop()
+            errorcode = self.accept_timestep(i_app, v_app, h, triggers, timer, errorcode)
             return errorcode
+
+    def accept_timestep(self, i_app, v_app, ts, triggers, timer, errorcode):
+        self.get_state()
+        try:
+            for t in triggers:
+                t.check(self.state)
+        except TriggerSurpassed as e:
+            timer.stop()
+            new_tstep = e.new_tstep(self.get_timestep())
+            block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
+            errorcode = self.constant_timestep(i_app, v_app, new_tstep, triggers=triggers)
+            return errorcode
+        except TriggerDetected as e:
+            errorcode = e
+            print(f"{str(e)} at {self.state['t']:.2f} s \033[K\n")
+        self.time += ts
+        self.advance_problem()
+        timer.stop()
+        return errorcode
 
     def advance_problem(self, store_fom=False):
         self.WH.store(self.time, force=self.time == 0, store_fom=store_fom)
