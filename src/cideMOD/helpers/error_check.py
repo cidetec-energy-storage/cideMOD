@@ -18,7 +18,7 @@
 #
 from dolfin import MPI, project
 from multiphenics import block_assign
-
+from cideMOD.bms.triggers import SolverCrashed
 import os
 
 from numpy import array, ndarray
@@ -32,7 +32,7 @@ class ErrorCheck:
     def __init__(self, problem, status, name='', debug=False):
         self.problem = problem
         self.subdomains = self.problem.mesher.get_subdomains_coord(problem.P1_map)
-        if status != 0 and problem.save_path:
+        if isinstance(status, SolverCrashed) and problem.save_path:
             self.log = []
             try:
                 self.print('\nSolver crashed, performing failure checks...')
