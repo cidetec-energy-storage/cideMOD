@@ -54,6 +54,8 @@ class Warehouse:
 
     def internal_variables(self, fields:list):
         self.field_vars = {}
+        if self.save_path is None:
+            return
         for name in fields:
             if not isinstance(name, (list, tuple)):
                 name = [name]
@@ -179,7 +181,7 @@ class Warehouse:
                 self.problem.fom2rom['results'][key] = self.problem.fom2rom['results'][key][:,:self.problem.current_timestep]
 
     def write_globals(self, clean=True):
-        if MPI.rank(self.comm) == 0:
+        if MPI.rank(self.comm) == 0 and self.save_path:
             for i, key in enumerate(self.global_vars.keys(), 1):
                 global_var_array = array(self.global_var_arrays[i])
                 if global_var_array.ndim == 1:

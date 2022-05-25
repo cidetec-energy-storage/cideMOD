@@ -56,7 +56,7 @@ def _print(*args, **kwargs):
 
 class Problem:
 
-    def __init__(self, cell:CellParser, model_options:ModelOptions, save_path):
+    def __init__(self, cell:CellParser, model_options:ModelOptions, save_path=None):
 
         self.model_options = model_options
         self.c_s_implicit_coupling = model_options.particle_coupling == 'implicit'
@@ -367,7 +367,8 @@ class Problem:
                 petsc_options = solver_conf.gamg()
         else:
             petsc_options = solver_conf.base_options
-        petsc_options['log_view'] = ':{}'.format(os.path.join(self.save_path,'snes_profile.log'))
+        if self.save_path:
+            petsc_options['log_view'] = ':{}'.format(os.path.join(self.save_path,'snes_profile.log'))
         for key, value in petsc_options.items():
             if value is not None:
                 PETScOptions.set(key, value)
@@ -1644,7 +1645,7 @@ from cideMOD.models.nondimensional_model import NondimensionalModel
 
 
 class NDProblem(Problem):
-    def __init__(self, cell:CellParser, model_options:ModelOptions, save_path):
+    def __init__(self, cell:CellParser, model_options:ModelOptions, save_path=None):
         super().__init__(cell, model_options, save_path)
         self.nd_model = NondimensionalModel(self.cell, model_options)
     
@@ -1668,7 +1669,7 @@ class NDProblem(Problem):
         assert mesh_engine != DolfinMesher, "Dolfin mesher can't create a good mesh for a nondimensional problem"
         self.mesher = mesh_engine(options=self.model_options, cell=self.cell)
         self.mesher.build_mesh(scale = self.nd_model.L_0)
-        if copy:
+        if copy and self.save_path:
             mesh_save_path = os.path.join(self.save_path,'mesh')
             os.makedirs(mesh_save_path)
             with open(f'{mesh_save_path}/field_data.json','w') as fout:

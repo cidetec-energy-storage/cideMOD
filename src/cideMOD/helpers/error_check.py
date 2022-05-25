@@ -32,7 +32,7 @@ class ErrorCheck:
     def __init__(self, problem, status, name='', debug=False):
         self.problem = problem
         self.subdomains = self.problem.mesher.get_subdomains_coord(problem.P1_map)
-        if status != 0:
+        if status != 0 and problem.save_path:
             self.log = []
             try:
                 self.print('\nSolver crashed, performing failure checks...')
