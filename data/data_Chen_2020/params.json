@@ -111,8 +111,8 @@
     },
     "electrolyte": {
         "name": "LiPF6",
-        "diffusionConstant": {"unit": "m^2/s", "value": "8.794e-11*(c_e*1e-3)**2-3.972e-10*(c_e*1e-3)+4.862e-10","_value": 1.7694e-10},
-        "ionicConductivity": {"unit": "S/m", "value": "0.1297*(c_e*1e-3)**3-2.51*(c_e*1e-3)**1.5+3.329*c_e*1e-3","_value": 0.9487},
+        "diffusionConstant": {"unit": "m^2/s", "value": "8.794e-11*(c_e*1e-3)**2-3.972e-10*(c_e*1e-3)+4.862e-10","effective":false, "correction": "bruggeman","_value": 1.7694e-10},
+        "ionicConductivity": {"unit": "S/m", "value": "0.1297*(c_e*1e-3)**3-2.51*(c_e*1e-3)**1.5+3.329*c_e*1e-3","effective":false, "correction": "bruggeman","_value": 0.9487},
         "transferenceNumber": {"unit": "-", "value": 0.2594},
         "initialConcentration": {"unit": "mol/m3", "value": 1000.0}
     },
