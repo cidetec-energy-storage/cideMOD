@@ -759,7 +759,7 @@ class Problem:
             
             if errorcode != 0:
                 timer.stop()
-                if store_fom: 
+                if store_fom:
                     self.WH.crop_results() # Crop results
                 return self.exit(errorcode)
         _print(f"Reached max time {self.time:.2f} \033[K\n")
@@ -794,7 +794,7 @@ class Problem:
     def constant_timestep(self, i_app, v_app, timestep, triggers= []):
         timer = Timer('Constant TS')
         errorcode = self.timestep( timestep, i_app, v_app)
-        errorcode = self.accept_timestep(i_app, v_app, timestep, triggers, timer, errorcode)
+        errorcode = self.accept_timestep(i_app, v_app, timestep, triggers, timer, errorcode, True)
         return errorcode
 
     def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[]):
@@ -826,10 +826,10 @@ class Problem:
             return errorcode
         elif self.tau >= 1:
             # This means the result is acepted, advance
-            errorcode = self.accept_timestep(i_app, v_app, h, triggers, timer, errorcode)
+            errorcode = self.accept_timestep(i_app, v_app, h, triggers, timer, errorcode, False)
             return errorcode
 
-    def accept_timestep(self, i_app, v_app, ts, triggers, timer, errorcode):
+    def accept_timestep(self, i_app, v_app, ts, triggers, timer, errorcode, store_fom):
         self.get_state()
         try:
             for t in triggers:
@@ -844,7 +844,7 @@ class Problem:
             errorcode = e
             print(f"{str(e)} at {self.state['t']:.2f} s \033[K\n")
         self.time += ts
-        self.advance_problem()
+        self.advance_problem(store_fom)
         timer.stop()
         return errorcode
 
