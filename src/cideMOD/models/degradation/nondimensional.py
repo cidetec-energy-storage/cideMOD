@@ -116,8 +116,8 @@ class SolventLimitedSEIModel(BaseModel):
         SEI = material.electrode.SEI
         mat_dp = self.material_parameters(material)
         ocv_ref = self.scale_variables({'OCV': material.U})['OCV']
-        delta_S = self.scale_variables({'dU/dT': material.delta_S})['dU/dT']
-        ocv = ocv_ref(c_s_surf, current)+delta_S*(T+(self.T_ref-material.U.T_ref)/self.thermal_gradient)
+        delta_S = self.scale_variables({'dU/dT': material.delta_S}).get('dU/dT',lambda *args,**kwargs: 0)
+        ocv = ocv_ref(c_s_surf, current)-delta_S(c_s_surf, current)*(T+(self.T_ref-material.U.T_ref)/self.thermal_gradient)
         eta = self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - ocv
         if all(key in kwargs for key in ('delta','J')):
             sei_resistance = SEI.R+mat_dp['delta_ref_sei']*kwargs['delta']/SEI.k 

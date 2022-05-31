@@ -61,8 +61,8 @@ class ElectrochemicalModel(BaseModel):
                     scaled_dict['OCV'] = (value - self.OCV_ref)/self.thermal_potential
             if key == 'x':
                 scaled_dict['x'] = value / self.L_0
-            if key == 'T':
-                scaled_dict['T'] = (value-self.T_ref) / self.thermal_gradient
+            if key in ['T','temp']:
+                scaled_dict[key] = (value-self.T_ref) / self.thermal_gradient
         return scaled_dict
 
     def _unscale_electrochemical_variables(self, variables_dict):
@@ -85,8 +85,8 @@ class ElectrochemicalModel(BaseModel):
                 unscaled_dict[key] =  value * self.I_0/self.L_0
             if key == 'x':
                 unscaled_dict['x'] = value * self.L_0
-            if key == 'T':
-                unscaled_dict['T'] = self.T_ref + value * self.thermal_gradient
+            if key in ['T','temp']:
+                unscaled_dict[key] = self.T_ref + value * self.thermal_gradient
         return unscaled_dict
 
     def _calc_electrochemical_dimensionless_parameters(self):
@@ -253,8 +253,8 @@ class ElectrochemicalModel(BaseModel):
 
     def overpotential(self, material, phi_s, phi_e, current, c_s_surf, T, **kwargs):
         ocv_ref = self.scale_variables({'OCV': material.U})['OCV']
-        delta_S = self.scale_variables({'dU/dT': material.delta_S})['dU/dT']
-        ocv = ocv_ref(c_s_surf, current)+delta_S*(T+(self.T_ref-material.U.T_ref)/self.thermal_gradient)
+        delta_S = self.scale_variables({'dU/dT': material.delta_S}).get('dU/dT',lambda *args,**kwargs: 0)
+        ocv = ocv_ref(c_s_surf, current)-delta_S(c_s_surf, current)*(T+(self.T_ref-material.U.T_ref)/self.thermal_gradient)
         eta = (self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - ocv) 
         return eta
 

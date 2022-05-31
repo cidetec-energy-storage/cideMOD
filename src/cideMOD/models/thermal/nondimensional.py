@@ -80,11 +80,11 @@ class ThermalModel(BaseModel):
         if isinstance(domain, Electrode):
             for i, material in enumerate(domain.active_material):
                 j_Li_index = f_1._fields.index(f"j_Li_{domain.tag}{i}")
-                entropy = self.scale_variables({'dU/dT': material.delta_S})['dU/dT']
+                entropy = self.scale_variables({'dU/dT': material.delta_S}).get('dU/dT',lambda *args,**kwargs: 0)
                 source_term+= f_1[j_Li_index]/domain_scale * (self.T_ref/self.thermal_gradient + T) * entropy(c_s_surf[i], current) * test * dx
                 eta = self.overpotential(material, f_1.phi_s, f_1.phi_e, current, c_s_surf[i], T, kwargs=kwargs)
                 source_term+= f_1[j_Li_index]/domain_scale * eta * test * dx
         return accumulation_term + diffusion_term - source_term
 
     def T_bc_equation(self, T, T_ext, h_t, test, ds):
-        return h_t*self.L_0/(self.k_t_reff*self.thermal_gradient) * (self.T_ref-T_ext+self.thermal_gradient*T)*test*ds
+        return h_t*self.L_0/(self.k_t_reff*self.thermal_gradient)/self.delta_k * (self.T_ref-T_ext+self.thermal_gradient*T)*test*ds
