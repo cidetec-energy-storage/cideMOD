@@ -86,5 +86,6 @@ class ThermalModel(BaseModel):
                 source_term+= f_1[j_Li_index]/domain_scale * eta * test * dx
         return accumulation_term + diffusion_term - source_term
 
-    def T_bc_equation(self, T, T_ext, h_t, test, ds):
-        return h_t*self.L_0/(self.k_t_reff*self.thermal_gradient)/self.delta_k * (self.T_ref-T_ext+self.thermal_gradient*T)*test*ds
+    def T_bc_equation(self, domain, T, T_ext, h_t, test, ds):
+        domain_scale = 2*domain.k_t/(domain.norm[1]+domain.norm[2])
+        return h_t*self.L_0/(self.k_t_reff*self.thermal_gradient*self.delta_k*domain_scale) * (self.T_ref-T_ext+self.thermal_gradient*T)*test*ds
