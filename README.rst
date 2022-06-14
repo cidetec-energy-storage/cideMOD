@@ -19,11 +19,9 @@ To use cideMOD, first install it using pip :
 
 .. code-block:: console
     
-   $ git clone < repository_path >/cideMOD.git
+   $ git clone https://github.com/cidetec-energy-storage/cideMOD.git
    $ cd cideMOD
-   $ pip install -e .
-
-It is important using the **-e** option in the *install* command. This will create an editable install, which means that if we modify the source code at the cloned folder, we will have those changes the next time we import the library. 
+   $ pip install .
 
 The P3D/P4D models make use of **gmsh** meshes to create the battery mesh. Therefore, the python environment should be able to locate the **gmsh** shared libraries.
 If your *PYTHONPATH* doesn't contains gmsh, you should add it:
@@ -70,4 +68,5 @@ Authors
 --------
 - Raul Ciria (rciria@cidetec.es)
 - Clara Ganuza (cganuza@cidetec.es)
+- Ruben Parra (rparra@cidetec.es)
 - Elixabete Ayerbe (eayerbe@cidetec.es)

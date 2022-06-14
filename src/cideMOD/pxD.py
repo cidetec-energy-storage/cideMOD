@@ -791,10 +791,10 @@ class Problem:
                     return 21
         return 0
       
-    def constant_timestep(self, i_app, v_app, timestep, triggers= []):
+    def constant_timestep(self, i_app, v_app, timestep, triggers= [], store_fom=True):
         timer = Timer('Constant TS')
         errorcode = self.timestep( timestep, i_app, v_app)
-        errorcode = self.accept_timestep(i_app, v_app, timestep, triggers, timer, errorcode, True)
+        errorcode = self.accept_timestep(i_app, v_app, timestep, triggers, timer, errorcode, store_fom)
         return errorcode
 
     def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[]):
@@ -838,7 +838,7 @@ class Problem:
             timer.stop()
             new_tstep = e.new_tstep(self.get_timestep())
             block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
-            errorcode = self.constant_timestep(i_app, v_app, new_tstep, triggers=triggers)
+            errorcode = self.constant_timestep(i_app, v_app, new_tstep, triggers=triggers, store_fom=store_fom)
             return errorcode
         except TriggerDetected as e:
             errorcode = e

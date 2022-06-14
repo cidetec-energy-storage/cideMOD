@@ -183,7 +183,7 @@ class ElectrochemicalModel(BaseModel):
             k_0 = (3*material.volumeFraction/material.particleRadius)*self.cell.F*material.kineticConstant*self.L_0 * self.c_e_0**0.5 * c_s_max / self.I_0
         else:
             c_s_max = material.c_s_max
-            D_s_ref = np.mean(constant_expression(material.D_s, x = np.linspace(material.stoichiometry0,material.stoichiometry1,num=10)))
+            D_s_ref = constant_expression(material.D_s, x = (material.stoichiometry0+material.stoichiometry1)/2)
             tau_s = D_s_ref * self.t_c / material.R_s ** 2
             S = material.R_s**2 * self.I_0 / (3*material.eps_s*D_s_ref*c_s_max*self.cell.F*self.L_0 )
             k_0 = (3*material.eps_s/material.R_s)*self.cell.F*material.k_0*self.L_0 * self.c_e_0**0.5 * c_s_max / self.I_0
