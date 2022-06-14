@@ -327,7 +327,7 @@ class Problem:
                 # "relative_tolerance": 1e-7,
                 "maximum_iterations": 10,
                 "report": False,
-                "line_search": "basic",
+                "line_search": "bt",
                 "error_on_nonconvergence": True,
                 # "preconditioner": "ilu"
             }
@@ -1302,9 +1302,7 @@ class Problem:
             F_T_pcc = T_equation(T_0=self.f_0.temp, T=self.f_1.temp, test=self.test.temp, dx=d.x_pcc, DT=self.DT, rho=self.positiveCC.rho,
                                  c_p=self.positiveCC.c_p, k_t=self.positiveCC.k_t, q=q_pcc, grad=self.positiveCC.grad, L=self.positiveCC.L, alpha=1e-3)
 
-            F_T_boundary = self.h_t * (self.f_1.temp - self.T_ext) * self.test.temp * \
-                d.s_a + self.h_t * \
-                (self.f_1.temp - self.T_ext)* self.test.temp * d.s_c
+            F_T_boundary = self.h_t * (self.f_1.temp - self.T_ext) * self.test.temp * d.s
 
             self.F_T = [F_T_ncc+F_T_a +
                         F_T_s +
@@ -1430,9 +1428,7 @@ class Problem:
     def get_temperature(self, x=None):
         if x is None:
             x=self.f_1
-        return (assemble(x.temp*self.mesher.dx_a)*self.anode.L + 
-            assemble(x.temp*self.mesher.dx_s)*self.separator.L + 
-            assemble(x.temp*self.mesher.dx_c)*self.cathode.L)/(self.anode.L+self.separator.L+self.cathode.L)
+        return x.temp.vector().max() 
 
     def get_time_filter_error(self):
         t=Timer('TF Error')
@@ -1917,17 +1913,15 @@ class NDProblem(Problem):
                 ( self.f_1[j_li_index] - j_li ) * self.test[j_li_index] * d.x_c
             )
 
-        # T
-        # TODO: el escalado de los colectores de corriente debe ser aplicado a las condiciones de contorno de los mismos.
         if self.model_options.solve_thermal:
-            cc_scaling = 1e-2
-            F_T_ncc = cc_scaling * self.nd_model.T_equation(self.negativeCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, self.i_app, d.x_ncc)
+            F_T_ncc = self.nd_model.T_equation(self.negativeCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, self.i_app, d.x_ncc)
             F_T_a = self.nd_model.T_equation(self.anode, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, self.c_s_surf_a, self.i_app, d.x_a)
             F_T_s = self.nd_model.T_equation(self.separator, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, None, d.x_s)
             F_T_c = self.nd_model.T_equation(self.cathode, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, self.c_s_surf_c, -self.i_app, d.x_c)
-            F_T_pcc = cc_scaling * self.nd_model.T_equation(self.positiveCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, -self.i_app, d.x_pcc)
-            F_T_bc = self.nd_model.T_bc_equation(self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s)
-            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc]
+            F_T_pcc = self.nd_model.T_equation(self.positiveCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, -self.i_app, d.x_pcc)
+            F_T_bc_c = self.nd_model.T_bc_equation(self.positiveCC if 'pcc' in self.cell.structure else self.cathode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_c)
+            F_T_bc_a = self.nd_model.T_bc_equation(self.negativeCC if 'ncc' in self.cell.structure else self.anode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_a)
+            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc_c+F_T_bc_a]
         else:
             self.F_T = [(self.f_1.temp- self.f_0.temp) * self.test.temp * d.x ]
 
@@ -1935,8 +1929,7 @@ class NDProblem(Problem):
                         + self.F_phi_e \
                         + self.F_phi_s + self.F_lm_app\
                         + F_j_Li \
-                        + self.F_T \
-                        + F_c_s 
+                        + F_c_s + self.F_T
 
         J_var_implicit = block_derivative(F_var_implicit, self.u_2, self.du)
         self.F_var_implicit = BlockForm(F_var_implicit)

@@ -277,6 +277,7 @@ class Electrode(PorousComponent):
                         'charge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
                         'discharge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
                     })
+                self.U.T_ref = self.config.openCircuitPotential_Tref
             else:
                 raise NameError('Unknown type of OCP for active_material {}'.format(self.config.name))
 
@@ -292,11 +293,19 @@ class Electrode(PorousComponent):
                         'charge': get_spline(numpy.loadtxt(ocp['value']['charge']),spline_type=ocp['spline_type']),
                         'discharge': get_spline(numpy.loadtxt(ocp['value']['discharge']),spline_type=ocp['spline_type']),
                     })
+                    self._delta_S_check = hysteresys_property({
+                        'charge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
+                        'discharge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
+                    })
                 else:
                     self.delta_S_hysteresis = False
                     self.delta_S = hysteresys_property({
                         'charge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type']),
                         'discharge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type']),
+                    })
+                    self._delta_S_check = hysteresys_property({
+                        'charge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
+                        'discharge': get_spline(numpy.loadtxt(ocp['value']),spline_type=ocp['spline_type'], return_fenics=False),
                     })
             else:
                 raise NameError('Unknown type of OCP for active_material {}'.format(self.config.name))

@@ -19,26 +19,27 @@
 from dolfin import inner
 
 from cideMOD.models.cell_components import CurrentColector, Electrode, Separator
-
+from cideMOD.models.electrochemical.equations import overpotential_equation
 
 def electrolyte_ohmic_heat_equation(kappa, kappa_D, phi_e, c_e, test, dx, grad, L, eps):
     F_q = 0
     if phi_e is not None and kappa is not None and kappa_D is not None and c_e is not None:
-        F_q += L * eps * kappa * inner(grad(phi_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":1}) + \
-            L * eps * (kappa_D/c_e) * inner(grad(c_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":2})
+        F_q += L *  kappa * inner(grad(phi_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":1}) + \
+            L * (kappa_D/c_e) * inner(grad(c_e), grad(phi_e)) * test * dx(metadata={"quadrature_degree":2})
     return F_q
 
 def solid_ohmic_heat_equation(sigma, phi_s, test, dx, grad, L, eps):
     F_q = 0
     if phi_s is not None and sigma is not None:
-        F_q += L * (1-eps) * sigma * inner(grad(phi_s), grad(phi_s)) * test * dx(metadata={"quadrature_degree":1})
+        F_q += L * sigma * inner(grad(phi_s), grad(phi_s)) * test * dx(metadata={"quadrature_degree":1})
     return F_q
 
-def reaction_irreversible_heat(material, j_Li, c_s_surf, phi_s, phi_e, test, current, dx, L):
+def reaction_irreversible_heat(material, j_Li, c_s_surf, phi_s, phi_e, T, test, current, dx, L):
     F_q = 0
     if j_Li is not None and c_s_surf is not None:
-        ocv = material.U(c_s_surf/material.c_s_max, current)
-        F_q = L * material.a_s * j_Li * (phi_s - phi_e - ocv) * test * dx(metadata={"quadrature_degree":3})   
+        ocv = material.U(c_s_surf/material.c_s_max, current) - material.delta_S(c_s_surf/material.c_s_max, current)*(T-material.U.T_ref)
+        eta = overpotential_equation(phi_s, phi_e, ocv)
+        F_q = L * material.a_s * j_Li * eta * test * dx(metadata={"quadrature_degree":3})   
     return F_q
 
 def reaction_reversible_heat(material, j_Li, T, c_s, current, test, dx, L):
@@ -58,7 +59,7 @@ def q_equation(domain, f_1, c_s_surf, test, dx, current):
         q+= solid_ohmic_heat_equation(domain.sigma, f_1.phi_s, test, dx, domain.grad, domain.L, domain.eps_e)
         for i, material in enumerate(domain.active_material):
             j_li_index = f_1._fields.index(f'j_Li_{domain.tag}{i}')
-            q += reaction_irreversible_heat(material, f_1[j_li_index], c_s_surf[i], f_1.phi_s, f_1.phi_e, test, current, dx, domain.L )
+            q += reaction_irreversible_heat(material, f_1[j_li_index], c_s_surf[i], f_1.phi_s, f_1.phi_e, f_1.temp, test, current, dx, domain.L )
             q += reaction_reversible_heat(material, f_1[j_li_index], f_1.temp, c_s_surf[i], current, test, dx, domain.L )
     return q
             

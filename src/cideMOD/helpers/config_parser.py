@@ -163,6 +163,7 @@ class electrode(parser):
             self.stoichiometry0 = self._parse_value('stoichiometry0')
             self.stoichiometry1 = self._parse_value('stoichiometry1')
             self.openCircuitPotential = _parse_file_source(self.dic['openCircuitPotential'], data_path)
+            self.openCircuitPotential_Tref = self.dic['openCircuitPotential'].get('referenceTemperature',298.15)
             if 'entropyCoefficient' in self.dic:
                 self.entropyCoefficient = _parse_file_source(self.dic['entropyCoefficient'], data_path)
             else:

@@ -61,8 +61,8 @@ class ElectrochemicalModel(BaseModel):
                     scaled_dict['OCV'] = (value - self.OCV_ref)/self.thermal_potential
             if key == 'x':
                 scaled_dict['x'] = value / self.L_0
-            if key == 'T':
-                scaled_dict['T'] = (value-self.T_ref) / self.thermal_gradient
+            if key in ['T','temp']:
+                scaled_dict[key] = (value-self.T_ref) / self.thermal_gradient
         return scaled_dict
 
     def _unscale_electrochemical_variables(self, variables_dict):
@@ -85,8 +85,8 @@ class ElectrochemicalModel(BaseModel):
                 unscaled_dict[key] =  value * self.I_0/self.L_0
             if key == 'x':
                 unscaled_dict['x'] = value * self.L_0
-            if key == 'T':
-                unscaled_dict['T'] = self.T_ref + value * self.thermal_gradient
+            if key in ['T','temp']:
+                unscaled_dict[key] = self.T_ref + value * self.thermal_gradient
         return unscaled_dict
 
     def _calc_electrochemical_dimensionless_parameters(self):
@@ -247,13 +247,15 @@ class ElectrochemicalModel(BaseModel):
         regularization = exp(-f_c_s/c_s_surf**2) * exp(-f_c_e/(self.c_e_0+self.delta_c_e_ref*c_e)**2) * exp(-f_c_s_max/(1 - c_s_surf)**2)    
         i_0 = mat_dp['k_0'] * c_s_surf **0.5 * (1-c_s_surf)**0.5 * (1+self.delta_c_e_ref/self.c_e_0 * c_e) ** 0.5
         i_n = conditional(lt(self.c_e_0+self.delta_c_e_ref*c_e, 0), 0, conditional(lt(c_s_surf,0),0, conditional(lt(1-c_s_surf,0), 0, i_0 * regularization)))
-        eta = self.overpotential(material, phi_s, phi_e, current, c_s_surf, kwargs=kwargs) / (1+self.thermal_gradient/self.T_ref * T)
+        eta = self.overpotential(material, phi_s, phi_e, current, c_s_surf, T, kwargs=kwargs) / (1+self.thermal_gradient/self.T_ref * T)
         j_li = i_n * 2 * sinh(eta)
         return j_li
 
-    def overpotential(self, material, phi_s, phi_e, current, c_s_surf, **kwargs):
-        ocv = self.scale_variables({'OCV': material.U})['OCV']
-        eta = (self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - ocv(c_s_surf, current)) 
+    def overpotential(self, material, phi_s, phi_e, current, c_s_surf, T, **kwargs):
+        ocv_ref = self.scale_variables({'OCV': material.U})['OCV']
+        delta_S = self.scale_variables({'dU/dT': material.delta_S}).get('dU/dT',lambda *args,**kwargs: 0)
+        ocv = ocv_ref(c_s_surf, current)-delta_S(c_s_surf, current)*(T+(self.T_ref-material.U.T_ref)/self.thermal_gradient)
+        eta = (self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - ocv) 
         return eta
 
     def get_j_total(self, f, material):
