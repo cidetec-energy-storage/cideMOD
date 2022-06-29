@@ -119,7 +119,7 @@ def get_current_results(problem, label):
                 if label == 'unscaled':
                     resultsDict[key][dofs_jLi] = problem.nd_model.I_0/problem.nd_model.L_0 * (jLi_a[dofs_jLi]/as_a + jLi_c[dofs_jLi]/as_c) / problem.F
                 else:
-                    resultsDict[key][dofs_jLi] = jLi_a[dofs_jLi] + jLi_c[dofs_jLi]
+                    resultsDict[key][dofs_jLi] = (jLi_a[dofs_jLi] + jLi_c[dofs_jLi]) / problem.F
         elif key == "cs":
             # Loop in number of materials
             for i in range(1):
@@ -180,7 +180,7 @@ def initialize_results(problem, N):
     :param problem: Instance of class Problem or NDProblem.
     :type problem: cideMOD.problem.NDProblem
     
-    :param N: Number os snapshots expected to save.
+    :param N: Number of snapshots expected to save.
     :type N: int
     """
 
@@ -189,6 +189,23 @@ def initialize_results(problem, N):
             problem.fom2rom['results'][field] = np.zeros([problem.SGM.order*problem.f_1.phi_s.vector()[:].shape[0], N+1])
         else:
             problem.fom2rom['results'][field] = np.zeros([problem.f_1.phi_s.vector()[:].shape[0], N+1])
+
+
+def extend_results(problem, N):
+    """
+    Extend arrays where the snapshots will be saved.
+
+    :param problem: Instance of class Problem or NDProblem.
+    :type problem: cideMOD.problem.NDProblem
+    
+    :param N: Number of additional snapshots expected to save.
+    :type N: int
+    """
+    for field in ['phis', 'phie', 'ce', 'cs', 'jLi']:
+        if field == 'cs':
+            problem.fom2rom['results'][field] = np.hstack( (problem.fom2rom['results'][field], np.zeros([problem.SGM.order*problem.f_1.phi_s.vector()[:].shape[0], N+1])) )
+        else:
+            problem.fom2rom['results'][field] = np.hstack( (problem.fom2rom['results'][field], np.zeros([problem.f_1.phi_s.vector()[:].shape[0], N+1])) )
 
 
 #####################################################
@@ -265,6 +282,11 @@ def get_mesh_info(problem, label):
     ver2dof = df.vertex_to_dof_map(problem.W[0])
     # ver2dof is a vector that indicates the P1 dof index which corresponds to each mesh vertex.
         # ver2dof[i] gives the P1 dof global numeration which corresponds with the i-th mesh vertex
+    dof2ver = df.dof_to_vertex_map(problem.W[0])
+    # dof2ver is a vector that indicates the mesh vertex which corresponds to each P1 dof index.
+        # dof2ver[i] gives the mesh vertex which corresponds with the i-th P1 dof global numeration
+    mesh['ver2dof'] = ver2dof
+    mesh['dof2ver'] = dof2ver
     dofs_index = ver2dof[mat_connect]
     # P1 dofs index for all finite elements
     mesh['dofs_index'] = dofs_index

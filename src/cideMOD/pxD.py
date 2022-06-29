@@ -40,7 +40,7 @@ from cideMOD.models.particle_models import *
 from cideMOD.models.thermal.equations import *
 from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
-from cideMOD.helpers.extract_fom_info import get_mesh_info, initialize_results
+from cideMOD.helpers.extract_fom_info import get_mesh_info, initialize_results, extend_results
 
 # Activate this only for production
 # set_log_active(False)
@@ -169,10 +169,8 @@ class Problem:
                 assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':new_state['phis'],'positiveCC':new_state['phis']}))
 
             ######################## jLi ########################
-            a_s_a = self.anode.active_material[0].a_s*self.F
-            a_s_c = self.cathode.active_material[0].a_s*self.F
-            assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':a_s_a*new_state['jLi']}))
-            assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':a_s_c*new_state['jLi']}))
+            assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':self.F*new_state['jLi']}))
+            assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':self.F*new_state['jLi']}))
             # TODO: write in a generalized way for more than one material
 
             ######################## cs ########################
@@ -366,9 +364,11 @@ class Problem:
             if pc == 'gamg':
                 petsc_options = solver_conf.gamg()
         else:
-            petsc_options = solver_conf.base_options
+            petsc_options = solver_conf.base_options.copy()
         if self.save_path:
             petsc_options['log_view'] = ':{}'.format(os.path.join(self.save_path,'snes_profile.log'))
+        else:
+            petsc_options.pop('log_view', None)
         for key, value in petsc_options.items():
             if value is not None:
                 PETScOptions.set(key, value)
@@ -703,13 +703,19 @@ class Problem:
 
     def solve_ie(self, i_app=30.0, v_app=None, t_f=3600, store_delay=1, max_step=3600, min_step=0.01, triggers=[], adaptive=True):
 
-        store_fom = True if not adaptive else False
-        if store_fom:
-            initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
-        self.WH.store(self.time, store_fom=store_fom)
-
         if not self.ready:
             self.setup()
+
+        store_fom = not adaptive
+        if store_fom:
+            if self.current_timestep == 0:
+                initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
+                self.WH.store(self.time, store_fom=store_fom)
+            else:
+                extend_results(self, int(np.ceil((t_f-self.time)/min_step))-1)
+        else:
+            self.WH.store(self.time, store_fom=store_fom)
+
         self.prepare_solve(store_delay, self.time)
         if i_app is not None:
             v_app_t=None

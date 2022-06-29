@@ -108,7 +108,7 @@ def hysteresys_property(property:dict):
             return property['discharge'](x)
     return value_selector
 
-def init_results_folder(case_name,overwrite=False, copy_files:list=[]):
+def init_results_folder(case_name,overwrite=False, copy_files:list=[], filenames:list = []):
     """Function which initialize the results folder.
 
     Parameters
@@ -124,29 +124,32 @@ def init_results_folder(case_name,overwrite=False, copy_files:list=[]):
     str
         Complete saving path.
     """
-    save_path = 'results_{}'.format(case_name)
+    dir_path, foldername = os.path.split(case_name)
+    save_path = os.path.join(dir_path, 'results_' + foldername if not foldername.startswith('results_') else foldername)
     comm = df.MPI.comm_world
     if df.MPI.rank(comm)==0:
         if not overwrite:
+            dir_path, foldername = os.path.split(save_path)
             i=1
             while os.path.exists(save_path):
-                save_path='results_{}_v{}'.format(case_name,i)
+                save_path = os.path.join(dir_path, foldername + f'_v{i}')
                 i=i+1
     save_path = comm.bcast(save_path,root=0)
     if df.MPI.rank(comm) == 0:
         try:
-            os.stat(save_path); shutil.rmtree(save_path); os.mkdir(save_path)
+            os.stat(save_path); shutil.rmtree(save_path); os.makedirs(save_path, exist_ok = True)
         except:
-            os.mkdir(save_path)
+            os.makedirs(save_path, exist_ok = True)
         print('Saving results to',os.path.realpath(save_path))
         df.set_log_level(df.LogLevel.WARNING)
         for i, cpfile in enumerate(copy_files):
+            fname = filenames[i] if i < len(filenames) else None
             if isinstance(cpfile, str):
                 path = pathlib.Path(cpfile)
                 if path.exists():
-                    shutil.copy(path,save_path)
+                    shutil.copy(path, os.path.join(save_path, fname + path.suffix) if fname is not None else save_path)
             elif isinstance(cpfile, dict):
-                with open(os.path.join(save_path,f'conf_{i}.json'),'w') as fout:
+                with open(os.path.join(save_path, (fname or f'conf_{i}') + '.json'),'w') as fout:
                     json.dump(cpfile,fout,indent=4,sort_keys=True)
     else:
         df.set_log_level(df.LogLevel.ERROR)

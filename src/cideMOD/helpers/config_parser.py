@@ -45,11 +45,12 @@ def _parse_file_source(property_dict, data_path):
     if isinstance(property_dict['value'], dict):
         assert all(key in property_dict['value'] for key in ['charge','discharge'])
         for k, val in property_dict['value'].items():
-            path = os.path.join(data_path, val) 
+            path = os.path.join(data_path, val) if not val.startswith(data_path) else val
             # assert os.path.exists(path)
             property_dict['value'][k]=path
     else:
-        path = os.path.join(data_path, property_dict['value']) 
+        val = property_dict['value']
+        path = os.path.join(data_path, val) if not val.startswith(data_path) else val
         # assert os.path.exists(path), f'{path} does not exists'
         property_dict['value'] = path
     return property_dict

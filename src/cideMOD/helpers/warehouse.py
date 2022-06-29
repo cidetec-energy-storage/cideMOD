@@ -48,6 +48,7 @@ class Warehouse:
 
         self.global_vars = {}
         self.global_var_arrays = []
+        self.post_processing = []
 
     def set_delay(self, delay):
         self.delay = delay
@@ -155,7 +156,9 @@ class Warehouse:
         self._store_globals(time)
         if store_fom:
             self._store_2_rom()
-        if isinstance(self.delay, list):
+        if self.save_path is None:
+            return
+        elif isinstance(self.delay, list):
             if time in self.delay or any(k<time and k>self.counter for k in self.delay):
                 self._post_process()
                 self._store_internals(time)
@@ -181,29 +184,30 @@ class Warehouse:
                 self.problem.fom2rom['results'][key] = self.problem.fom2rom['results'][key][:,:self.problem.current_timestep]
 
     def write_globals(self, clean=True):
-        if MPI.rank(self.comm) == 0 and self.save_path:
-            for i, key in enumerate(self.global_vars.keys(), 1):
-                global_var_array = array(self.global_var_arrays[i])
-                if global_var_array.ndim == 1:
-                    n = 1
-                    global_var_array = global_var_array[:,newaxis]
-                elif global_var_array.ndim > 2:
-                    global_var_array = global_var_array.reshape(global_var_array.shape[0],global_var_array.shape[1])
-                    n = global_var_array.shape[1]
-                else:
-                    n = global_var_array.shape[1]
-                fname = os.path.join(self.save_path,'{}.txt'.format(key))
-                data = concatenate((array(self.global_var_arrays[0])[:,newaxis],global_var_array), axis = 1)
-                fmt = ("%2.2f \t"+ "%1.8e \t"*n)
-                headers = "Time [s]\t{}".format(self.global_vars[key]['header'])
-                self._save_txt_file(fname, data, fmt, headers)
+        if MPI.rank(self.comm) == 0:
+            if self.save_path is not None:
+                for i, key in enumerate(self.global_vars.keys(), 1):
+                    global_var_array = array(self.global_var_arrays[i])
+                    if global_var_array.ndim == 1:
+                        n = 1
+                        global_var_array = global_var_array[:,newaxis]
+                    elif global_var_array.ndim > 2:
+                        global_var_array = global_var_array.reshape(global_var_array.shape[0],global_var_array.shape[1])
+                        n = global_var_array.shape[1]
+                    else:
+                        n = global_var_array.shape[1]
+                    fname = os.path.join(self.save_path,'{}.txt'.format(key))
+                    data = concatenate((array(self.global_var_arrays[0])[:,newaxis],global_var_array), axis = 1)
+                    fmt = ("%2.2f \t"+ "%1.8e \t"*n)
+                    headers = "Time [s]\t{}".format(self.global_vars[key]['header'])
+                    self._save_txt_file(fname, data, fmt, headers)
 
-            # Write condensated
-            self._write_compiled_output()
-            # Write timings table
-            timing_table = timings(TimingClear.keep, [TimingType.wall, TimingType.user, TimingType.system])
-            with open(os.path.join(self.save_path,'timings.log'), 'w') as out:
-                out.write(timing_table.str(True))
+                # Write condensated
+                self._write_compiled_output()
+                # Write timings table
+                timing_table = timings(TimingClear.keep, [TimingType.wall, TimingType.user, TimingType.system])
+                with open(os.path.join(self.save_path,'timings.log'), 'w') as out:
+                    out.write(timing_table.str(True))
 
             # Reset globals container
             if clean:
