@@ -5,11 +5,12 @@ import petsc4py
 import numpy as np
 from tabulate import tabulate
 import typing
+from pcs import *
 
 class NonlinearBlockProblem(object):
     """Define a nonlinear problem, interfacing with SNES."""
 
-    def __init__(self, F, u, bcs, J, restriction = None, P = None):
+    def __init__(self, F, u, bcs, J, restriction = None, P = None, debug=True):
         self._F = dfx.fem.form(F)
         self._J = dfx.fem.form(J)
         self._obj_vec = multiphenicsx.fem.petsc.create_vector_block(self._F, restriction)
@@ -17,7 +18,10 @@ class NonlinearBlockProblem(object):
         self._bcs = bcs
         self._restriction = restriction
         self._P = dfx.fem.form(P)
-        self.aux = []
+        self.debug=debug
+        if debug:
+            self.residuals = []
+            self.steps = []
 
     def create_snes_solution(self) -> petsc4py.PETSc.Vec:
         """Create SNES solution vector"""
@@ -61,18 +65,26 @@ class NonlinearBlockProblem(object):
             P_mat.zeroEntries()
             multiphenicsx.fem.petsc.assemble_matrix_block(P_mat, self._P, self._bcs, diagonal=1.0, restriction=restriction)
             P_mat.assemble()
-        self._view_residuals(snes, x)
+        if self.debug:
+            self._view_residuals(snes, x)
 
     def _view_residuals(self, snes, x):
-        # vector = multiphenicsx.fem.petsc.assemble_vector_block(self._F,self._J,bcs=self._bcs,x0=x,scale=-1.0,restriction=self._restriction, restriction_x0=self._restriction)
-        # self.aux.append([self.obj(snes,x)]+[np.linalg.norm(vector[dl]) for dl in self.dofs])
-        self.aux.append([self.obj(snes,x)]+[dfx.fem.assemble_vector(F).norm() for F in self._F])
+        residual = multiphenicsx.fem.petsc.assemble_vector_block(self._F,self._J,bcs=self._bcs,x0=x,scale=-1.0,restriction=self._restriction, restriction_x0=self._restriction)
+        step = snes.ksp.getSolution().array if snes.ksp.getSolution().array.any() else np.zeros_like(residual.array)
+        self.residuals.append([self.obj(snes,x)]+[np.linalg.norm(residual[dl]) for dl in self.dofs])
+        self.steps.append([self.obj(snes,x)]+[np.linalg.norm(step[dl]) for dl in self.dofs])
+        # self.aux.append([self.obj(snes,x)]+[dfx.fem.assemble_vector(F).norm() for F in self._F])
 
-    def _print_residuals_norm(self, text='Problem Residuals'):
-        print(f'--------------- {text} ---------------')
-        print(tabulate(self.aux, headers=['objective']+[u.name for u in self._solutions],showindex=True))
-        print('--------------- End ---------------')
-        self.aux = []
+    def _print_residuals_norm(self):
+        print('--------------- Problem Residuals ---------------')
+        print(tabulate(self.residuals, headers=['objective']+[u.name for u in self._solutions],showindex=True))
+        print('--------------------- End -----------------------')
+        self.residuals = []
+        print('\n--------------- Problem Steps ---------------')
+        print(tabulate(self.steps, headers=['objective']+[u.name for u in self._solutions],showindex=True))
+        print('-------------------- End --------------------')
+        self.residuals = []
+
 
     def _prepare_variable_indices(self, x):
         self.dofs = []
@@ -83,9 +95,9 @@ class NonlinearBlockProblem(object):
                 self.dofs.append(x_wrapper._restricted_index_sets[index].getIndices())
 
 class NewtonBlockSolver:
-    log = [("snes_monitor",":snes_log.txt"),("ksp_monitor",":ksp_log.txt"), ("snes_linesearch_monitor",":line_search_log.txt"),
+    log = [("snes_monitor",":snes.log"),("ksp_monitor",":ksp.log"), ("snes_linesearch_monitor",":line_search.log"),
         ("options_view",True), ("options_left",True)]
-    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem):
+    def __init__(self, comm: MPI.Intracomm, problem: NonlinearBlockProblem, pc=None, debug=True):
         """A Newton solver for non-linear block problems."""
         self.problem = problem
         self.snes = petsc4py.PETSc.SNES().create(comm)
@@ -95,30 +107,47 @@ class NewtonBlockSolver:
         self._A = multiphenicsx.fem.petsc.create_matrix_block(problem._J, restriction=(problem._restriction, problem._restriction) if problem._restriction is not None else None)
         self._b = multiphenicsx.fem.petsc.create_vector_block(problem._F, restriction=problem._restriction)
         self.solution = self.problem.create_snes_solution()
-
-        self.snes.getKSP().setType("bcgs")
-        self.snes.getKSP().getPC().setType("hypre")
-        self.snes.getKSP().getPC().setHYPREType("boomeramg")
-        self._set_options([
-                # ("ksp_max_it", int(5e3)),
-                ('pc_hypre_boomeramg_print_statistics', 1),
-                # ("pc_hypre_boomeramg_strong_threshold", 0.9),
-                # ("pc_hypre_boomeramg_numfunctions", 3),
-                # ("pc_hypre_boomeramg_grid_sweeps_all", 3)
-            ])
-        self._set_options(self.log[:2]+self.log[-2:])
+        self.problem._prepare_variable_indices(self.solution)
+        if pc=='none':
+            self.snes.getKSP().setType("bcgs")
+            self.snes.ksp.pc.setType("none")
+        if pc=='mumps':
+            self.snes.getKSP().setType("preonly")
+            pc_mumps(self.snes.getKSP().getPC())
+        if pc=='hypre' or pc is None:
+            self.snes.getKSP().setType("bcgs")
+            pc_boomerAMG(self.snes.getKSP().getPC())
+            self._set_options([
+                    # ("ksp_max_it", int(5e3)),
+                    # ('pc_hypre_boomeramg_print_statistics', 1),
+                    # ('snes_line_search_type', 'l2'),
+                    # ("pc_hypre_boomeramg_strong_threshold", 0.9),
+                    # ("pc_hypre_boomeramg_numfunctions", 3),
+                    # ("pc_hypre_boomeramg_grid_sweeps_all", 3)
+                ])
+        if pc=='fieldsplit':
+            self.snes.getKSP().setType("bcgs")
+            fnames = [u.name for u in self.problem._solutions]
+            pc_ffs_jacobi(self.snes.getKSP().getPC(), fnames, self.problem.dofs)
+        if pc=='mixed':
+            self.snes.getKSP().setType("bcgs")
+            fnames = [u.name for u in self.problem._solutions]
+            pc_mixed(self.snes.getKSP().getPC(), fnames, self.problem.dofs)
+        if debug:
+            self._set_options(self.log[:3]+self.log[-2:])
         self.snes.setObjective(problem.obj)
         self.snes.setFunction(problem.F, self._b)
         self.snes.setJacobian(problem.J, J=self._A, P=None)
         self.snes.setFromOptions()
         # self.snes.setMonitor(lambda _, it, residual: print(it, residual))
-
+        
     def solve(self):
         """Solve non-linear problem into function u. Returns the number
         of iterations and if the solver converged."""
         # self.problem.init_solution(self.solution)
         self.snes.solve(None, self.solution)
         self.problem.update_solutions(self.solution)
+        self.problem._view_residuals(self.snes,self.solution)
         self.problem._print_residuals_norm()
         if self.snes.converged:
             return self.snes.its, self.snes.converged
