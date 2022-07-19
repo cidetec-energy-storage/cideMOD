@@ -77,9 +77,14 @@ class BMS:
     def __init__(self, cell_data:Union[dict,str], simulation_type:dict={}, data_path:str=None, name:str=None, overwrite=False):
         # Load simulation options
         self.simulation_options = DEFAULT_SIMULATION_OPTIONS
-        for key in simulation_type:
-            assert hasattr(self.simulation_options, key) , "Option '{}' not recognized".format(key)
-            setattr(self.simulation_options,key,simulation_type[key])
+        if isinstance(simulation_type,ModelOptions):
+            self.simulation_options = simulation_type
+        elif isinstance(simulation_type, dict):
+            for key in simulation_type:
+                assert hasattr(self.simulation_options, key) , "Option '{}' not recognized".format(key)
+                setattr(self.simulation_options,key,simulation_type.dict()[key])
+        else:
+            raise Exception(f"Argument simulation_type must be of type Union[dict,ModelOptions], is {type(simulation_type)}")
         # Load cell data
         self.cell = self.load_cell_data(cell_data, data_path)
         self.reference_capacity = self.cell.capacity

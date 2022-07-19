@@ -96,7 +96,7 @@ class Trigger:
                 # Trigger surpassed
                 raise TriggerSurpassed(
                     time_slope=(self.trigger_value - self.old_value)
-                    / (new_value - self.old_value) * 1.02
+                    / (new_value - self.old_value)
                 )
             else:
                 # Trigger not reached

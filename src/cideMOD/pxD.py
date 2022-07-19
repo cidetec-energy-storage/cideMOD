@@ -289,6 +289,7 @@ class Problem:
         self.v_app = Constant(0, name='v_app')
         self.i_app = Constant(0, name='i_app')
         self.time = 0.
+        self.Q_sei = 0
 
         self.build_implicit_sgm()
         self.build_fs()
@@ -1465,10 +1466,8 @@ class Problem:
         return self.Q_out
 
     def get_Q_sei(self):
-        if 'Q_sei' not in self.__dict__:
-            self.Q_sei = 0
         j_instant_sei = assemble(-(self.f_1.j_sei_a0+self.f_0.j_sei_a0)*self.anode.active_material[0].a_s*self.mesher.dx_a)*self.anode.L
-        value =  self.get_timestep() * 0.5 * j_instant_sei * self.area /3600
+        value =  self.get_timestep() * 0.5 * j_instant_sei * self.cell.area /3600
         self.Q_sei += value
         return self.Q_sei
 
