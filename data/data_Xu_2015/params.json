@@ -4,6 +4,42 @@
         "2": "Xu (2015)"
     },
     "results": {
+        "0.5C":{
+            "voltage": {
+                "source": "file",
+                "value": "V_0.5C_Xu.txt",
+                "unit": "V"
+            },
+            "temperature": {
+                "source": "file",
+                "value": "T_0.5C_Xu.txt",
+                "unit": "ºC"
+            }
+        },
+        "1C":{
+            "voltage": {
+                "source": "file",
+                "value": "V_1C_Xu.txt",
+                "unit": "V"
+            },
+            "temperature": {
+                "source": "file",
+                "value": "T_1C_Xu.txt",
+                "unit": "ºC"
+            }
+        },
+        "2C":{
+            "voltage": {
+                "source": "file",
+                "value": "V_2C_Xu.txt",
+                "unit": "V"
+            },
+            "temperature": {
+                "source": "file",
+                "value": "T_2C_Xu.txt",
+                "unit": "ºC"
+            }
+        }
     },
     "constants": {
         "R": {"unit": "J/K mol", "value": 8.314472},
@@ -49,7 +85,8 @@
                 "type": "spline", 
                 "spline_type": "not-a-knot", 
                 "source": "file", 
-                "value": "OCV_G.txt"
+                "value": "OCV_G.txt",
+                "referenceTemperature":298.15
             },
             "entropyCoefficient": {
                 "unit": ["-", "kJ/(mol*K)"], 
@@ -98,7 +135,8 @@
                 "type": "spline", 
                 "spline_type": "not-a-knot", 
                 "source": "file", 
-                "value": "OCV_LFP.txt"
+                "value": "OCV_LFP.txt",
+                "referenceTemperature":298.15
             },
             "entropyCoefficient": {
                 "unit": ["-", "V/K"], 

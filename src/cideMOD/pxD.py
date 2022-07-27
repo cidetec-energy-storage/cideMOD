@@ -141,8 +141,6 @@ class Problem:
         block_assign(self.u_2, self.u_1)
         block_assign(self.u_0, self.u_1)
 
-        self.solver_0.solve()
-
         _print(' - Initializing state - Done ')
 
     def _init_rom_dict(self):
@@ -341,8 +339,6 @@ class Problem:
             self.F_var_0,  self.u_2, self.bc, self.J_var_0)
         self.solver_0 = BlockPETScSNESSolver(self.problem_0)
         self.set_use_options(self.solver_0,use_options=self.use_options)
-        self.solver_0.solve()
-        block_assign(self.u_1, self.u_2)
         _print(' - Initializing state - Done ')
 
         _print('\r - Build variational formulation ... ', end='\r')
@@ -438,6 +434,14 @@ class Problem:
                 'header': 'Average SEI thickness [m]'
             }
 
+        # Additional internal variables. Electric current density.
+        self.internal_storage_order.append(['electric_current', 'vector'])
+        self.internal_storage_order.extend(['q_ohmic_e', 'q_ohmic_s'])
+        self.internal_storage_order.append(['q_rev_a', 'list_of_scalar', len(self.anode.active_material)])
+        self.internal_storage_order.append(['q_rev_c', 'list_of_scalar', len(self.cathode.active_material)])
+        self.internal_storage_order.append(['q_irrev_a', 'list_of_scalar', len(self.anode.active_material)])
+        self.internal_storage_order.append(['q_irrev_c', 'list_of_scalar', len(self.cathode.active_material)])
+
     def build_fs(self):
         timer = Timer('Building function space')
         P1 = FunctionSpace(self.mesher.mesh, 'CG', 1)
@@ -520,6 +524,8 @@ class Problem:
         self.W = BlockFunctionSpace([FS[0] for FS in FS_total], restrict=[FS[1] for FS in FS_total])
         self.V = FunctionSpace(self.mesher.mesh, 'CG', 1)
         self.V_vec = VectorFunctionSpace(self.mesher.mesh, 'CG', 1)
+        self.V_0 = FunctionSpace(self.mesher.mesh, 'DG', 0)
+        self.V_vec_0 = VectorFunctionSpace(self.mesher.mesh, 'DG', 0)
         # self.P1_map = SubdomainMapper(self.mesher.subdomains, self.mesher.field_data, self.V)
         self.P1_map = SubdomainMapper(self.mesher.field_restrictions, self.V)
         self.du = BlockTrialFunction(self.W)
@@ -745,21 +751,21 @@ class Problem:
         PETScOptions.set('snes_max_it', 20)
         self.get_state()
         while self.time < t_f:
-            if it > 0 and not self.use_options:
-                PETScOptions.set('snes_lag_jacobian', 5)
-                PETScOptions.set('snes_max_it', 30)
+            # if it > 0 and not self.use_options:
+            #     PETScOptions.set('snes_lag_jacobian', 5)
+            #     PETScOptions.set('snes_max_it', 30)
 
             if isinstance(i_app,str):
                 i_app_t = eval( i_app, globals(), {'time': self.time} )
             if isinstance(v_app,str):
                 v_app_t = eval( v_app, globals(), {'time': self.time, 'v0': v_0} )
 
-            it = it + 1
+            it += 1
 
             if adaptive:
-                errorcode = self.adaptive_timestep(i_app=i_app_t, v_app=v_app_t, max_step=max_step, min_step=min_step, t_max=t_f, triggers= triggers)
+                errorcode = self.adaptive_timestep(i_app=i_app_t, v_app=v_app_t, max_step=max_step, min_step=min_step, t_max=t_f, triggers= triggers, initialize=(it==1))
             else:
-                errorcode = self.constant_timestep(i_app=i_app_t, v_app=v_app_t, timestep=min_step, triggers=triggers)
+                errorcode = self.constant_timestep(i_app=i_app_t, v_app=v_app_t, timestep=min_step, triggers=triggers, initialize=(it==1))
             _print('Voltage: {v:.4f}\tCurrent: {i:.2e}\tTime: {time}\033[K'.format(
                 time=format_time(self.state['t']),
                 **self.state),end='\r')
@@ -798,13 +804,13 @@ class Problem:
                     return 21
         return 0
       
-    def constant_timestep(self, i_app, v_app, timestep, triggers= [], store_fom=True):
+    def constant_timestep(self, i_app, v_app, timestep, triggers= [], store_fom=True, initialize=False):
         timer = Timer('Constant TS')
-        errorcode = self.timestep( timestep, i_app, v_app)
+        errorcode = self.timestep( timestep, i_app, v_app, initialize)
         errorcode = self.accept_timestep(i_app, v_app, timestep, triggers, timer, errorcode, store_fom)
         return errorcode
 
-    def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[]):
+    def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[], initialize=False):
         # Decide wich timestep to use
         timer = Timer('Adaptive TS')
         h = max( min( self.get_timestep()*self.tau, max_step), min_step)
@@ -813,7 +819,7 @@ class Problem:
                 h = t_max - self.time
                 min_step=h
                 max_step=h
-        errorcode = self.timestep( h, i_app, v_app)
+        errorcode = self.timestep( h, i_app, v_app, initialize)
         if errorcode != 0:
             if h == min_step:
                 return errorcode
@@ -863,11 +869,11 @@ class Problem:
             self.anode_particle_model.advance_problem()
             self.cathode_particle_model.advance_problem()
 
-    def timestep(self, timestep, i_app=None, v_app=None):
+    def timestep(self, timestep, i_app=None, v_app=None, initialize=False):
         timer = Timer('Basic TS')
         try:
             if self.c_s_implicit_coupling:
-                self.tstep_implicit(timestep, i_app=i_app, v_app=v_app)
+                self.tstep_implicit(timestep, i_app=i_app, v_app=v_app, initialize=initialize)
             else:
                 it, err = self.tstep_explicit(timestep, i_app=i_app, v_app=v_app)
             timer.stop()
@@ -884,10 +890,13 @@ class Problem:
         else:
             self.set_current(i_app)
 
-    def tstep_implicit(self, h=10, i_app=None, v_app=None):
+    def tstep_implicit(self, h=10, i_app=None, v_app=None, initialize=False):
         self.set_timestep(h)
         self.running_mode(i_app, v_app)
         try:
+            if initialize:
+                print("initializing solution")
+                self.solver_0.solve()
             self.solver_implicit.solve()
         except Exception as e:
             raise e

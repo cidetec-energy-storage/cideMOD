@@ -98,6 +98,17 @@ class Warehouse:
         self.global_var_arrays = [[] for _ in range(len(params)+1)]
         self.global_vars = params
 
+    def get_global_variable(self, var:str):
+        assert self.global_vars, f"Global variables dictionary is empty"
+        assert var == 'time' or var in self.global_vars.keys(), f"Unrecognized global variable '{var}'. Available options: 'time' '" + "' '".join(self.global_vars.keys()) + "'"
+        if var == 'time':
+            return self.global_var_arrays[0]
+        else: 
+            for i, key in enumerate(self.global_vars.keys(), 1):
+                if var == key:
+                    return self.global_var_arrays[i]
+
+
     def post_processing_functions(self, functions:list):
         self.post_processing = functions
 
@@ -109,27 +120,28 @@ class Warehouse:
         
     def _store_internals(self, time):
         timer = Timer('Store Internals')
+        if 'nd_model' in self.problem.__dict__.keys():
+            variables = self.problem.nd_model.physical_variables(self.problem) 
         for name, (file, func) in self.field_vars.items():
             try:
                 if 'nd_model' in self.problem.__dict__.keys():
-                    variables = self.problem.nd_model.physical_variables(self.problem) 
                     var = variables[name]
-                    self._store_var( var, func, file, time)
+                    self._store_var( var, func, file, time, name)
                 else:    
                     index = self.problem.f_1._fields.index(name)
                     var = self.problem.f_1[index]
-                    self._store_var( var, func, file, time)
+                    self._store_var( var, func, file, time, name)
             except (ValueError, KeyError) as e:
                 if name in self.problem.__dict__.keys():
                     var = self.problem.__dict__[name]
-                    self._store_var( var, func, file, time)
+                    self._store_var( var, func, file, time, name)
                 else:
                     pass
                     # TODO: Print warning and quit name, file and func from variable lists
                     # raise Exception("Attribute '{}' not found in f_1 nor in the problem object".format(name))                
         timer.stop()
 
-    def _store_var(self, var, func, file, time):
+    def _store_var(self, var, func, file, time, name = None):
         if not isinstance(var,(list,tuple)):
             var = [var]
         if not isinstance(func,(list,tuple)):
@@ -137,8 +149,11 @@ class Warehouse:
             file = [file]
         assert len(var) == len(func), "Specified variable length does not match"
         for (v, fnc, fout) in zip(var,func,file):
-            if isinstance(var, Function):
-                fout.write(fnc,time)
+            if isinstance(v, Function):
+                if v.ufl_element().family() == 'Lagrange' and v.ufl_element().degree() == 1:
+                    fout.write(v,time)
+                else:
+                    fout.write_checkpoint(v, name or v.name(), time, append = True)
             else:
                 if isinstance(v,(float, int)):
                     v=Constant(v)
