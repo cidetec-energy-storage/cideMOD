@@ -435,12 +435,12 @@ class Problem:
             }
 
         # Additional internal variables. Electric current density.
-        self.internal_storage_order.append(['electric_current', 'vector'])
-        self.internal_storage_order.extend(['q_ohmic_e', 'q_ohmic_s'])
-        self.internal_storage_order.append(['q_rev_a', 'list_of_scalar', len(self.anode.active_material)])
-        self.internal_storage_order.append(['q_rev_c', 'list_of_scalar', len(self.cathode.active_material)])
-        self.internal_storage_order.append(['q_irrev_a', 'list_of_scalar', len(self.anode.active_material)])
-        self.internal_storage_order.append(['q_irrev_c', 'list_of_scalar', len(self.cathode.active_material)])
+        # self.internal_storage_order.append(['electric_current', 'vector'])
+        # self.internal_storage_order.extend(['q_ohmic_e', 'q_ohmic_s'])
+        # self.internal_storage_order.append(['q_rev_a', 'list_of_scalar', len(self.anode.active_material)])
+        # self.internal_storage_order.append(['q_rev_c', 'list_of_scalar', len(self.cathode.active_material)])
+        # self.internal_storage_order.append(['q_irrev_a', 'list_of_scalar', len(self.anode.active_material)])
+        # self.internal_storage_order.append(['q_irrev_c', 'list_of_scalar', len(self.cathode.active_material)])
 
     def build_fs(self):
         timer = Timer('Building function space')
