@@ -50,7 +50,7 @@ def _parse_file_source(property_dict, data_path):
             property_dict['value'][k]=path
     else:
         val = property_dict['value']
-        path = os.path.join(data_path, val) if not val.startswith(data_path) else val
+        path = os.path.join(data_path, val) if not val.startswith(str(data_path)) else val
         # assert os.path.exists(path), f'{path} does not exists'
         property_dict['value'] = path
     return property_dict
