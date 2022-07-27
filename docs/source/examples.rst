@@ -27,7 +27,7 @@ This is one of the most basic use cases of cideMOD, to simulate a single dischar
 Storage
 ^^^^^^^^
 
-In this case, using the BMS interface, we can simulate the degradation under rest conditions.
+In this case, using the CSI interface, we can simulate the degradation under rest conditions.
 
 .. literalinclude:: ../../examples/storage.py
 

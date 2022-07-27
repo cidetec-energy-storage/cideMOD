@@ -6,14 +6,14 @@ Usage
 Getting Started
 ---------------
 
-The most simple way of using the library is to interact with the *BMS* object:
+The most simple way of using the library is to interact with the *CSI* object:
 
 .. code-block:: python
     
-   >>> from cideMOD import BMS, DEFAULTS
-   >>> bms = BMS('params.json', DEFAULTS.SIMULATION_OPTIONS.value, name="first_run")
-   >>> bms.read_test_plan(DEFAULTS.TEST_PLAN.value)
-   >>> bms.run_test_plan()
+   >>> from cideMOD import CSI, DEFAULTS
+   >>> csi = CSI('params.json', DEFAULTS.SIMULATION_OPTIONS.value, name="first_run")
+   >>> csi.read_test_plan(DEFAULTS.TEST_PLAN.value)
+   >>> csi.run_test_plan()
 
 Specify Model Options
 ----------------------
@@ -21,11 +21,11 @@ The model options can be specified through the :class:`ModelOptions <cideMOD.mod
 
 .. code-block:: python
     
-   >>> from cideMOD import BMS, DEFAULTS, ModelOptions
+   >>> from cideMOD import CSI, DEFAULTS, ModelOptions
    >>> options = ModelOptions(mode='P4D', solve_thermal=True, solve_SEI=True, N_x=30, N_y=20, N_y=20, N_z=20)
-   >>> bms = BMS('params.json', options, name="first_run")
-   >>> bms.read_test_plan(DEFAULTS.TEST_PLAN.value)
-   >>> bms.run_test_plan()
+   >>> csi = CSI('params.json', options, name="first_run")
+   >>> csi.read_test_plan(DEFAULTS.TEST_PLAN.value)
+   >>> csi.run_test_plan()
 
 Cell Parameters
 ----------------
@@ -62,7 +62,7 @@ In the data folder, there are several examples of such parameter files. This is 
 
 Test Plan
 -----------
-When using the :class:`BMS <cideMOD.bms.battery_system.BMS>` interface to simulate cell behavior, it is necesary to specify a test plan. This can be specified as a json or created programatically as python dictionaries or using cideMOD's :class:`Input <cideMOD.bms.inputs.Input>` and :class:`Trigger <cideMOD.bms.triggers.Trigger>` classes.
+When using the :class:`CSI <cideMOD.simulation_interface.battery_system.CSI>` interface to simulate cell behavior, it is necesary to specify a test plan. This can be specified as a json or created programatically as python dictionaries or using cideMOD's :class:`Input <cideMOD.simulation_interface.inputs.Input>` and :class:`Trigger <cideMOD.simulation_interface.triggers.Trigger>` classes.
 An example of a test plan built in the code with the different building blocks is can be found in the :doc:`Use Cases <examples>` section.
 
 Finer control

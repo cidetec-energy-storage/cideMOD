@@ -25,7 +25,7 @@ import sys
 import numpy as np
 from collections import namedtuple
 
-from cideMOD.bms.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
+from cideMOD.simulation_interface.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.config_parser import CellParser
 from cideMOD.helpers.miscellaneous import constant_expression, format_time
 from cideMOD.helpers.warehouse import Warehouse
