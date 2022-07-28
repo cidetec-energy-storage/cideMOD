@@ -126,22 +126,22 @@ class Warehouse:
             try:
                 if 'nd_model' in self.problem.__dict__.keys():
                     var = variables[name]
-                    self._store_var( var, func, file, time, name)
+                    self._store_var( var, func, file, time)
                 else:    
                     index = self.problem.f_1._fields.index(name)
                     var = self.problem.f_1[index]
-                    self._store_var( var, func, file, time, name)
+                    self._store_var( var, func, file, time)
             except (ValueError, KeyError) as e:
                 if name in self.problem.__dict__.keys():
                     var = self.problem.__dict__[name]
-                    self._store_var( var, func, file, time, name)
+                    self._store_var( var, func, file, time)
                 else:
                     pass
                     # TODO: Print warning and quit name, file and func from variable lists
                     # raise Exception("Attribute '{}' not found in f_1 nor in the problem object".format(name))                
         timer.stop()
 
-    def _store_var(self, var, func, file, time, name = None):
+    def _store_var(self, var, func, file, time):
         if not isinstance(var,(list,tuple)):
             var = [var]
         if not isinstance(func,(list,tuple)):
@@ -150,10 +150,11 @@ class Warehouse:
         assert len(var) == len(func), "Specified variable length does not match"
         for (v, fnc, fout) in zip(var,func,file):
             if isinstance(v, Function):
+                v.rename(fnc.name(), 'a Function')
                 if v.ufl_element().family() == 'Lagrange' and v.ufl_element().degree() == 1:
                     fout.write(v,time)
                 else:
-                    fout.write_checkpoint(v, name or v.name(), time, append = True)
+                    fout.write_checkpoint(v, v.name(), time, append = True)
             else:
                 if isinstance(v,(float, int)):
                     v=Constant(v)

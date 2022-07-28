@@ -58,7 +58,7 @@ class NondimensionalModel(ThermalModel, MechanicModel, SolventLimitedSEIModel, E
         }
 
         unscaled_vars = self.unscale_variables(problem.f_1._asdict())
-        for physical_var in ['electric_current', 'q_ohmic_e', 'q_ohmic_s', 'q_rev_a', 'q_rev_c', 'q_irrev_a', 'q_irrev_c']:
+        for physical_var in ['electric_current', 'ionic_current', 'q_ohmic_e', 'q_ohmic_s', 'q_rev_a', 'q_rev_c', 'q_irrev_a', 'q_irrev_c']:
 
             if not any([ (var if isinstance(var, str) else var[0]) == physical_var for var in problem.internal_storage_order ]):
                 continue
@@ -73,6 +73,12 @@ class NondimensionalModel(ThermalModel, MechanicModel, SolventLimitedSEIModel, E
                     'positiveCC': electric_current(problem.positiveCC, phi_s_cc)
                 }
                 vars['electric_current'] = project_onto_subdomains(source_dict, problem, vector = True)
+
+            elif physical_var == 'ionic_current':
+                temp, phi_e, c_e = unscaled_vars['temp'], unscaled_vars['phi_e'], unscaled_vars['c_e']
+                ionic_current = lambda domain : - domain.kappa / self.L_0 * grad(phi_e) \
+                            + 2*domain.kappa*self.cell.R*temp/self.cell.F*(1-problem.t_p)*problem.activity*grad(c_e)/c_e/self.L_0
+                vars['ionic_current'] = project_onto_subdomains({domain: ionic_current(getattr(problem,domain)) for domain in ['anode','cathode','separator']}, problem, vector = True)
 
             elif physical_var == 'q_ohmic_e':
                 temp, phi_e, c_e = unscaled_vars['temp'], unscaled_vars['phi_e'], unscaled_vars['c_e']

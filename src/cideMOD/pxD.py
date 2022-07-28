@@ -436,6 +436,7 @@ class Problem:
 
         # Additional internal variables. Electric current density.
         # self.internal_storage_order.append(['electric_current', 'vector'])
+        # self.internal_storage_order.append(['ionic_current', 'vector'])
         # self.internal_storage_order.extend(['q_ohmic_e', 'q_ohmic_s'])
         # self.internal_storage_order.append(['q_rev_a', 'list_of_scalar', len(self.anode.active_material)])
         # self.internal_storage_order.append(['q_rev_c', 'list_of_scalar', len(self.cathode.active_material)])
@@ -1658,6 +1659,11 @@ class NDProblem(Problem):
     def __init__(self, cell:CellParser, model_options:ModelOptions, save_path=None):
         super().__init__(cell, model_options, save_path)
         self.nd_model = NondimensionalModel(self.cell, model_options)
+        self.thermal_boundary_conditions = dict()
+
+    def add_thermal_boundary_condition(self, surface_label, h_t, T_ref = None):
+        assert surface_label in ['Y_m']
+        self.thermal_boundary_conditions[surface_label] = { 'h_t': h_t, 'T_ref': T_ref}
     
     def _build_nonlinear_properties(self):
         dim_f_1 = self.nd_model.dimensional_variables(self.f_1)
@@ -1935,9 +1941,12 @@ class NDProblem(Problem):
             F_T_pcc = self.nd_model.T_equation(self.positiveCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, -self.i_app, d.x_pcc)
             F_T_bc_c = self.nd_model.T_bc_equation(self.positiveCC if 'pcc' in self.cell.structure else self.cathode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_c)
             F_T_bc_a = self.nd_model.T_bc_equation(self.negativeCC if 'ncc' in self.cell.structure else self.anode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_a)
-            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc_c+F_T_bc_a]
+            h_t = self.thermal_boundary_conditions['Y_m']['h_t'] if 'Y_m' in self.thermal_boundary_conditions else self.h_t
+            T_ref = (self.thermal_boundary_conditions['Y_m']['T_ref'] or self.T_ext) if 'Y_m' in self.thermal_boundary_conditions else self.T_ext
+            F_T_bc_Ym = self.nd_model.T_bc_equation(None, self.f_1.temp, T_ref, h_t, self.test.temp, d.s_Ym)
+            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc_c + F_T_bc_a + F_T_bc_Ym ]
         else:
-            self.F_T = [(self.f_1.temp- self.f_0.temp) * self.test.temp * d.x ]
+            self.F_T = [(self.f_1.temp - self.f_0.temp) * self.test.temp * d.x ]
 
         F_var_implicit = self.F_c_e \
                         + self.F_phi_e \
