@@ -74,7 +74,7 @@ DEFAULT_TEST_PLAN = {
 }
 
 class BMS:
-    def __init__(self, cell_data:Union[dict,str], simulation_type:dict={}, data_path:str=None, name:str=None, overwrite=False):
+    def __init__(self, cell_data:Union[dict,str], simulation_type:dict={}, data_path:str=None, name:str=None, overwrite=False, save_path=None):
         # Load simulation options
         self.simulation_options = DEFAULT_SIMULATION_OPTIONS
         if isinstance(simulation_type,ModelOptions):
@@ -89,7 +89,13 @@ class BMS:
         self.cell = self.load_cell_data(cell_data, data_path)
         self.reference_capacity = self.cell.capacity
 
-        self.save_path = init_results_folder(name, overwrite=overwrite, copy_files=[cell_data, self.simulation_options])
+        if save_path:
+            if isinstance(save_path, str):
+                pass
+            else:
+                self.save_path = init_results_folder(name, overwrite=overwrite, copy_files=[cell_data, self.simulation_options])
+        else:
+            self.save_path = None
         # Create the problem
         if self.simulation_options.mode == 'P2D':
             self.problem = Problem(self.cell, self.simulation_options, save_path = self.save_path)

@@ -16,7 +16,7 @@
         "area": {"unit": "m^2", "value": 0.067718},
         "porosity": {"unit": "-", "value": 0.485},
         "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 5.764, "effective": true, "correction":"bruggeman"},
+        "electronicConductivity": {"unit": "S/m", "value": 49, "effective": true, "correction":"bruggeman"},
         "thermalConductivity": {"unit": "W/mK", "value": 0, "effective": true, "correction":"tortuosity"},
         "tortuosity": {"unit": "-", "value": 0},
         "specificHeat": {"unit": "J/kg K", "value": 0, "effective": true, "correction":"tortuosity"},
@@ -28,7 +28,7 @@
             "particleRadius": {"unit": "m", "value": 2e-6},
             "stoichiometry1": {"unit": "-", "value": 0.74},
             "stoichiometry0": {"unit": "-", "value": 0.03},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 6.545915E-13},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 6.545915E-11},
             "maximumConcentration": {"unit": "mol/m3", "value": 30555},
             "diffusionConstant": {"unit": "m^2/s", "value": 2e-14, "arrhenius": {"activationEnergy": 0, "referenceTemperature":298.15}},
             "openCircuitPotential": {
@@ -59,11 +59,11 @@
     },
     "separator": {
         "name": "Not specified",
-        "thickness": {"unit": "m", "value": 80.0e-06},
+        "thickness": {"unit": "m", "value": 20.0e-06},
         "height": {"unit": "m", "value": 0.26},
         "width": {"unit": "m", "value": 0.26},
-        "porosity": {"unit": "-", "value": 0.55},
-        "bruggeman": {"unit": "-", "value": 4}
+        "porosity": {"unit": "-", "value": 0.5},
+        "bruggeman": {"unit": "-", "value": 1.5}
     },
     "positiveElectrode": {
         "name": "LCO",
@@ -71,7 +71,7 @@
         "area": {"unit": "m^2", "value": 0.0677},
         "porosity": {"unit": "-", "value": 0.385},
         "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 12.117, "effective": true, "correction":"bruggeman"},
+        "electronicConductivity": {"unit": "S/m", "value": 59, "effective": true, "correction":"bruggeman"},
         "thermalConductivity": {"unit": "W/mK", "value": 0, "effective": true, "correction":"tortuosity"},
         "specificHeat": {"unit": "J/kg K", "notes": "assumed uniform heat capacity across cell", "value": 0, "effective": true, "correction":"tortuosity"},
         "density": {"unit": "kg/m3", "notes": "assumed uniform density across cell","value": 0},
@@ -81,8 +81,8 @@
 		    "volFrac_active": {"unit": "-", "value": 0.59},
             "particleRadius": {"unit": "m", "value": 2e-06},
             "stoichiometry1": {"unit": "-", "value_new": 0.01, "value": 0.5},
-            "stoichiometry0": {"unit": "-", "value_new": 0.29, "value": 0.95},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.2887688E-13},
+            "stoichiometry0": {"unit": "-", "value_new": 0.29, "value": 0.99},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.2887688E-11},
             "maximumConcentration": {"unit": "mol/m3", "value": 51555},
             "diffusionConstant": {"unit": "m^2/s", "value": 1e-14, "arrhenius": {"activationEnergy": 0, "referenceTemperature":298.15}},
             "openCircuitPotential": {
@@ -108,7 +108,7 @@
         },
         "ionicConductivity": {
             "unit": "S/m",
-            "value": "(0.00041253+5.007*c_e*0.000001-4721.2*(c_e*0.000001)**2+1509400*(c_e*0.000001)**3-160180000*(c_e*0.000001)**4)*1000",
+            "value": "4.1253e-2+5.007e-4*c_e-4.7212e-7*c_e**2+1.5094e-10*c_e**3-1.6018e-14*c_e**4",
             "effective": false,
             "correction":"bruggeman"
         },

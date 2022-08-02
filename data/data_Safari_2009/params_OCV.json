@@ -28,7 +28,7 @@
             "particleRadius": {"unit": "m", "value": 2e-6},
             "stoichiometry1": {"unit": "-", "value": 0.99},
             "stoichiometry0": {"unit": "-", "value": 0.03},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 6.545915E-13},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 6.545915E-8},
             "maximumConcentration": {"unit": "mol/m3", "value": 30555},
             "diffusionConstant": {"unit": "m^2/s", "value": 2e-14, "arrhenius": {"activationEnergy": 0, "referenceTemperature":298.15}},
             "openCircuitPotential": {
@@ -82,7 +82,7 @@
             "particleRadius": {"unit": "m", "value": 2e-06},
             "stoichiometry1": {"unit": "-", "value_new": 0.01, "value": 0.5},
             "stoichiometry0": {"unit": "-", "value_new": 0.29, "value": 0.95},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.2887688E-13},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.2887688E-8},
             "maximumConcentration": {"unit": "mol/m3", "value": 51555},
             "diffusionConstant": {"unit": "m^2/s", "value": 1e-14, "arrhenius": {"activationEnergy": 0, "referenceTemperature":298.15}},
             "openCircuitPotential": {
