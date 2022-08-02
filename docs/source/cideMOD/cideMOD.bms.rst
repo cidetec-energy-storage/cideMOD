@@ -1,4 +1,4 @@
-cideMOD.bms package
+cideMOD.simulation_interface package
 ===================
 
 Submodules
@@ -7,14 +7,14 @@ Submodules
 .. toctree::
    :maxdepth: 2
 
-   cideMOD.bms.battery_system
-   cideMOD.bms.inputs
-   cideMOD.bms.triggers
+   cideMOD.simulation_interface.battery_system
+   cideMOD.simulation_interface.inputs
+   cideMOD.simulation_interface.triggers
 
 Module contents
 ---------------
 
-.. automodule:: cideMOD.bms
+.. automodule:: cideMOD.simulation_interface
    :members:
    :undoc-members:
    :show-inheritance:

@@ -63,7 +63,10 @@ class ThermalModel(BaseModel):
         return {}
 
     def T_equation(self, domain, DT, T, T_0, test, f_1, c_s_surf, current, dx, **kwargs):
-        domain_scale = 2*domain.k_t/(domain.norm[1]+domain.norm[2])
+        if 'ncc' in self.cell.structure:
+            domain_scale = 2 * self._parse_cell_value(self.cell.negative_curent_colector.thermalConductivity) / (self.cell.separator.height + self.cell.separator.width)
+        else:
+            domain_scale = 2 * self.k_t_reff / (self.cell.separator.height + self.cell.separator.width)
         accumulation_term = (domain.rho*domain.c_p / (self.rho_ref*self.c_p_ref*domain_scale)) * DT.dt(T_0,T) * test * dx
         diffusion_term = domain.k_t/(self.delta_k * self.k_t_reff*domain_scale) * inner(grad(T), grad(test)) * dx(metadata={"quadrature_degree":0})
         source_term = 0
@@ -87,5 +90,8 @@ class ThermalModel(BaseModel):
         return accumulation_term + diffusion_term - source_term
 
     def T_bc_equation(self, domain, T, T_ext, h_t, test, ds):
-        domain_scale = 2*domain.k_t/(domain.norm[1]+domain.norm[2])
+        if 'ncc' in self.cell.structure:
+            domain_scale = 2 * self._parse_cell_value(self.cell.negative_curent_colector.thermalConductivity) / (self.cell.separator.height + self.cell.separator.width)
+        else:
+            domain_scale = 2 * self.k_t_reff / (self.cell.separator.height + self.cell.separator.width)     
         return h_t*self.L_0/(self.k_t_reff*self.thermal_gradient*self.delta_k*domain_scale) * (self.T_ref-T_ext+self.thermal_gradient*T)*test*ds

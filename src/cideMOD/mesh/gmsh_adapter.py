@@ -23,6 +23,7 @@ import json
 import os
 import shutil
 from pathlib import Path
+from collections import namedtuple
 
 import appdirs
 import meshio
@@ -164,6 +165,7 @@ class GmshConverter(BaseMesher):
         self.current_colectors = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/current_colectors.rtc.{ext}'))
         self.electrode_cc_interfaces = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/electrode_cc_interfaces.rtc.{ext}'))
         self.positive_tab = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/positive_tab.rtc.{ext}'))
+        self.Y_m_surface = MeshRestriction(self.mesh, self._mesh_store(f'restrictions/y_m_surface.rtc.{ext}'))
 
         # Generate measures
         a_s_c_order = all([self.structure[i+1]=='s' for i, el in enumerate(self.structure) if el is 'a'])
@@ -181,6 +183,7 @@ class GmshConverter(BaseMesher):
         self.ds = Measure('ds', domain=self.mesh, subdomain_data=self.boundaries, metadata={"quadrature_degree":2})
         self.ds_a = self.ds(self.field_data['negativePlug'])
         self.ds_c = self.ds(self.field_data['positivePlug'])
+        self.ds_Ym = self.ds(self.field_data['Y_m'])
         self.dS = Measure('dS', domain=self.mesh, subdomain_data=self.interfaces, metadata=meta)
         self.dS_as = self.dS(self.field_data['interfaces']['anode-separator'], metadata={**meta, "direction": int_dir("+")})
         self.dS_sa = self.dS(self.field_data['interfaces']['anode-separator'], metadata={**meta, "direction": int_dir("-")})
@@ -219,6 +222,7 @@ class GmshConverter(BaseMesher):
         # solid_conductor = _subdomain_restriction([electrodes, current_colectors]) #This is not being used right now
         electrode_cc_interfaces = _interface_restriction([ ['anode','negativeCC'], ['cathode', 'positiveCC'] ], mesh, subdomains, field_data)
         positive_tab = _boundary_restriction(['positivePlug'], mesh, boundaries, field_data)
+        Y_m_surface = _boundary_restriction(['Y_m'], mesh, boundaries, field_data)
         t0.stop()
 
         t1 = Timer('Write XDMF mesh files')
@@ -239,6 +243,7 @@ class GmshConverter(BaseMesher):
         XDMFFile(self._mesh_store("restrictions/current_colectors.rtc.xdmf")).write(current_colectors)
         XDMFFile(self._mesh_store("restrictions/electrode_cc_interfaces.rtc.xdmf")).write(electrode_cc_interfaces)
         XDMFFile(self._mesh_store("restrictions/positive_tab.rtc.xdmf")).write(positive_tab)
+        XDMFFile(self._mesh_store("restrictions/y_m_surface.rtc.xdmf")).write(Y_m_surface)
         t1.stop()
         t = Timer('Write XML mesh files')
         # Write out new-style xml files
@@ -255,6 +260,10 @@ class GmshConverter(BaseMesher):
         # File(self._mesh_store("restrictions/electrode_cc_interfaces.rtc.xml")) << electrode_cc_interfaces
         # File(self._mesh_store("restrictions/positive_tab.rtc.xml")) << positive_tab
         t.stop()
+
+    def get_measures(self):
+        d = namedtuple('Measures', ['x', 'x_a', 'x_s', 'x_c', 'x_pcc', 'x_ncc', 's', 's_a', 's_c', 's_Ym', 'S_a_s', 'S_s_a', 'S_c_s', 'S_s_c', 'S_a_ncc', 'S_ncc_a', 'S_c_pcc', 'S_pcc_c'])
+        return d._make([self.dx, self.dx_a, self.dx_s, self.dx_c, self.dx_pcc, self.dx_ncc, self.ds, self.ds_a, self.ds_c, self.ds_Ym, self.dS_as, self.dS_sa, self.dS_cs, self.dS_sc, self.dS_a_cc, self.dS_cc_a, self.dS_c_cc, self.dS_cc_c])
 
 class TemplateMesher(GmshConverter):
 

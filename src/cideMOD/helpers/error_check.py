@@ -18,7 +18,7 @@
 #
 from dolfin import MPI, project
 from multiphenics import block_assign
-from cideMOD.bms.triggers import SolverCrashed
+from cideMOD.simulation_interface.triggers import SolverCrashed
 import os
 
 from numpy import array, ndarray

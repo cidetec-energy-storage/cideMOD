@@ -7,7 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 2
 
-   cideMOD.bms
+   cideMOD.simulation_interface
    cideMOD.helpers
    cideMOD.mesh
    cideMOD.models

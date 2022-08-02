@@ -1,7 +1,7 @@
-cideMOD.bms.triggers module
+cideMOD.simulation_interface.triggers module
 ===========================
 
-.. automodule:: cideMOD.bms.triggers
+.. automodule:: cideMOD.simulation_interface.triggers
    :members:
    :undoc-members:
    :show-inheritance:

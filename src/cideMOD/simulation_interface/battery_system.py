@@ -23,8 +23,8 @@ from typing import IO, Union
 
 import numpy as np
 
-from cideMOD.bms.inputs import CurrentInput, Cycle, Rest, VoltageInput, execute_step
-from cideMOD.bms.triggers import Trigger, TriggerDetected, TriggerSurpassed
+from cideMOD.simulation_interface.inputs import CurrentInput, Cycle, Rest, VoltageInput, execute_step
+from cideMOD.simulation_interface.triggers import Trigger, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.config_parser import CellParser
 from cideMOD.helpers.error_check import ErrorCheck
 from cideMOD.helpers.miscellaneous import init_results_folder
@@ -73,7 +73,7 @@ DEFAULT_TEST_PLAN = {
     'steps': [DEFAULT_INPUT]
 }
 
-class BMS:
+class CSI:
     def __init__(self, cell_data:Union[dict,str], simulation_type:dict={}, data_path:str=None, name:str=None, overwrite=False, save_path=None):
         # Load simulation options
         self.simulation_options = DEFAULT_SIMULATION_OPTIONS

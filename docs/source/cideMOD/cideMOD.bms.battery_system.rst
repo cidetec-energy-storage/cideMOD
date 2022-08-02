@@ -1,7 +1,7 @@
-cideMOD.bms.battery\_system module
+cideMOD.simulation_interface.battery\_system module
 ==================================
 
-.. automodule:: cideMOD.bms.battery_system
+.. automodule:: cideMOD.simulation_interface.battery_system
    :members:
    :undoc-members:
    :show-inheritance:

@@ -20,15 +20,15 @@ r"""This module contains the logic of the intermediary between the user and a ba
 
 from enum import Enum
 
-from cideMOD.bms.battery_system import (
-    BMS,
+from cideMOD.simulation_interface.battery_system import (
+    CSI,
     DEFAULT_EVENT,
     DEFAULT_INPUT,
     DEFAULT_PROFILE,
     DEFAULT_SIMULATION_OPTIONS,
     DEFAULT_TEST_PLAN,
 )
-from cideMOD.bms.triggers import SolverCrashed, Trigger, TriggerDetected
+from cideMOD.simulation_interface.triggers import SolverCrashed, Trigger, TriggerDetected
 
 
 class DEFAULTS(Enum):
@@ -39,4 +39,4 @@ class DEFAULTS(Enum):
     TEST_PLAN = DEFAULT_TEST_PLAN
 
 
-__all__ = ["BMS", "Trigger", "TriggerDetected", "SolverCrashed", "DEFAULTS"]
+__all__ = ["CSI", "Trigger", "TriggerDetected", "SolverCrashed", "DEFAULTS"]

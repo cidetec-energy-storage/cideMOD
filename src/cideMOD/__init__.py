@@ -18,13 +18,13 @@
 #
 r"""The cideMOD library contains a suite of modules needed to simulate a battery"""
 
-from cideMOD.bms import BMS, DEFAULTS, SolverCrashed, Trigger, TriggerDetected
+from cideMOD.simulation_interface import CSI, DEFAULTS, SolverCrashed, Trigger, TriggerDetected
 from cideMOD.helpers import CellParser, ErrorCheck, init_results_folder
 from cideMOD.pxD import NDProblem, Problem, StressProblem
 from cideMOD.models.model_options import ModelOptions
 
 __all__ = [
-    "BMS",
+    "CSI",
     "DEFAULTS",
     "SolverCrashed",
     "Trigger",

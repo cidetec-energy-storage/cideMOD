@@ -1,6 +1,6 @@
 import os
 
-from cideMOD import BMS, ErrorCheck, ModelOptions
+from cideMOD import CSI, ErrorCheck, ModelOptions
 
 SIMULATION_OPTIONS = ModelOptions(mode='P2D', solve_SEI=True)
 
@@ -66,8 +66,8 @@ data_path = "../data/data_{}".format(case)
 cell_data = os.path.join(data_path, "params.json")
 
 
-bms = BMS(cell_data, SIMULATION_OPTIONS.dict(), name=case)
-bms.read_test_plan(TEST_PLAN)
-status = bms.run_test_plan()
+csi = CSI(cell_data, SIMULATION_OPTIONS.dict(), name=case)
+csi.read_test_plan(TEST_PLAN)
+status = csi.run_test_plan()
 
-err = ErrorCheck(bms.problem, status)
+err = ErrorCheck(csi.problem, status)

@@ -394,15 +394,17 @@ class GmshGenerator:
         self._label_physical_elements(volumes_to_label, structure)
 
         if 'pcc' in structure or 'ncc' in structure:
-            ncc = self.geom.add_physical(self._flatten_list([ tab_surfaces[i][j] for j in range(5) for i, tab in enumerate(tab_indexes) if tab[3] == 'ncc' ]), label='negativePlug')
-            pcc = self.geom.add_physical(self._flatten_list([ tab_surfaces[i][j] for j in range(5) for i, tab in enumerate(tab_indexes) if tab[3] == 'pcc' ]), label='positivePlug')
+            ncc = self.geom.add_physical(self._flatten_list([ tab_surfaces[i][j] for j in range(1) for i, tab in enumerate(tab_indexes) if tab[3] == 'ncc' ]), label='negativePlug')
+            pcc = self.geom.add_physical(self._flatten_list([ tab_surfaces[i][j] for j in range(1) for i, tab in enumerate(tab_indexes) if tab[3] == 'pcc' ]), label='positivePlug')
         else:
             ncc = self.geom.add_physical(self._flatten_list([surfaces[0][i][j][0] for i in range(5) for j in range(5)]),label='negativePlug')
             pcc = self.geom.add_physical(self._flatten_list([surfaces[0][i][j][-1] for i in range(5) for j in range(5)]),label='positivePlug')
 
+        Y_m = self.geom.add_physical(self._flatten_list([surfaces[1][0][j][k]  for k in range(n_elements) for j in range(5)]),label='Y_m')
+
         # Define mesh
-        H_disc = [int(max(1,np.ceil(nH/10))), int(max(2,np.ceil(nH*3/10))), int(max(1,np.ceil(nH*2/10))), int(max(2,np.ceil(nH*3/10))), int(max(1,np.ceil(nH/10)))]
-        Z_disc = [int(max(1,np.ceil(nZ/10))), int(max(2,np.ceil(nZ*3/10))), int(max(1,np.ceil(nZ*2/10))), int(max(2,np.ceil(nZ*3/10))), int(max(1,np.ceil(nZ/10)))]
+        H_disc = [1+int(max(1,np.ceil(nH/10))), 1+int(max(2,np.ceil(nH*3/10))), 1+int(max(1,np.ceil(nH*2/10))), 1+int(max(2,np.ceil(nH*3/10))), 1+int(max(1,np.ceil(nH/10)))]
+        Z_disc = [1+int(max(1,np.ceil(nZ/10))), 1+int(max(2,np.ceil(nZ*3/10))), 1+int(max(1,np.ceil(nZ*2/10))), 1+int(max(2,np.ceil(nZ*3/10))), 1+int(max(1,np.ceil(nZ/10)))]
         for i in range(6):
             for j in range(6):
                 for k in range(n_elements):
@@ -429,9 +431,9 @@ class GmshGenerator:
             for i, tab in enumerate(tab_indexes):
                 trans_pars = self.discretization[structure[tab[2]]]
                 if tab[0] in (7,0):
-                    self.geom.set_transfinite_curve( tab_lines[i][0], Z_disc[1], 'Progression', 1 )
+                    self.geom.set_transfinite_curve( tab_lines[i][0], Z_disc[tab[1]-1], 'Progression', 1 )
                     self.geom.set_transfinite_curve( tab_lines[i][1], trans_pars['n'], trans_pars['type'], trans_pars['par'])
-                    self.geom.set_transfinite_curve( tab_lines[i][2], Z_disc[1], 'Progression', 1 )
+                    self.geom.set_transfinite_curve( tab_lines[i][2], Z_disc[tab[1]-1], 'Progression', 1 )
                     self.geom.set_transfinite_curve( tab_lines[i][3], trans_pars['n'], trans_pars['type'], trans_pars['par'])
                     for j in range(4):
                         self.geom.set_transfinite_curve( tab_lines[i][4+j], H_disc[2], 'Progression', 1 )
@@ -497,7 +499,7 @@ class GmshGenerator:
             },
             'right': {
                 'up': (4, 7),
-                'down': (4, 7),
+                'down': (2, 7),
             }
         }
         return locations[tab_location[0]][tab_location[1]]

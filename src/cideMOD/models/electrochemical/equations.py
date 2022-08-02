@@ -191,7 +191,7 @@ def overpotential_equation(phi_s, phi_e, OCV, J=None, SEI=None, delta=None):
 
 def j_Li_equation(material, c_e, c_s_surf, alpha, phi_s, phi_e, F, R, T, current, J=None, SEI=None, delta=None):
     i_n = i_n_equation(material.k_0,c_e,c_s_surf,material.c_s_max,alpha)
-    ocv = material.U(c_s_surf/material.c_s_max, current) - material.delta_S(c_s_surf/material.c_s_max, current)*(T-material.U.T_ref)
+    ocv = material.U(c_s_surf/material.c_s_max, current) + material.delta_S(c_s_surf/material.c_s_max, current)*(T-material.U.T_ref)
     eta = overpotential_equation(phi_s, phi_e, ocv, J, SEI, delta)
     BV = ButtlerVolmer_equation(alpha, F, R, T, eta)
     return F*i_n*BV

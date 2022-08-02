@@ -371,3 +371,40 @@ def create_problem_json(problem_dic, V):
          else:
              pass
     return problem_dic_json
+
+def project_onto_subdomains(source_dict, problem, vector = False, V=None, bcs=None,
+            function=None,
+            solver_type="lu",
+            preconditioner_type="default",
+            form_compiler_parameters=None):
+    """
+    This method allows to project the given expressions *source_dict* onto the finite element space *V* 
+    in the specified subdomains. Based on dolfin.fem.projection.project method.
+    """
+    if V is None:
+        V = problem.V_0 if not vector else problem.V_vec_0
+
+    # Get measures
+    d = problem.mesher.get_measures()
+    dx = {'anode':d.x_a, 'cathode': d.x_c, 'separator':d.x_s, 'negativeCC':d.x_ncc, 'positiveCC': d.x_pcc}
+
+    # Define variational problem for projection
+    u = df.TestFunction(V)
+    v = df.TrialFunction(V)
+
+    a = df.inner(u,v)*d.x
+    
+    L = 0
+    for subdomain, source in source_dict.items():
+        assert subdomain in dx.keys(), f"Unrecognized subdomain '{subdomain}'. Available options: '" + "' '".join(dx.keys()) + "'"
+        L += df.inner(source,v)*dx[subdomain]
+
+    # Assemble linear system
+    A, b = df.assemble_system(a, L, bcs=bcs, form_compiler_parameters=form_compiler_parameters)
+
+    # Solve linear system for projection
+    if function is None:
+        function = df.Function(V)
+    df.cpp.la.solve(A, function.vector(), b, solver_type, preconditioner_type)
+
+    return function

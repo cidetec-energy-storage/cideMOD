@@ -1,7 +1,7 @@
-cideMOD.bms.inputs module
+cideMOD.simulation_interface.inputs module
 =========================
 
-.. automodule:: cideMOD.bms.inputs
+.. automodule:: cideMOD.simulation_interface.inputs
    :members:
    :undoc-members:
    :show-inheritance:

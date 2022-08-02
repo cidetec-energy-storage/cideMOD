@@ -25,7 +25,7 @@ import sys
 import numpy as np
 from collections import namedtuple
 
-from cideMOD.bms.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
+from cideMOD.simulation_interface.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.config_parser import CellParser
 from cideMOD.helpers.miscellaneous import constant_expression, format_time
 from cideMOD.helpers.warehouse import Warehouse
@@ -140,8 +140,6 @@ class Problem:
         self.initial_guess()
         block_assign(self.u_2, self.u_1)
         block_assign(self.u_0, self.u_1)
-
-        self.solver_0.solve()
 
         _print(' - Initializing state - Done ')
 
@@ -341,8 +339,6 @@ class Problem:
             self.F_var_0,  self.u_2, self.bc, self.J_var_0)
         self.solver_0 = BlockPETScSNESSolver(self.problem_0)
         self.set_use_options(self.solver_0,use_options=self.use_options)
-        self.solver_0.solve()
-        block_assign(self.u_1, self.u_2)
         _print(' - Initializing state - Done ')
 
         _print('\r - Build variational formulation ... ', end='\r')
@@ -438,6 +434,15 @@ class Problem:
                 'header': 'Average SEI thickness [m]'
             }
 
+        # Additional internal variables. Electric current density.
+        # self.internal_storage_order.append(['electric_current', 'vector'])
+        # self.internal_storage_order.append(['ionic_current', 'vector'])
+        # self.internal_storage_order.extend(['q_ohmic_e', 'q_ohmic_s'])
+        # self.internal_storage_order.append(['q_rev_a', 'list_of_scalar', len(self.anode.active_material)])
+        # self.internal_storage_order.append(['q_rev_c', 'list_of_scalar', len(self.cathode.active_material)])
+        # self.internal_storage_order.append(['q_irrev_a', 'list_of_scalar', len(self.anode.active_material)])
+        # self.internal_storage_order.append(['q_irrev_c', 'list_of_scalar', len(self.cathode.active_material)])
+
     def build_fs(self):
         timer = Timer('Building function space')
         P1 = FunctionSpace(self.mesher.mesh, 'CG', 1)
@@ -520,6 +525,8 @@ class Problem:
         self.W = BlockFunctionSpace([FS[0] for FS in FS_total], restrict=[FS[1] for FS in FS_total])
         self.V = FunctionSpace(self.mesher.mesh, 'CG', 1)
         self.V_vec = VectorFunctionSpace(self.mesher.mesh, 'CG', 1)
+        self.V_0 = FunctionSpace(self.mesher.mesh, 'DG', 0)
+        self.V_vec_0 = VectorFunctionSpace(self.mesher.mesh, 'DG', 0)
         # self.P1_map = SubdomainMapper(self.mesher.subdomains, self.mesher.field_data, self.V)
         self.P1_map = SubdomainMapper(self.mesher.field_restrictions, self.V)
         self.du = BlockTrialFunction(self.W)
@@ -745,21 +752,21 @@ class Problem:
         PETScOptions.set('snes_max_it', 20)
         self.get_state()
         while self.time < t_f:
-            if it > 0 and not self.use_options:
-                PETScOptions.set('snes_lag_jacobian', 5)
-                PETScOptions.set('snes_max_it', 30)
+            # if it > 0 and not self.use_options:
+            #     PETScOptions.set('snes_lag_jacobian', 5)
+            #     PETScOptions.set('snes_max_it', 30)
 
             if isinstance(i_app,str):
                 i_app_t = eval( i_app, globals(), {'time': self.time} )
             if isinstance(v_app,str):
                 v_app_t = eval( v_app, globals(), {'time': self.time, 'v0': v_0} )
 
-            it = it + 1
+            it += 1
 
             if adaptive:
-                errorcode = self.adaptive_timestep(i_app=i_app_t, v_app=v_app_t, max_step=max_step, min_step=min_step, t_max=t_f, triggers= triggers)
+                errorcode = self.adaptive_timestep(i_app=i_app_t, v_app=v_app_t, max_step=max_step, min_step=min_step, t_max=t_f, triggers= triggers, initialize=(it==1))
             else:
-                errorcode = self.constant_timestep(i_app=i_app_t, v_app=v_app_t, timestep=min_step, triggers=triggers)
+                errorcode = self.constant_timestep(i_app=i_app_t, v_app=v_app_t, timestep=min_step, triggers=triggers, initialize=(it==1))
             _print('Voltage: {v:.4f}\tCurrent: {i:.2e}\tTime: {time}\033[K'.format(
                 time=format_time(self.state['t']),
                 **self.state),end='\r')
@@ -798,13 +805,13 @@ class Problem:
                     return 21
         return 0
       
-    def constant_timestep(self, i_app, v_app, timestep, triggers= [], store_fom=True):
+    def constant_timestep(self, i_app, v_app, timestep, triggers= [], store_fom=True, initialize=False):
         timer = Timer('Constant TS')
-        errorcode = self.timestep( timestep, i_app, v_app)
+        errorcode = self.timestep( timestep, i_app, v_app, initialize)
         errorcode = self.accept_timestep(i_app, v_app, timestep, triggers, timer, errorcode, store_fom)
         return errorcode
 
-    def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[]):
+    def adaptive_timestep(self, i_app, v_app, max_step=1000, min_step=1, t_max=None, triggers=[], initialize=False):
         # Decide wich timestep to use
         timer = Timer('Adaptive TS')
         h = max( min( self.get_timestep()*self.tau, max_step), min_step)
@@ -813,7 +820,7 @@ class Problem:
                 h = t_max - self.time
                 min_step=h
                 max_step=h
-        errorcode = self.timestep( h, i_app, v_app)
+        errorcode = self.timestep( h, i_app, v_app, initialize)
         if errorcode != 0:
             if h == min_step:
                 return errorcode
@@ -863,11 +870,11 @@ class Problem:
             self.anode_particle_model.advance_problem()
             self.cathode_particle_model.advance_problem()
 
-    def timestep(self, timestep, i_app=None, v_app=None):
+    def timestep(self, timestep, i_app=None, v_app=None, initialize=False):
         timer = Timer('Basic TS')
         try:
             if self.c_s_implicit_coupling:
-                self.tstep_implicit(timestep, i_app=i_app, v_app=v_app)
+                self.tstep_implicit(timestep, i_app=i_app, v_app=v_app, initialize=initialize)
             else:
                 it, err = self.tstep_explicit(timestep, i_app=i_app, v_app=v_app)
             timer.stop()
@@ -884,10 +891,13 @@ class Problem:
         else:
             self.set_current(i_app)
 
-    def tstep_implicit(self, h=10, i_app=None, v_app=None):
+    def tstep_implicit(self, h=10, i_app=None, v_app=None, initialize=False):
         self.set_timestep(h)
         self.running_mode(i_app, v_app)
         try:
+            if initialize:
+                print("initializing solution")
+                self.solver_0.solve()
             self.solver_implicit.solve()
         except Exception as e:
             raise e
@@ -1649,6 +1659,11 @@ class NDProblem(Problem):
     def __init__(self, cell:CellParser, model_options:ModelOptions, save_path=None):
         super().__init__(cell, model_options, save_path)
         self.nd_model = NondimensionalModel(self.cell, model_options)
+        self.thermal_boundary_conditions = dict()
+
+    def add_thermal_boundary_condition(self, surface_label, h_t, T_ref = None):
+        assert surface_label in ['Y_m']
+        self.thermal_boundary_conditions[surface_label] = { 'h_t': h_t, 'T_ref': T_ref}
     
     def _build_nonlinear_properties(self):
         dim_f_1 = self.nd_model.dimensional_variables(self.f_1)
@@ -1926,9 +1941,12 @@ class NDProblem(Problem):
             F_T_pcc = self.nd_model.T_equation(self.positiveCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, -self.i_app, d.x_pcc)
             F_T_bc_c = self.nd_model.T_bc_equation(self.positiveCC if 'pcc' in self.cell.structure else self.cathode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_c)
             F_T_bc_a = self.nd_model.T_bc_equation(self.negativeCC if 'ncc' in self.cell.structure else self.anode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_a)
-            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc_c+F_T_bc_a]
+            h_t = self.thermal_boundary_conditions['Y_m']['h_t'] if 'Y_m' in self.thermal_boundary_conditions else self.h_t
+            T_ref = (self.thermal_boundary_conditions['Y_m']['T_ref'] or self.T_ext) if 'Y_m' in self.thermal_boundary_conditions else self.T_ext
+            F_T_bc_Ym = self.nd_model.T_bc_equation(None, self.f_1.temp, T_ref, h_t, self.test.temp, d.s_Ym)
+            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc_c + F_T_bc_a + F_T_bc_Ym ]
         else:
-            self.F_T = [(self.f_1.temp- self.f_0.temp) * self.test.temp * d.x ]
+            self.F_T = [(self.f_1.temp - self.f_0.temp) * self.test.temp * d.x ]
 
         F_var_implicit = self.F_c_e \
                         + self.F_phi_e \

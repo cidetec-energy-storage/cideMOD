@@ -16,11 +16,7 @@
         "area": {"unit": "m^2", "value": 0.067718},
         "porosity": {"unit": "-", "value": 0.485},
         "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 49, "effective": true, "correction":"bruggeman"},
-        "thermalConductivity": {"unit": "W/mK", "value": 0, "effective": true, "correction":"tortuosity"},
-        "tortuosity": {"unit": "-", "value": 0},
-        "specificHeat": {"unit": "J/kg K", "value": 0, "effective": true, "correction":"tortuosity"},
-        "density": {"unit": "kg/m3", "value": 0},
+        "electronicConductivity": {"unit": "S/m", "value": 49, "effective": true, "notas": "Ramadass (2004)"},
         "active_materials": 
         [
 	      {
@@ -30,17 +26,14 @@
             "stoichiometry0": {"unit": "-", "value": 0.03},
             "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 6.545915E-11},
             "maximumConcentration": {"unit": "mol/m3", "value": 30555},
-            "diffusionConstant": {"unit": "m^2/s", "value": 2e-14, "arrhenius": {"activationEnergy": 0, "referenceTemperature":298.15}},
+            "diffusionConstant": {"unit": "m^2/s", "value": 2e-14},
             "openCircuitPotential": {
                 "unit": ["-", "V"],
                 "type": "spline",
                 "spline_type": "not-a-knot",
                 "source": "file",
                 "value": "OCV_G.txt"
-            },
-            "partial_molar_volume": {"unit": "m^3/mol", "value": 0},
-            "young_modulus": {"unit": "Pa", "value": 0},
-            "poisson_ratio": {"unit": "-", "value": 0}
+            }
           }
         ],
         "SEI":{
@@ -62,8 +55,8 @@
         "thickness": {"unit": "m", "value": 20.0e-06},
         "height": {"unit": "m", "value": 0.26},
         "width": {"unit": "m", "value": 0.26},
-        "porosity": {"unit": "-", "value": 0.5},
-        "bruggeman": {"unit": "-", "value": 1.5}
+        "porosity": {"unit": "-", "value": 0.55},
+        "bruggeman": {"unit": "-", "value": 4}
     },
     "positiveElectrode": {
         "name": "LCO",
@@ -71,10 +64,7 @@
         "area": {"unit": "m^2", "value": 0.0677},
         "porosity": {"unit": "-", "value": 0.385},
         "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 59, "effective": true, "correction":"bruggeman"},
-        "thermalConductivity": {"unit": "W/mK", "value": 0, "effective": true, "correction":"tortuosity"},
-        "specificHeat": {"unit": "J/kg K", "notes": "assumed uniform heat capacity across cell", "value": 0, "effective": true, "correction":"tortuosity"},
-        "density": {"unit": "kg/m3", "notes": "assumed uniform density across cell","value": 0},
+        "electronicConductivity": {"unit": "S/m", "value": 59, "effective": true, "notas":"Ramadass (2004)"},
         "active_materials": 
         [
 	      {
@@ -84,17 +74,14 @@
             "stoichiometry0": {"unit": "-", "value_new": 0.29, "value": 0.99},
             "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.2887688E-11},
             "maximumConcentration": {"unit": "mol/m3", "value": 51555},
-            "diffusionConstant": {"unit": "m^2/s", "value": 1e-14, "arrhenius": {"activationEnergy": 0, "referenceTemperature":298.15}},
+            "diffusionConstant": {"unit": "m^2/s", "value": 1e-14},
             "openCircuitPotential": {
                 "unit": ["-", "V"],
                 "type": "spline",
                 "spline_type": "not-a-knot",
                 "source": "file",
                 "value": "OCV_LCO.txt"
-            },
-            "partial_molar_volume": {"unit": "m^3/mol", "value": 0},
-            "young_modulus": {"unit": "Pa", "value": 0},
-            "poisson_ratio": {"unit": "-", "value": 0}
+            }
           }
         ]
     },
@@ -108,9 +95,10 @@
         },
         "ionicConductivity": {
             "unit": "S/m",
-            "value": "4.1253e-2+5.007e-4*c_e-4.7212e-7*c_e**2+1.5094e-10*c_e**3-1.6018e-14*c_e**4",
+            "value": "(4.1253e-4+5.007e-3*(c_e*1e-3)-4.7212e-3*(c_e*1e-3)**2+1.5094e-3*(c_e*1e-3)**3-1.6018e-4*(c_e*1e-3)**4)*100",
             "effective": false,
-            "correction":"bruggeman"
+            "correction":"bruggeman",
+            "notas":"Ojo, cambiado a Ramadass (2004), revisar unidades"
         },
         "transferenceNumber": {"unit": "-", "value": 0.363},
         "activityDependence": {
