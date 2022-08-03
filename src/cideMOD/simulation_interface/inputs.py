@@ -27,7 +27,7 @@ def execute_step(step, problem):
             return 0
         elif status.action() == 'CV':
             trig = Trigger(value=problem.Q/20,variable='i',atol=problem.Q/200)
-            inpt = VoltageInput(name='CV',v_app=status.trigger.trigger_value ,t_max=step.t_max,store_delay=step.store_delay)
+            inpt = VoltageInput(name='CV',v_app=status.trigger.trigger_value,min_step=step.min_step,t_max=step.t_max,store_delay=step.store_delay)
             inpt.add_trigger(trig)
             status = execute_step(inpt, problem)
             return status

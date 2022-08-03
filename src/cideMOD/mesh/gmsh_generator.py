@@ -400,6 +400,8 @@ class GmshGenerator:
             ncc = self.geom.add_physical(self._flatten_list([surfaces[0][i][j][0] for i in range(5) for j in range(5)]),label='negativePlug')
             pcc = self.geom.add_physical(self._flatten_list([surfaces[0][i][j][-1] for i in range(5) for j in range(5)]),label='positivePlug')
 
+        Y_m = self.geom.add_physical(self._flatten_list([surfaces[1][0][j][k]  for k in range(n_elements) for j in range(5)]),label='Y_m')
+
         # Define mesh
         H_disc = [1+int(max(1,np.ceil(nH/10))), 1+int(max(2,np.ceil(nH*3/10))), 1+int(max(1,np.ceil(nH*2/10))), 1+int(max(2,np.ceil(nH*3/10))), 1+int(max(1,np.ceil(nH/10)))]
         Z_disc = [1+int(max(1,np.ceil(nZ/10))), 1+int(max(2,np.ceil(nZ*3/10))), 1+int(max(1,np.ceil(nZ*2/10))), 1+int(max(2,np.ceil(nZ*3/10))), 1+int(max(1,np.ceil(nZ/10)))]
