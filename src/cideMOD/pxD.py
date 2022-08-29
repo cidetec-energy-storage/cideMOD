@@ -406,6 +406,10 @@ class Problem:
                 'fnc': self.get_capacity,
                 'header': 'Energy output [Ah]'
             },
+            'cathode_SOC': {
+                'fnc': self.get_soc_c,
+                'header': 'Cathode SOC [-]'
+            },
             # Check if lithium is conserved (activate for debug in particle model)
             # 'total_lithium': {
             #     'fnc': self.calculate_total_lithium,
@@ -1496,6 +1500,22 @@ class Problem:
 
     def get_eps_s_approx_c(self):
         return 100 - assemble(self.cathode.active_material[0].eps_s*self.mesher.dx_c)/self.cell.positive_electrode.active_materials[0].volumeFraction * 100
+
+    def get_soc_c(self):
+        if self.c_s_implicit_coupling:
+            x_c = []
+            leg_int = self.SGM._leg_volume_integral()
+            for k, material in enumerate(self.cathode.active_material):
+                x_c.append(0)
+                c_s_index = self.f_1._fields.index('c_s_0_{}{}'.format('c', k))
+                for i in range(self.SGM.order):
+                    if i==0:
+                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]
+                    else:
+                        c = assemble(self.f_1[c_s_index+i]*self.mesher.dx_c)*leg_int[i]
+                    x_c[k]+=c
+                x_c[k]*=3/material.c_s_max
+            return x_c
 
     def set_voltage(self, v=None):
 

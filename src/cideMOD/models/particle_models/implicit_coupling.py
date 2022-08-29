@@ -193,6 +193,15 @@ class SpectralLegendreModel(StrongCoupledPM):
         else:
             raise Exception('Unknown type of parameter')
 
+    def _leg_volume_integral(self):
+        weights = numpy.zeros(self.order)
+        for n in range(self.order):
+            L_n = numpy.zeros(2*self.order, dtype=int)
+            L_n[2*n] = 1  # Only pair polinomials used
+            L_nxx = legmulx(legmulx(L_n))  # r*r*L
+            weights[n]=legval(1.0, legint(L_nxx)) # integral(0, 1, r^2*L_n)
+        return weights
+        
 
 class NondimensionalSpectralModel(SpectralLegendreModel):
     def wf_implicit_coupling(self, f_0, f_1, test, electrode, dx : Measure, DT, materials:List, nd_model):

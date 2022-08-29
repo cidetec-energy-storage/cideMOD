@@ -1,0 +1,81 @@
+{
+    "references": {
+        "1": "DFN (1994)"
+    },
+    "results":{
+    },
+    "constants": {
+        "R": {"unit": "J/K mol", "value": 8.314472},
+        "F": {"unit": "A/mol", "value": 96485.3365},
+        "alpha": {"unit": "-", "value": 0.5}
+    },
+    "negativeElectrode": {
+        "name": "Graphite",
+        "thickness": {"unit": "m", "value": 243e-6},
+        "area": {"unit": "m^2", "value": 2e-4},
+        "porosity": {"unit": "-", "value": 0.3},
+        "bruggeman": {"unit": "-", "value": 1.5},
+        "electronicConductivity": {"unit": "S/m", "value": 100},
+        "density": {"unit": "g/m3", "value": 1900},
+        "active_materials": 
+        [
+          {
+            "volFrac_active": {"unit": "-", "value": 0.656},
+            "particleRadius": {"unit": "m", "value": 18e-6},
+            "stoichiometry1": {"unit": "-", "value": 0.495},
+            "stoichiometry0": {"unit": "-", "value": 0},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 1.02e-10},
+            "maximumConcentration": {"unit": "mol/m3", "value": 26400},
+            "diffusionConstant": {"unit": "m^2/s", "value": 5e-13},
+            "openCircuitPotential": {
+                "unit": ["-", "V"], 
+                "type": "spline", 
+                "spline_type": "not-a-knot", 
+                "source": "file", 
+                "value": "ocp_G.txt"
+            }
+          }
+        ]
+    },
+    "separator": {
+        "name": "",
+        "thickness": {"unit": "m", "value": 50e-6},
+        "density": {"unit": "kg/m3", "value": 0},
+        "porosity": {"unit": "-", "value": 0.4},
+        "bruggeman": {"unit": "-", "value": 1.5}
+    },
+    "positiveElectrode": {
+        "name": "NMC",
+        "thickness": {"unit": "m", "value": 200e-6},
+        "area": {"unit": "m^2", "value": 2e-4},
+        "porosity": {"unit": "-", "value": 0.3},
+        "bruggeman": {"unit": "-", "value": 1.5},
+        "electronicConductivity": {"unit": "S/m", "value": 100},
+        "density": {"unit": "kg/m3", "value": 4100},
+        "active_materials": 
+        [
+            {
+            "volFrac_active": {"unit": "-", "value": 0.549},
+            "particleRadius": {"unit": "m", "value": 1e-6},
+            "stoichiometry1": {"unit": "-", "value": 0.2},
+            "stoichiometry0": {"unit": "-", "value": 1},
+            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 9.98e-11},
+            "maximumConcentration": {"unit": "mol/m3", "value": 23720},
+            "diffusionConstant": {"unit": "m^2/s", "value": 10e-13},
+            "openCircuitPotential": {
+                "unit": ["-", "V"], 
+                "type": "spline", 
+                "spline_type": "not-a-knot", 
+                "value": "ocp_LMnO.txt"}
+            }
+        ]
+    },
+    "electrolyte": {
+        "name": "LiPF6",
+        "diffusionConstant": {"unit": "m^2/s", "value": 2.58e-10,"effective":false, "correction": "bruggeman","_value": 0},
+        "ionicConductivity": {"unit": "S/m", "value": "1.459*(c_e/1200/1.386)**0.755*exp(-0.05*(c_e/1200/1.386)**2-0.755/1.386*(c_e/1200-1.386))","effective":false, "correction": "bruggeman","_value": 0},
+        "transferenceNumber": {"unit": "-", "value": 0.2},
+        "initialConcentration": {"unit": "mol/m3", "value": 1000.0}
+    },
+    "structure": ["a","s","c"]
+}
