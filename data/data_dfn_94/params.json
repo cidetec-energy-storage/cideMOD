@@ -22,10 +22,10 @@
           {
             "volFrac_active": {"unit": "-", "value": 0.656},
             "particleRadius": {"unit": "m", "value": 18e-6},
-            "stoichiometry1": {"unit": "-", "value": 0.495},
+            "stoichiometry1": {"unit": "-", "value": 0.99},
             "stoichiometry0": {"unit": "-", "value": 0},
             "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 1.02e-10},
-            "maximumConcentration": {"unit": "mol/m3", "value": 26400},
+            "maximumConcentration": {"unit": "mol/m3", "value": 13200},
             "diffusionConstant": {"unit": "m^2/s", "value": 5e-13},
             "openCircuitPotential": {
                 "unit": ["-", "V"], 

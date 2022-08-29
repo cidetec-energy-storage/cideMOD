@@ -406,10 +406,10 @@ class Problem:
                 'fnc': self.get_capacity,
                 'header': 'Energy output [Ah]'
             },
-            'cathode_SOC': {
-                'fnc': self.get_soc_c,
-                'header': 'Cathode SOC [-]'
-            },
+            # 'cathode_SOC': {
+            #     'fnc': self.get_soc_c,
+            #     'header': 'Cathode SOC [-]'
+            # },
             # Check if lithium is conserved (activate for debug in particle model)
             # 'total_lithium': {
             #     'fnc': self.calculate_total_lithium,
@@ -753,7 +753,7 @@ class Problem:
         timer = Timer('Simulation time')
         it = 0
         PETScOptions.set('snes_lag_jacobian', 1)
-        PETScOptions.set('snes_max_it', 20)
+        PETScOptions.set('snes_max_it', 50)
         self.get_state()
         while self.time < t_f:
             # if it > 0 and not self.use_options:
