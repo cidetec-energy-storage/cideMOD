@@ -142,17 +142,10 @@ class PorousComponent(Component):
             return x
         else:
             eps_s = sum([self.active_material[i].eps_s for i in range(len(self.active_material))])
-            tortuosity_s = self.tortuosity_s
-            if (dic["correction"] == "bruggeman" or tortuosity_s is None) and self.bruggeman is not None:
-                tortuosity_s = eps_s ** (1 - self.bruggeman)
-                if isinstance(x, Expression) or isinstance(x,Operator):
-                    return x * Constant(eps_s / tortuosity_s)
-                return Constant(x * eps_s / tortuosity_s)
+            if (dic["correction"] == "bruggeman" or self.tortuosity_s is None) and self.bruggeman is not None:
+                return x * eps_s ** self.bruggeman
             elif (dic["correction"] == "tortuosity" or self.bruggeman is None) and self.tortuosity_s is not None:
-                tortuosity_s = self.tortuosity_s
-                if isinstance(x, Expression) or isinstance(x,Operator):
-                    return x * Constant(eps_s / tortuosity_s)
-                return Constant(x * eps_s / tortuosity_s)
+                return x * eps_s / self.tortuosity_s
             else:
                 raise Exception("Cant convert to effective value")
 
@@ -198,6 +191,17 @@ class electrolyteInterface:
     def __bool__(self) -> bool :
         return bool(self.M) and bool(self.eps) and bool(self.rho) and bool(self.k_f_s)
 
+class lostOfActiveMaterial:
+    """Parameters for the Loss of Active Material Model. Only used if solve_LAM is active"""
+    def __init__(self, LAM):
+        self.LAM = LAM
+        self.model = LAM.model
+        if LAM.model == 'stress':
+            self.beta = LAM.beta
+            self.m = LAM.m
+
+    def __bool__(self) -> bool :
+        return bool(self.LAM)
 
 class Electrode(PorousComponent):
     def __init__(self, tag, electrode):
@@ -207,6 +211,7 @@ class Electrode(PorousComponent):
         self.C_dl = self.get_value(electrode.doubleLayerCapacitance)
 
         self.SEI = electrolyteInterface(electrode.SEI)
+        self.LAM = lostOfActiveMaterial(electrode.LAM)
 
     class ActiveMaterial:
         def __init__(self, material, electrode):
@@ -217,7 +222,11 @@ class Electrode(PorousComponent):
         def setup(self, bruggeman, problem, SOC_ini=1):
             self.index = self.config.index
             self.R_s = self.config.particleRadius
-            self.eps_s = self.config.volumeFraction
+            if f'eps_s_{self.electrode.tag}{self.index}' in problem.f_ex._fields:
+                self.eps_s = problem.f_ex._asdict()[f'eps_s_{self.electrode.tag}{self.index}']
+                self.eps_s.assign(problem.P1_map.generate_function({'anode' if self.electrode.tag=='a' else 'cathode': self.config.volumeFraction}))
+            else:
+                self.eps_s = self.config.volumeFraction
             self.porosity = self.config.porosity
             self.k_0 = Constant(self.config.kineticConstant, name='k_0')
             self.k_0_Ea = self.config.kineticConstant_Ea
@@ -231,6 +240,7 @@ class Electrode(PorousComponent):
             self.omega = self.config.omega
             self.young = self.config.young
             self.poisson = self.config.poisson
+            self.critical_stress = self.config.critical_stress
             if self.young and self.poisson is not None and problem.mechanics is not None:
                 self.C_mat = problem.mechanics.elasticity_tensor(self.young, self.poisson)
                 self.elsheby_tensor = problem.mechanics.elsheby_tensor(self.poisson)

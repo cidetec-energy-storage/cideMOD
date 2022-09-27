@@ -27,7 +27,7 @@ from collections import namedtuple
 
 from cideMOD.simulation_interface.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.config_parser import CellParser
-from cideMOD.helpers.miscellaneous import constant_expression, format_time
+from cideMOD.helpers.miscellaneous import constant_expression, format_time, project_onto_subdomains
 from cideMOD.helpers.warehouse import Warehouse
 from cideMOD.mesh.base_mesher import DolfinMesher, SubdomainMapper
 from cideMOD.mesh.gmsh_adapter import GmshMesher
@@ -124,6 +124,10 @@ class Problem:
         self.separator = Separator(self.cell.separator); self.separator.setup(self)
         self.negativeCC = CurrentColector('negative', self.cell.negative_curent_colector); self.negativeCC.setup(self)
         self.positiveCC = CurrentColector('positive', self.cell.positive_curent_colector); self.positiveCC.setup(self)
+
+        if self.model_options.solve_LAM:
+            self.LAM_model_a.setup(self.anode)
+            self.LAM_model_c.setup(self.cathode)
 
     def reset(self):
 
@@ -269,6 +273,8 @@ class Problem:
         #Extra models
         if not 'nd_model' in self.__dict__:
             self.SEI_model = SEI()
+            self.LAM_model_a = LAM()
+            self.LAM_model_c = LAM()
             self.mechanics = mechanical_model(self.cell)
 
     def setup(self, mesh_engine=None):
@@ -391,7 +397,7 @@ class Problem:
             self.internal_storage_order.append(
                     ['x_c', 'list_of_scalar', len(self.cathode.active_material)])
         self.post_processing_functions = []
-        self.post_processing_functions.append(self.calc_SOC)
+        # self.post_processing_functions.append(self.calc_SOC)
 
         self.global_storage_order = {
             'voltage': {
@@ -437,6 +443,25 @@ class Problem:
                 'fnc': self.get_L_sei,
                 'header': 'Average SEI thickness [m]'
             }
+        if self.model_options.solve_LAM:
+            if self.cell.negative_electrode.LAM:
+                self.global_storage_order['eps_s_a0_avg'] = {
+                    'fnc': self.get_eps_s_avg_a,
+                    'header': 'eps_s_a0 [%]'
+                }
+                self.global_storage_order['sigma_h_a0_avg'] = {
+                    'fnc': self.get_hydrostatic_stress_a,
+                    'header': 'sigma_h_a0 [Pa]'
+                }
+            if self.cell.positive_electrode.LAM:
+                self.global_storage_order['eps_s_c0_avg'] = {
+                    'fnc': self.get_eps_s_avg_c,
+                    'header': 'eps_s_c0 [%]'
+                }
+                self.global_storage_order['sigma_h_c0_avg'] = {
+                    'fnc': self.get_hydrostatic_stress_c,
+                    'header': 'sigma_h_c0 [Pa]'
+                }
 
         # Additional internal variables. Electric current density.
         # self.internal_storage_order.append(['electric_current', 'vector'])
@@ -566,7 +591,26 @@ class Problem:
         
         self.eigenstrain = Function(self.V)
 
+        # Explicit processing functions
+        self._build_explicit_functions()
+
         timer.stop()
+
+    def _build_explicit_functions(self):
+        """This method define functions for explicit processing"""
+        elements = []
+        if self.model_options.solve_LAM:
+            if self.cell.positive_electrode.LAM:
+                elements += [ f'eps_s_a{i}' for i in range(self.number_of_anode_materials)]
+            if self.cell.negative_electrode.LAM:
+                elements += [ f'eps_s_c{i}' for i in range(self.number_of_cathode_materials)]
+
+        self.FE_explicit = namedtuple('Explicit_Finite_Element_Function',' '.join(elements))
+        self.f_ex = self.FE_explicit._make([Function(self.V) for _ in elements])
+
+        for i, name in enumerate(self.f_ex._fields):
+            self.f_ex[i].rename(name, 'a Function')
+
 
     def build_implicit_sgm(self):
         # Build SGM with Implicit Coupling
@@ -771,15 +815,16 @@ class Problem:
                 errorcode = self.adaptive_timestep(i_app=i_app_t, v_app=v_app_t, max_step=max_step, min_step=min_step, t_max=t_f, triggers= triggers, initialize=(it==1))
             else:
                 errorcode = self.constant_timestep(i_app=i_app_t, v_app=v_app_t, timestep=min_step, triggers=triggers, initialize=(it==1))
+            errorcode_ex = self.explicit_processing()
             _print('Voltage: {v:.4f}\tCurrent: {i:.2e}\tTime: {time}\033[K'.format(
                 time=format_time(self.state['t']),
                 **self.state),end='\r')
             
-            if errorcode != 0:
+            if errorcode != 0 or errorcode_ex != 0:
                 timer.stop()
                 if store_fom:
                     self.WH.crop_results() # Crop results
-                return self.exit(errorcode)
+                return self.exit(errorcode if errorcode != 0 else errorcode_ex)
         _print(f"Reached max time {self.time:.2f} \033[K\n")
         timer.stop()
         return self.exit(errorcode)
@@ -1041,7 +1086,7 @@ class Problem:
 
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = self.anode.sigma/self.negativeCC.sigma
+            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1049,7 +1094,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = self.cathode.sigma/self.positiveCC.sigma 
+            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1261,7 +1306,7 @@ class Problem:
         
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = self.anode.sigma/self.negativeCC.sigma
+            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1269,7 +1314,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = self.cathode.sigma/self.positiveCC.sigma 
+            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1396,6 +1441,25 @@ class Problem:
         self.anode_particle_model.setup()
         self.cathode_particle_model.setup()
 
+    def explicit_processing(self,):
+        try:
+            if self.model_options.solve_LAM:
+                for electrode, LAM_model in zip(['anode','cathode'],[self.LAM_model_a, self.LAM_model_c]):
+                    if LAM_model:
+                        # Compute hydrostatic stress
+                        c_s_r_average = self.SGM.c_s_r_average(self.f_1, electrode)
+                        c_s_surf = self.SGM.c_s_surf(self.f_1, electrode)
+                        sigma_h = LAM_model.hydrostatic_stress(c_s_r_average, c_s_surf)
+
+                        # Apply eps_s variation
+                        delta_eps_s = LAM_model.eps_s_variation(sigma_h, self.DT)
+                        for i, delta_eps_s_am in enumerate(delta_eps_s):
+                            eps_s_am = LAM_model.electrode.active_material[i].eps_s
+                            eps_s_am.assign(project_onto_subdomains({electrode:eps_s_am + delta_eps_s_am}, self))
+        except Exception as e:
+            return e
+        return 0
+
     def calculate_total_lithium(self):
         internal_li = 0
         d = self.mesher.get_measures()
@@ -1495,6 +1559,24 @@ class Problem:
         X_a = [max(project(x, self.V).vector()[self.P1_map.domain_dof_map['anode']]) for x in self.x_a]
         return [X_a, X_c]
 
+    def get_hydrostatic_stress_a(self):
+        c_s_r_average = self.SGM.c_s_r_average(self.f_1, 'anode')
+        c_s_surf = self.SGM.c_s_surf(self.f_1, 'anode')
+        sigma_h = self.LAM_model_a.hydrostatic_stress(c_s_r_average, c_s_surf)[0]
+        return assemble(sigma_h*self.mesher.dx_a)
+
+    def get_hydrostatic_stress_c(self):
+        c_s_r_average = self.SGM.c_s_r_average(self.f_1, 'cathode')
+        c_s_surf = self.SGM.c_s_surf(self.f_1, 'cathode')
+        sigma_h = self.LAM_model_c.hydrostatic_stress(c_s_r_average, c_s_surf)[0]
+        return assemble(sigma_h*self.mesher.dx_c)
+
+    def get_eps_s_avg_a(self):
+        return [100*assemble(am.eps_s*self.mesher.dx_a) for am in self.anode.active_material]
+
+    def get_eps_s_avg_c(self):
+        return [100*assemble(am.eps_s*self.mesher.dx_c) for am in self.cathode.active_material]
+
     def get_eps_s_approx_a(self):
         return 100 - assemble(self.anode.active_material[0].eps_s*self.mesher.dx_a)/self.cell.negative_electrode.active_materials[0].volumeFraction * 100
 
@@ -1510,7 +1592,7 @@ class Problem:
                 c_s_index = self.f_1._fields.index('c_s_0_{}{}'.format('c', k))
                 for i in range(self.SGM.order):
                     if i==0:
-                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]
+                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[c_s_index+ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]
                     else:
                         c = assemble(self.f_1[c_s_index+i]*self.mesher.dx_c)*leg_int[i]
                     x_c[k]+=c

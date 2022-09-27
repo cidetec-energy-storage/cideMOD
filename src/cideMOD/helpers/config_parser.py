@@ -56,6 +56,9 @@ def _parse_file_source(property_dict, data_path):
     return property_dict
 
 class parser:
+    def __init__(self):
+        self.dic = dict()
+        
     def _check_arrhenius(self, prop):
         return 'arrhenius' in _select_property(self.dic, prop)
     
@@ -115,6 +118,22 @@ class electrolyteInterface(parser):
         self.solventSurfConcentration = self._parse_value("solventSurfConcentration")
         self.rateConstant = self._parse_value("rateConstant")
 
+class lostOfActiveMaterial(parser):
+    def __init__(self, dic):
+        super().__init__()
+        self.model = None
+        if "LAM" in dic.keys() and dic["LAM"]:
+            self.dic = dic["LAM"]
+            self.set_properties()
+
+    def set_properties(self):
+        self.model=self._parse_value("type")
+        if self.model=="stress":
+            self.beta = self._parse_value("beta")
+            self.m = self._parse_value("m")
+
+    def __bool__(self):
+        return self.model == "stress" and bool(self.beta) and bool(self.m)
 
 class electrode(parser):
     def __init__(self, cell, dic):
@@ -191,6 +210,7 @@ class electrode(parser):
             self.omega = self._parse_value('partial_molar_volume', default=0)
             self.young = self._parse_value('young_modulus')
             self.poisson = self._parse_value('poisson_ratio')
+            self.critical_stress = self._parse_value('critical_stress')
 
     def set_active_materials(self, materials_list, data_path, electrode):
         for i, active_material_dic in enumerate(materials_list):
@@ -206,6 +226,7 @@ class electrode(parser):
         self.set_properties()
         self.set_active_materials(self.parse_active_materials(), cell.data_path, self)
         self.SEI = electrolyteInterface(self.dic)
+        self.LAM = lostOfActiveMaterial(self.dic)
 
     def capacity(self):
         cap = 0

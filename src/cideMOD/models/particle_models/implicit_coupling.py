@@ -161,6 +161,19 @@ class SpectralLegendreModel(StrongCoupledPM):
             c_s_surf.append(c_s_surf_i)
         return c_s_surf
 
+    def c_s_r_average(self, f, electrode):
+        domain = self._get_domain(electrode)
+        n_mat = self._get_n_mat(f, domain)
+        weights = self._leg_volume_integral()
+        c_s_r_average = []
+        for material in range(n_mat):
+            c_s_index = f._fields.index('c_s_0_{}{}'.format(domain, material))
+            c_s_r_average_am = weights[0] * f[c_s_index]
+            for i in range(1, self.order):
+                c_s_r_average_am += (weights[i] - weights[0]) * f[c_s_index+i]
+            c_s_r_average.append(c_s_r_average_am)
+        return c_s_r_average
+
     def Li_amount(self, f, electrode, materials:List, dx, volume_factor=1):
         domain = self._get_domain(electrode)
         #Build particle integral

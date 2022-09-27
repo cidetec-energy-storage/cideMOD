@@ -29,6 +29,7 @@ from ufl.operators import exp, sinh
 
 __all__= [
     "SEI",
+    "LAM"
 ]
 
 def _get_n_mat(f):
@@ -38,15 +39,70 @@ def _get_n_mat(f):
                 n += 1
         return n
 
+class LAM:
+    r"""
+    Loss of Active Material model from [1]_ and [2]_, compute the lost of active material due to particle cracking driven by stresses.
+
+    Notes
+    -----
+    ..note:: 
+        This model assumes that between cycles, the particle reach a steady state without stress. :math:`\sigma_{h,min} = 0`.
+
+    References
+    ----------
+    .. [1] X. Zhang, W. Shyy & A. M. Sastry (2007) Numerical Simulation of Intercalation-Induced Stress in 
+           Li-Ion Battery Electrode Particles. Journal of Electrochemical Society. 154 A910
+
+    .. [2] J. M. Reniers, G. Mulder & D. A. Howey (2019) Review and Performance Comparison of Mechanical-Chemical 
+           Degradation Models for Lithium-Ion Batteries. Journal of Electrochemical Society. 166 A3189
+    """
+    def __init__(self):
+        self.LAM = None
+
+    def setup(self, electrode):
+        self.electrode = electrode
+        self.LAM = electrode.LAM
+        
+    def eps_s_variation(self, sigma_h, DT):
+        delta_eps_s = []
+        for i, material in enumerate(self.electrode.active_material):
+            value = 0
+            if self.LAM.model == 'stress': 
+                sigma_h_am = conditional(gt(sigma_h[i],0), sigma_h[i], 0) # hydrostatic compressive stress makes no contribution
+                value -= DT.get_timestep() * self.LAM.beta * (sigma_h_am/material.critical_stress)**self.LAM.m
+            delta_eps_s.append(value)
+        return delta_eps_s
+
+    def approximation(self, sigma_h, DT, dx):
+        if DT.get_timestep()==0:
+            return [0 for _ in range(len(self.electrode.active_material))]
+        delta_eps_s = []
+        for i, material in enumerate(self.electrode.active_material):
+            value = 0
+            if self.LAM.model == 'stress':
+                value -= DT.get_timestep() * self.LAM.beta * (assemble(sigma_h[i]*dx)/material.critical_stress)**self.LAM.m
+            delta_eps_s.append(value)
+        return delta_eps_s
+
+    def hydrostatic_stress(self, c_s_r_average, c_s):
+        sigma_h = []
+        for i, am in enumerate(self.electrode.active_material):
+            sigma_h.append( 2/9*am.omega*am.young/(1-am.poisson)*(c_s_r_average[i] - c_s[i]) )
+        return sigma_h
+
+    def __bool__(self):
+        return bool(self.LAM)
+
+
 class SEI:
-    """SEI (Solid-Electrolyte Interphase) growth model limited by solvent diffusion through the SEI.
+    """
+    SEI (Solid-Electrolyte Interphase) growth model limited by solvent diffusion through the SEI.
 
     Args:
         order: Order of the inner spectral model for solvent diffusion, default is 2.
 
     References:
         1: Safari et al. - 2009 - Multimodal Physics-Based Aging Model for Life Prediction of Li-Ion Batteries
-        
     """
     def __init__(self, order=2):
         self.order = order
