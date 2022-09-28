@@ -126,8 +126,8 @@ class Problem:
         self.positiveCC = CurrentColector('positive', self.cell.positive_curent_colector); self.positiveCC.setup(self)
 
         if self.model_options.solve_LAM:
-            self.LAM_model_a.setup(self.anode)
-            self.LAM_model_c.setup(self.cathode)
+            self.LAM_model_a.setup(self)
+            self.LAM_model_c.setup(self)
 
     def reset(self):
 
@@ -273,8 +273,8 @@ class Problem:
         #Extra models
         if not 'nd_model' in self.__dict__:
             self.SEI_model = SEI()
-            self.LAM_model_a = LAM()
-            self.LAM_model_c = LAM()
+            self.LAM_model_a = LAM('anode')
+            self.LAM_model_c = LAM('cathode')
             self.mechanics = mechanical_model(self.cell)
 
     def setup(self, mesh_engine=None):
@@ -1446,14 +1446,8 @@ class Problem:
             if self.model_options.solve_LAM:
                 for electrode, LAM_model in zip(['anode','cathode'],[self.LAM_model_a, self.LAM_model_c]):
                     if LAM_model:
-                        # Compute hydrostatic stress
-                        c_s_r_average = self.SGM.c_s_r_average(self.f_1, electrode)
-                        c_s_surf = self.SGM.c_s_surf(self.f_1, electrode)
-                        sigma_h = LAM_model.hydrostatic_stress(c_s_r_average, c_s_surf)
-
                         # Apply eps_s variation
-                        delta_eps_s = LAM_model.eps_s_variation(sigma_h, self.DT)
-                        for i, delta_eps_s_am in enumerate(delta_eps_s):
+                        for i, delta_eps_s_am in enumerate(LAM_model.delta_eps_s):
                             eps_s_am = LAM_model.electrode.active_material[i].eps_s
                             eps_s_am.assign(project_onto_subdomains({electrode:eps_s_am + delta_eps_s_am}, self))
         except Exception as e:
@@ -1560,16 +1554,10 @@ class Problem:
         return [X_a, X_c]
 
     def get_hydrostatic_stress_a(self):
-        c_s_r_average = self.SGM.c_s_r_average(self.f_1, 'anode')
-        c_s_surf = self.SGM.c_s_surf(self.f_1, 'anode')
-        sigma_h = self.LAM_model_a.hydrostatic_stress(c_s_r_average, c_s_surf)[0]
-        return assemble(sigma_h*self.mesher.dx_a)
+        return [assemble(sigma_h_am*self.mesher.dx_a) for sigma_h_am in self.LAM_model_a.sigma_h]
 
     def get_hydrostatic_stress_c(self):
-        c_s_r_average = self.SGM.c_s_r_average(self.f_1, 'cathode')
-        c_s_surf = self.SGM.c_s_surf(self.f_1, 'cathode')
-        sigma_h = self.LAM_model_c.hydrostatic_stress(c_s_r_average, c_s_surf)[0]
-        return assemble(sigma_h*self.mesher.dx_c)
+        return [assemble(sigma_h_am*self.mesher.dx_c) for sigma_h_am in self.LAM_model_c.sigma_h]
 
     def get_eps_s_avg_a(self):
         return [100*assemble(am.eps_s*self.mesher.dx_a) for am in self.anode.active_material]

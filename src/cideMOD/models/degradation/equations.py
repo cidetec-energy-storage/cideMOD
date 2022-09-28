@@ -56,20 +56,33 @@ class LAM:
     .. [2] J. M. Reniers, G. Mulder & D. A. Howey (2019) Review and Performance Comparison of Mechanical-Chemical 
            Degradation Models for Lithium-Ion Batteries. Journal of Electrochemical Society. 166 A3189
     """
-    def __init__(self):
+    def __init__(self, tag):
+        assert tag in ['anode', 'cathode']
+        self.tag = tag
         self.LAM = None
 
-    def setup(self, electrode):
-        self.electrode = electrode
-        self.LAM = electrode.LAM
+    def setup(self, problem):
+        self.electrode = getattr(problem, self.tag)
+        self.LAM = self.electrode.LAM
+
+        # Compute eps_s variation
+        if 'sigma_h' in problem.f_1._fields:
+            self.sigma_h = problem.f_1._asdict()['sigma_h']
+        else:
+            assert problem.c_s_implicit_coupling
+            c_s_r_average = problem.SGM.c_s_r_average(problem.f_1, self.tag)
+            c_s_surf = problem.SGM.c_s_surf(problem.f_1, self.tag)
+            self.sigma_h = self.hydrostatic_stress(c_s_r_average, c_s_surf)
+
+        self.delta_eps_s = self.eps_s_variation(self.sigma_h, problem.DT.delta_t)
         
-    def eps_s_variation(self, sigma_h, DT):
+    def eps_s_variation(self, sigma_h, delta_t):
         delta_eps_s = []
         for i, material in enumerate(self.electrode.active_material):
             value = 0
             if self.LAM.model == 'stress': 
-                sigma_h_am = conditional(gt(sigma_h[i],0), sigma_h[i], 0) # hydrostatic compressive stress makes no contribution
-                value -= DT.get_timestep() * self.LAM.beta * (sigma_h_am/material.critical_stress)**self.LAM.m
+                sigma_h_am = conditional(gt(sigma_h[i],0), sigma_h[i], Constant(0.)) # hydrostatic compressive stress makes no contribution
+                value -= delta_t* self.LAM.beta * (sigma_h_am/material.critical_stress)**self.LAM.m
             delta_eps_s.append(value)
         return delta_eps_s
 
@@ -80,14 +93,15 @@ class LAM:
         for i, material in enumerate(self.electrode.active_material):
             value = 0
             if self.LAM.model == 'stress':
-                value -= DT.get_timestep() * self.LAM.beta * (assemble(sigma_h[i]*dx)/material.critical_stress)**self.LAM.m
+                sigma_h_am = conditional(gt(sigma_h[i],0), sigma_h[i], Constant(0.)) # hydrostatic compressive stress makes no contribution
+                value -= DT.get_timestep() * self.LAM.beta * (assemble(sigma_h_am*dx)/material.critical_stress)**self.LAM.m
             delta_eps_s.append(value)
         return delta_eps_s
 
     def hydrostatic_stress(self, c_s_r_average, c_s):
         sigma_h = []
         for i, am in enumerate(self.electrode.active_material):
-            sigma_h.append( 2/9*am.omega*am.young/(1-am.poisson)*(c_s_r_average[i] - c_s[i]) )
+            sigma_h.append( 2/9*am.omega*am.young/(1-am.poisson)*(3*c_s_r_average[i] - c_s[i]) )
         return sigma_h
 
     def __bool__(self):
