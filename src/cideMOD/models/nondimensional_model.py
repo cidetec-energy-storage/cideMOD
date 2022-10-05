@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from .degradation.nondimensional import SolventLimitedSEIModel
+from .degradation.nondimensional import SolventLimitedSEIModel, LAM_Model
 from .electrochemical.nondimensional import ElectrochemicalModel
 from .mechanical.nondimensional import MechanicModel
 from .thermal.nondimensional import ThermalModel
@@ -24,7 +24,7 @@ from .thermal.nondimensional import ThermalModel
 from cideMOD.helpers.miscellaneous import project_onto_subdomains
 from dolfin import grad, inner
 
-class NondimensionalModel(ThermalModel, MechanicModel, SolventLimitedSEIModel, ElectrochemicalModel):
+class NondimensionalModel(ThermalModel, MechanicModel, SolventLimitedSEIModel, LAM_Model, ElectrochemicalModel):
     def physical_variables(self, problem):
         c_e = self.c_e_0 + self.delta_c_e_ref * problem.P1_map.generate_vector({'anode':problem.f_1.c_e,'separator':problem.f_1.c_e,'cathode':problem.f_1.c_e})
         phi_e = self.phi_e_ref + self.liquid_potential * problem.P1_map.generate_vector({'anode':problem.f_1.phi_e,'separator':problem.f_1.phi_e,'cathode':problem.f_1.phi_e})

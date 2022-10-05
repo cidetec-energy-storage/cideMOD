@@ -22,6 +22,7 @@ from multiphenics import *
 import json
 import os
 import sys
+import functools
 import numpy as np
 from collections import namedtuple
 
@@ -124,10 +125,6 @@ class Problem:
         self.separator = Separator(self.cell.separator); self.separator.setup(self)
         self.negativeCC = CurrentColector('negative', self.cell.negative_curent_colector); self.negativeCC.setup(self)
         self.positiveCC = CurrentColector('positive', self.cell.positive_curent_colector); self.positiveCC.setup(self)
-
-        if self.model_options.solve_LAM:
-            self.LAM_model_a.setup(self)
-            self.LAM_model_c.setup(self)
 
     def reset(self):
 
@@ -271,11 +268,15 @@ class Problem:
 
     def _build_extra_models(self):
         #Extra models
-        if not 'nd_model' in self.__dict__:
-            self.SEI_model = SEI()
-            self.LAM_model_a = LAM('anode')
-            self.LAM_model_c = LAM('cathode')
-            self.mechanics = mechanical_model(self.cell)
+        self.SEI_model = SEI()
+        self.LAM_model_a = LAM('anode')
+        self.LAM_model_c = LAM('cathode')
+        self.mechanics = mechanical_model(self.cell)
+
+    def _setup_extra_models(self):
+        if self.model_options.solve_LAM:
+            self.LAM_model_a.setup(self)
+            self.LAM_model_c.setup(self)
 
     def setup(self, mesh_engine=None):
         if not 'mesher' in self.__dict__:
@@ -300,6 +301,7 @@ class Problem:
         self.build_transport_properties()
         if not self.c_s_implicit_coupling:
             self.build_explicit_sgm()
+        self._setup_extra_models()
 
         # Extract mesh info needed for ROM model
         results_label = 'scaled' if not hasattr(self, 'nd_model') else 'unscaled'
@@ -308,10 +310,11 @@ class Problem:
             get_mesh_info(self, results_label)
 
         # Store 'Cs' SGM matrices
-        self.fom2rom['SGM'] = dict()
-        self.fom2rom['SGM']['M'] = self.SGM.M
-        self.fom2rom['SGM']['K'] = self.SGM.K
-        self.fom2rom['SGM']['P'] = self.SGM.P
+        if self.c_s_implicit_coupling:
+            self.fom2rom['SGM'] = dict()
+            self.fom2rom['SGM']['M'] = self.SGM.M
+            self.fom2rom['SGM']['K'] = self.SGM.K
+            self.fom2rom['SGM']['P'] = self.SGM.P
 
         _print(' - Build cell parameters - Done ')
 
@@ -445,23 +448,25 @@ class Problem:
             }
         if self.model_options.solve_LAM:
             if self.cell.negative_electrode.LAM:
-                self.global_storage_order['eps_s_a0_avg'] = {
-                    'fnc': self.get_eps_s_avg_a,
-                    'header': 'eps_s_a0 [%]'
-                }
-                self.global_storage_order['sigma_h_a0_avg'] = {
-                    'fnc': self.get_hydrostatic_stress_a,
-                    'header': 'sigma_h_a0 [Pa]'
-                }
+                for i in range(self.number_of_anode_materials):
+                    self.global_storage_order[f'eps_s_a{i}_avg'] = {
+                        'fnc': functools.partial(self.get_eps_s_avg,'anode',index=i),
+                        'header': f'eps_s_a{i} [%]'
+                    }
+                    self.global_storage_order[f'sigma_h_a{i}_avg'] = {
+                        'fnc': functools.partial(self.get_hydrostatic_stress,'anode',index=i),
+                        'header': f'sigma_h_a{i} [Pa]'
+                    }
             if self.cell.positive_electrode.LAM:
-                self.global_storage_order['eps_s_c0_avg'] = {
-                    'fnc': self.get_eps_s_avg_c,
-                    'header': 'eps_s_c0 [%]'
-                }
-                self.global_storage_order['sigma_h_c0_avg'] = {
-                    'fnc': self.get_hydrostatic_stress_c,
-                    'header': 'sigma_h_c0 [Pa]'
-                }
+                for i in range(self.number_of_cathode_materials):
+                    self.global_storage_order[f'eps_s_c{i}_avg'] = {
+                        'fnc': functools.partial(self.get_eps_s_avg,'cathode',index=i),
+                        'header': f'eps_s_c{i} [%]'
+                    }
+                    self.global_storage_order[f'sigma_h_c{i}_avg'] = {
+                        'fnc': functools.partial(self.get_hydrostatic_stress,'cathode',index=i),
+                        'header': f'sigma_h_c{i} [Pa]'
+                    }
 
         # Additional internal variables. Electric current density.
         # self.internal_storage_order.append(['electric_current', 'vector'])
@@ -598,19 +603,20 @@ class Problem:
 
     def _build_explicit_functions(self):
         """This method define functions for explicit processing"""
-        elements = []
+        elements, functions = [], []
         if self.model_options.solve_LAM:
             if self.cell.positive_electrode.LAM:
                 elements += [ f'eps_s_a{i}' for i in range(self.number_of_anode_materials)]
+                functions += [ Function(self.V) for i in range(self.number_of_anode_materials)]
             if self.cell.negative_electrode.LAM:
                 elements += [ f'eps_s_c{i}' for i in range(self.number_of_cathode_materials)]
+                functions += [ Function(self.V) for i in range(self.number_of_cathode_materials)]
 
         self.FE_explicit = namedtuple('Explicit_Finite_Element_Function',' '.join(elements))
-        self.f_ex = self.FE_explicit._make([Function(self.V) for _ in elements])
+        self.f_ex = self.FE_explicit._make(functions)
 
         for i, name in enumerate(self.f_ex._fields):
             self.f_ex[i].rename(name, 'a Function')
-
 
     def build_implicit_sgm(self):
         # Build SGM with Implicit Coupling
@@ -628,14 +634,14 @@ class Problem:
         self.build_electrode_dof_mask()
         if self.model_options.solve_mechanic:
             self.anode_particle_model = StressEnhancedIntercalation(
-                active_material=self.anode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
+                active_material=self.anode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
             self.cathode_particle_model = StressEnhancedIntercalation(
-                active_material=self.cathode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
+                active_material=self.cathode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
         else:
-            self.anode_particle_model = SpectralLegendreModel(
-                active_material=self.anode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
-            self.cathode_particle_model = SpectralLegendreModel(
-                active_material=self.cathode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
+            self.anode_particle_model = StandardParticleIntercalation(
+                active_material=self.anode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
+            self.cathode_particle_model = StandardParticleIntercalation(
+                active_material=self.cathode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
         timer.stop()
 
     def build_electrode_dof_mask(self):
@@ -762,7 +768,7 @@ class Problem:
         if not self.ready:
             self.setup()
 
-        store_fom = not adaptive
+        store_fom = not adaptive and self.c_s_implicit_coupling
         if store_fom:
             if self.current_timestep == 0:
                 initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
@@ -1044,6 +1050,9 @@ class Problem:
         self.cathode_particle_model.solve()
 
         self.update_c_s_surf(relaxation=relaxation)
+        if self.model_options.solve_LAM:
+            self.LAM_model_a._update_c_s_r_average()
+            self.LAM_model_c._update_c_s_r_average()
         timer.stop()
 
     def build_wf_0(self):
@@ -1441,17 +1450,17 @@ class Problem:
         self.anode_particle_model.setup()
         self.cathode_particle_model.setup()
 
-    def explicit_processing(self,):
+    def explicit_processing(self):
+        timer = Timer('Explicit Processing')
         try:
             if self.model_options.solve_LAM:
                 for electrode, LAM_model in zip(['anode','cathode'],[self.LAM_model_a, self.LAM_model_c]):
                     if LAM_model:
-                        # Apply eps_s variation
-                        for i, delta_eps_s_am in enumerate(LAM_model.delta_eps_s):
-                            eps_s_am = LAM_model.electrode.active_material[i].eps_s
-                            eps_s_am.assign(project_onto_subdomains({electrode:eps_s_am + delta_eps_s_am}, self))
+                        LAM_model.update_eps_s(self)                
         except Exception as e:
+            timer.stop()
             return e
+        timer.stop()
         return 0
 
     def calculate_total_lithium(self):
@@ -1510,7 +1519,7 @@ class Problem:
         return x.temp.vector().max() 
 
     def get_time_filter_error(self):
-        t=Timer('TF Error')
+        timer=Timer('TF Error')
         error = []
         for index in range(len(self.u_2.block_split())):
             try:
@@ -1521,9 +1530,10 @@ class Problem:
                     error.append(self.anode_particle_model.get_time_filter_error(self.nu, self.tau))
                     error.append(self.cathode_particle_model.get_time_filter_error(self.nu, self.tau))
             except Exception as e:
+                timer.stop()
                 raise e
         error.append(self.u_post_filter.block_vector().norm('linf'))
-        t.stop()
+        timer.stop()
         return error
 
     def get_current(self, x=None):
@@ -1553,17 +1563,37 @@ class Problem:
         X_a = [max(project(x, self.V).vector()[self.P1_map.domain_dof_map['anode']]) for x in self.x_a]
         return [X_a, X_c]
 
-    def get_hydrostatic_stress_a(self):
-        return [assemble(sigma_h_am*self.mesher.dx_a) for sigma_h_am in self.LAM_model_a.sigma_h]
+    def get_hydrostatic_stress(self, electrode, index = None):
+        if electrode == 'anode':
+            sigma_h = self.LAM_model_a.sigma_h
+            dx = self.mesher.dx_a
+        elif electrode == 'cathode':
+            sigma_h = self.LAM_model_c.sigma_h
+            dx = self.mesher.dx_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(sigma_h))
+        elif isinstance(index, int):
+            index = [index]
+        V_electrode = assemble(1*dx)
+        return [assemble(sigma_h_am*dx)/V_electrode for i, sigma_h_am in enumerate(sigma_h) if i in index]
 
-    def get_hydrostatic_stress_c(self):
-        return [assemble(sigma_h_am*self.mesher.dx_c) for sigma_h_am in self.LAM_model_c.sigma_h]
-
-    def get_eps_s_avg_a(self):
-        return [100*assemble(am.eps_s*self.mesher.dx_a) for am in self.anode.active_material]
-
-    def get_eps_s_avg_c(self):
-        return [100*assemble(am.eps_s*self.mesher.dx_c) for am in self.cathode.active_material]
+    def get_eps_s_avg(self, electrode, index = None):
+        if electrode == 'anode':
+            materials = self.anode.active_material
+            dx = self.mesher.dx_a
+        elif electrode == 'cathode':
+            materials = self.cathode.active_material
+            dx = self.mesher.dx_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(materials))
+        elif isinstance(index, int):
+            index = [index]
+        V_electrode = assemble(1*dx)
+        return [100*assemble(am.eps_s*dx)/V_electrode for i, am in enumerate(materials) if i in index]
 
     def get_eps_s_approx_a(self):
         return 100 - assemble(self.anode.active_material[0].eps_s*self.mesher.dx_a)/self.cell.negative_electrode.active_materials[0].volumeFraction * 100
@@ -1765,6 +1795,8 @@ class NDProblem(Problem):
     def _build_extra_models(self):
         #Extra models
         self.SEI_model = self.nd_model.SpectralLagrangeModel_EC()
+        self.LAM_model_a = self.nd_model.LAM('anode')
+        self.LAM_model_c = self.nd_model.LAM('cathode')
         self.mechanics = mechanical_model(self.cell)
         # if self.cell.electrolyte.type != 'liquid' and self.model_options.solve_mechanic:
         #     self.c_s_implicit_coupling = False
@@ -2090,3 +2122,36 @@ class NDProblem(Problem):
         L_sei = [self.f_1[self.f_1._fields.index(f'delta_a{i}')].vector()[self.P1_map.domain_dof_map['anode']].mean()* self.nd_model.delta_sei_a[i] for i in range(self.number_of_anode_materials)]
         return L_sei
 
+    def get_hydrostatic_stress(self, electrode, index = None):
+        if electrode == 'anode':
+            E_ref = self.nd_model.E_a_ref
+            sigma_h = self.LAM_model_a.sigma_h
+            dx = self.mesher.dx_a
+        elif electrode == 'cathode':
+            E_ref = self.nd_model.E_c_ref
+            sigma_h = self.LAM_model_c.sigma_h
+            dx = self.mesher.dx_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(sigma_h))
+        elif isinstance(index, int):
+            index = [index]
+        V_electrode = assemble(1*dx)
+        return [E_ref_am*assemble(sigma_h_am*dx)/V_electrode for i, (E_ref_am, sigma_h_am) in enumerate(zip(E_ref, sigma_h)) if i in index]
+
+    def get_eps_s_avg(self, electrode, index = None):
+        if electrode == 'anode':
+            materials = self.anode.active_material
+            dx = self.mesher.dx_a
+        elif electrode == 'cathode':
+            materials = self.cathode.active_material
+            dx = self.mesher.dx_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(materials))
+        elif isinstance(index, int):
+            index = [index]
+        V_electrode = assemble(1*dx)
+        return [100*assemble(am.eps_s*dx)/V_electrode for i, am in enumerate(materials) if i in index]

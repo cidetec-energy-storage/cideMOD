@@ -231,6 +231,41 @@ class StandardParticleIntercalation(WeakCoupledPM):
     def D_s_exp(self, expression, x):
         return eval(expression)
 
+    def _j_li(self, c_s, c_e, phi, T, k_0, k_0_Ea, k_0_Tref,alpha, F, R, OCV, c_s_max):
+        """Lithium reaction flux
+
+        Args:
+            c_s (Function or TrialFunction): Lithium concentration in the particle
+            c_e (Expression): lithium concentration in the electrolyte surrounding the particle
+            E_a (Expression): Buttler-Volmer reaction rate multiplied by k_0
+            a_s (Constant): Active area of the electrode particle
+            alpha (Constant): alpha
+            F (Constant): Faraday's constant
+            c_s_max (Constant): Maximum concentration of electrode particle
+
+        Returns:
+            Form: Lithium Reaction Flux dependent on c_s
+        """
+        eta = phi-OCV(c_s/c_s_max)
+        BV = exp(alpha*F*eta/(R*T))-exp(-alpha*F*eta/(R*T))
+        k_0_eff = k_0 * exp(k_0_Ea/R * (1/k_0_Tref - 1/T))
+        i_0 = k_0_eff * c_e ** alpha * (c_s_max - c_s) ** alpha * c_s ** alpha
+        return i_0 * BV
+
+    def get_average_c_s(self, increment=False):
+        """Calculates average concentration in the solid particle, useful for thickness change calculations
+
+        :param c_s_ref: Reference concentration to substract if necessary, defaults to None
+        :type c_s_ref: Constant or float, optional
+        """
+        shape = self.c_s_1_db.shape # cell_dof, material, c_s_vector
+        c_avg = numpy.empty(shape[:-1])
+        for i, material in enumerate(self.particles):
+            c_avg[:,i] = numpy.array([c.sum()/c.size for c in self.c_s_1_db[:,i,:]])
+            if increment:
+                c_avg[:,i] -= material.c_s_ini
+        return c_avg
+
 
 class StressEnhancedIntercalation(StandardParticleIntercalation):
     def theta(self, material, R):
