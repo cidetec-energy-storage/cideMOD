@@ -82,7 +82,7 @@ class CSI:
         elif isinstance(simulation_type, dict):
             for key in simulation_type:
                 assert hasattr(self.simulation_options, key) , "Option '{}' not recognized".format(key)
-                setattr(self.simulation_options,key,simulation_type.dict()[key])
+                setattr(self.simulation_options,key,simulation_type[key])
         else:
             raise Exception(f"Argument simulation_type must be of type Union[dict,ModelOptions], is {type(simulation_type)}")
         # Load cell data
@@ -144,8 +144,9 @@ class CSI:
             else:
                 self.steps.append(step)
         self.print_test_plan()
-        with open(os.path.join(self.problem.save_path,'test_plan.json'),'w') as fout:
-            json.dump(self.test_plan,fout,indent=4,sort_keys=True)
+        if self.save_path:
+            with open(os.path.join(self.problem.save_path,'test_plan.json'),'w') as fout:
+                json.dump(self.test_plan,fout,indent=4,sort_keys=True)
 
     def print_test_plan(self):
         print('Initial state:')

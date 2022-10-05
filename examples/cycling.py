@@ -39,7 +39,7 @@ INPUT2 = {
     "unit": "C",  # One of 'A', 'V', 'mA', 'mV', C
     "t_max": {"value": 120, "unit": "min"}, # Maximum duration of step
     "store_delay": 10, # Store frequency (in timesteps) of internal variables, -1 to deactivate
-    "min_step": 20, # Minimum time step
+    "min_step": 10, # Minimum time step
     # 'adaptive': False, # Wether to adapt timestep or not
     "events": [EVENT2],
 }
@@ -47,7 +47,7 @@ INPUT2 = {
 CYCLE_INPUT = {
     "name": "Cycling", 
     "type": "Cycle", 
-    "count": 50, # Number of cycles
+    "count": 1, # Number of cycles
     "steps": [INPUT1, INPUT2] # Steps to be repeated each cycle
 }
 
@@ -63,10 +63,10 @@ overwrite = False
 case = "Safari_2009"
 data_path = "../data/data_{}".format(case)
 
-cell_data = os.path.join(data_path, "params.json")
+cell_data = os.path.join(data_path, "params_cycling.json")
 
 
-csi = CSI(cell_data, SIMULATION_OPTIONS.dict(), name=case)
+csi = CSI(cell_data, SIMULATION_OPTIONS.dict(), name=case, save_path=True)
 csi.read_test_plan(TEST_PLAN)
 status = csi.run_test_plan()
 

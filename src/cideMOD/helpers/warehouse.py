@@ -209,9 +209,9 @@ class Warehouse:
                         global_var_array = global_var_array[:,newaxis]
                     elif global_var_array.ndim > 2:
                         global_var_array = global_var_array.reshape(global_var_array.shape[0],global_var_array.shape[1])
-                        n = global_var_array.shape[1]
+                        n = max([max(global_var_array.shape), len(global_var_array[0][0])])
                     else:
-                        n = global_var_array.shape[1]
+                        n = max(global_var_array.shape)
                     fname = os.path.join(self.save_path,'{}.txt'.format(key))
                     data = concatenate((array(self.global_var_arrays[0])[:,newaxis],global_var_array), axis = 1)
                     fmt = ("%2.2f \t"+ "%1.8e \t"*n)

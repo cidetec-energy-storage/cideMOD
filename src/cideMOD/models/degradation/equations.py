@@ -118,6 +118,7 @@ class SEI:
 
         def build_matrix(self):
             J = numpy.zeros((self.order+1, self.order+1))
+            H = numpy.zeros((self.order+1, self.order+1))
             K = numpy.zeros((self.order+1, self.order+1))
             L = numpy.zeros((self.order+1, self.order+1))
             M = numpy.zeros((self.order+1, self.order+1))
@@ -131,21 +132,23 @@ class SEI:
                 for j in range(self.order+1):
 
                     J[i,j] = polyval(0, polymul(self.f[i], self.f[j]))
+                    H[i,j] = polyval(1, polymul(self.df[i], self.f[j]))
                     K[i,j] = polyval(1,polyint(polymul(self.f[i], self.f[j])))
                     L[i,j] = polyval(1,polyint(polymul(self.df[i], self.f[j])))
                     M[i,j] = polyval(1,polyint(polymul(self.xdf[i], self.f[j])))
                     N[i,j] = polyval(1,polyint(polymul(self.df[i], self.df[j])))
 
-            J_d = J[0:-1,0:-1]
-            K_d = K[0:-1,0:-1]
-            L_d = L[0:-1,0:-1]
-            M_d = M[0:-1,0:-1]
-            N_d = N[0:-1,0:-1]
-            P_d = P[0:-1]
+            J_d = J[:, 0:-1]
+            K_d = K[:, 0:-1]
+            L_d = L[:, 0:-1]
+            M_d = M[:, 0:-1]
+            N_d = N[:, 0:-1]
+            H_d = H[:, 0:-1]
+            P_d = P
 
             self.D = K_d
-            self.K1 = L_d - M_d - J_d
-            self.K2 = N_d
+            self.K1 = L_d - M_d + J_d
+            self.K2 = N_d - H_d
             self.P = P_d
 
         def wf_0(self, f_0, f_1, test, dx):
@@ -163,16 +166,17 @@ class SEI:
             F_EC_ret = []
             for k, material in enumerate(materials):
                 c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(k))
+                c_EC_0 = [f_0[c_EC_index+k] for k in range(self.order)] + [SEI.c_EC_sln * SEI.eps]
+                c_EC = [f_1[c_EC_index+k] for k in range(self.order)] + [SEI.c_EC_sln * SEI.eps]
                 j_SEI_index = f_0._fields.index('j_sei_a{}'.format(k))
                 delta_index = f_0._fields.index('delta_a{}'.format(k))
                 self.K = 1 / f_1[delta_index] * DT.dt(f_0[delta_index], f_1[delta_index]) * self.K1 + 1 / f_1[delta_index]**2 * SEI.D_EC * self.K2
                 for j in range(self.order):
                     F_EC = 0
-                    for i in range(self.order):
+                    for i in range(self.order+1):
 
-                        F_EC += self.D[i, j] * DT.dt(f_0[c_EC_index+i], f_1[c_EC_index+i]) * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
-                        F_EC += self.K[i, j] * f_1[c_EC_index+i] * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
-                        F_EC -= self.K[i, j] * SEI.c_EC_sln * SEI.eps * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
+                        F_EC += self.D[i, j] * DT.dt(c_EC_0[i], c_EC[i]) * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
+                        F_EC += self.K[i, j] * c_EC[i] * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
 
                     F_EC -= 1 / f_1[delta_index] * f_1[j_SEI_index] / F * self.P[j] * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
                     

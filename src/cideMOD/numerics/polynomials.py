@@ -22,7 +22,7 @@ class Lagrange():
         assert len(c)==self.order+1, "The length of the coefficients list has to be: "+str(self.order+1)
         poly = Polynomial([0])
         for k in range(self.order+1):
-            poly = polyadd(poly, c[k]*self.f[k])
+            poly = polyadd(poly, Polynomial(c[k]*self.f[k]))
         return poly
 
     def f_vector(self):
