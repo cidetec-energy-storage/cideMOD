@@ -89,3 +89,4 @@ class BaseModel:
             sei = self._material_sei_parameters(material)
             pars = {**pars, **sei}
         return pars
+

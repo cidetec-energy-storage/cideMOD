@@ -48,7 +48,7 @@ class Warehouse:
 
         self.global_vars = {}
         self.global_var_arrays = []
-        self.post_processing = []
+        self.post_processing = {'globals':[],'internals':[]}
 
     def set_delay(self, delay):
         self.delay = delay
@@ -112,9 +112,9 @@ class Warehouse:
     def post_processing_functions(self, functions:list):
         self.post_processing = functions
 
-    def _post_process(self):
+    def _post_process(self, tag):
         timer = Timer('Post-processing')
-        for func in self.post_processing:
+        for func in self.post_processing[tag]:
             func()
         timer.stop()
         
@@ -169,6 +169,7 @@ class Warehouse:
         timer.stop()
 
     def store(self, time, force = False, store_fom = True):
+        self._post_process('globals')
         self._store_globals(time)
         if store_fom:
             self._store_2_rom()
@@ -176,7 +177,7 @@ class Warehouse:
             return
         elif isinstance(self.delay, list):
             if time in self.delay or any(k<time and k>self.counter for k in self.delay):
-                self._post_process()
+                self._post_process('internals')
                 self._store_internals(time)
                 self.counter = time
             else:
@@ -184,7 +185,7 @@ class Warehouse:
         elif self.delay>=0:
             self.counter += 1
             if self.counter >= self.delay or force:
-                self._post_process()
+                self._post_process('internals')
                 self._store_internals(time)
                 self.counter = 0
 
@@ -209,9 +210,9 @@ class Warehouse:
                         global_var_array = global_var_array[:,newaxis]
                     elif global_var_array.ndim > 2:
                         global_var_array = global_var_array.reshape(global_var_array.shape[0],global_var_array.shape[1])
-                        n = max([max(global_var_array.shape), len(global_var_array[0][0])])
+                        n = global_var_array.shape[1]
                     else:
-                        n = max(global_var_array.shape)
+                        n = global_var_array.shape[1]
                     fname = os.path.join(self.save_path,'{}.txt'.format(key))
                     data = concatenate((array(self.global_var_arrays[0])[:,newaxis],global_var_array), axis = 1)
                     fmt = ("%2.2f \t"+ "%1.8e \t"*n)

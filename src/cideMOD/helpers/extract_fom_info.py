@@ -79,7 +79,12 @@ def get_current_results(problem, label):
     resultsDict = dict()
 
     # Fill results dictionary
-    for key in ['ce', 'phie', 'phis', 'jLi', 'cs']:
+    field_names = ['ce', 'phie', 'phis', 'jLi', 'cs']
+    if problem.model_options.solve_thermal:
+        field_names.append('T')
+    if problem.model_options.solve_SEI:
+        field_names.extend(['cSEI','jSEI','deltaSEI'])
+    for key in field_names:
         if   key == "ce":
             ce = problem.f_1.c_e.vector()[:]
             resultsDict[key] = np.zeros(ce.shape)
@@ -146,6 +151,84 @@ def get_current_results(problem, label):
                             cs[dofs_anode]   = problem.nd_model.c_s_a_max[i]*cs[dofs_anode]
                             cs[dofs_cathode] = problem.nd_model.c_s_c_max[i]*cs[dofs_cathode]
                         resultsDict[key] = np.concatenate((resultsDict[key], cs))
+        
+        elif key == "T":
+            T = problem.f_1.temp.vector()[:]
+            resultsDict[key] = np.zeros(T.shape)
+            if label == 'unscaled':
+                resultsDict[key] = problem.nd_model.T_ref + problem.nd_model.thermal_gradient * T
+            else:
+                resultsDict[key] = T
+
+        elif key == "cSEI":
+            SEI_model = problem.SEI_model_a if problem.SEI_model_a else problem.SEI_model_c
+            # Loop in number of materials
+            for i in range(1):
+                resultsDict[key] = None
+                # Loop through SGM order
+                for j in range(SEI_model.SLagM.order):
+                    cSEI = None
+                    # Loop over SEI models
+                    for SEI_model in [problem.SEI_model_a, problem.SEI_model_c]:
+                        if not SEI_model:
+                            continue
+                        c_EC_index = fields.index(f"c_EC_{j}_{SEI_model.domain}{i}")
+                        if cSEI is None:
+                            cSEI = np.zeros(problem.f_1[c_EC_index].vector()[:].shape[0])
+                        
+                        dofs = dofs_anode if SEI_model.tag == 'anode' else dofs_cathode
+                        if label =='unscaled':
+                            c_EC_ref = problem.nd_model.c_sei_a if SEI_model.tag == 'anode' else problem.nd_model.c_sei_c
+                            cSEI[dofs] = c_EC_ref[i] * problem.f_1[c_EC_index].vector()[:][dofs]
+                        else:
+                            cSEI[dofs] = problem.f_1[c_EC_index].vector()[:][dofs]
+
+                    if resultsDict[key] is None:
+                        resultsDict[key] = cSEI
+                    else:
+                        resultsDict[key] = np.concatenate((resultsDict[key], cSEI))
+
+        elif key == "jSEI":
+            # Loop in number of materials
+            for i in range(1):
+                resultsDict[key] = None
+                # Loop over SEI models
+                for SEI_model in [problem.SEI_model_a, problem.SEI_model_c]:
+                    if not SEI_model:
+                        continue
+                    j_sei_index = fields.index(f"j_sei_{SEI_model.domain}{i}")
+                    dofs = dofs_anode if SEI_model.tag == 'anode' else dofs_cathode
+                    jLiSEI = problem.f_1[j_sei_index].vector()[:]
+
+                    if resultsDict[key] is None:
+                        resultsDict[key] = np.zeros(jLiSEI.shape)
+
+                    if label == 'unscaled':
+                        a_s = SEI_model.electrode.active_material[i].a_s
+                        resultsDict[key][dofs] = problem.nd_model.I_0/problem.nd_model.L_0 * jLiSEI[dofs]/a_s/problem.F
+                    else:
+                        resultsDict[key][dofs] = jLiSEI[dofs]/problem.F
+        
+        elif key == "deltaSEI":
+            # Loop in number of materials
+            for i in range(1):
+                resultsDict[key] = None
+                # Loop over SEI models
+                for SEI_model in [problem.SEI_model_a, problem.SEI_model_c]:
+                    if not SEI_model:
+                        continue
+                    delta_sei_index = fields.index(f"delta_sei_{SEI_model.domain}{i}")
+                    dofs = dofs_anode if SEI_model.tag == 'anode' else dofs_cathode
+                    deltaSEI = problem.f_1[delta_sei_index].vector()[:]
+
+                    if resultsDict[key] is None:
+                        resultsDict[key] = np.zeros(deltaSEI.shape)
+
+                    if label == 'unscaled':
+                        delta_sei_ref = problem.nd_model.delta_sei_a if SEI_model.tag == 'anode' else problem.nd_model.delta_sei_c
+                        resultsDict[key][dofs] = delta_sei_ref[i] * deltaSEI[dofs]
+                    else:
+                        resultsDict[key][dofs] = deltaSEI[dofs]
         else:
             raise NameError('Unknown required variable')
 
@@ -183,12 +266,20 @@ def initialize_results(problem, N):
     :param N: Number of snapshots expected to save.
     :type N: int
     """
-
-    for field in ['phis', 'phie', 'ce', 'cs', 'jLi']:
+    field_names = ['phis', 'phie', 'ce', 'cs', 'jLi']
+    if problem.model_options.solve_thermal:
+        field_names.append('T')
+    if problem.model_options.solve_SEI:
+        field_names.extend(['cSEI','jSEI','deltaSEI'])
+        SEI_model = problem.SEI_model_a if problem.SEI_model_a else problem.SEI_model_c
+    Nx = problem.f_1.phi_s.vector()[:].shape[0]
+    for field in field_names:
         if field == 'cs':
-            problem.fom2rom['results'][field] = np.zeros([problem.SGM.order*problem.f_1.phi_s.vector()[:].shape[0], N+1])
+            problem.fom2rom['results'][field] = np.zeros([problem.SGM.order*Nx, N+1])
+        elif field == 'cSEI':
+            problem.fom2rom['results'][field] = np.zeros([SEI_model.SLagM.order*Nx, N+1])
         else:
-            problem.fom2rom['results'][field] = np.zeros([problem.f_1.phi_s.vector()[:].shape[0], N+1])
+            problem.fom2rom['results'][field] = np.zeros([Nx, N+1])
 
 
 def extend_results(problem, N):
@@ -201,11 +292,20 @@ def extend_results(problem, N):
     :param N: Number of additional snapshots expected to save.
     :type N: int
     """
-    for field in ['phis', 'phie', 'ce', 'cs', 'jLi']:
+    field_names = ['phis', 'phie', 'ce', 'cs', 'jLi']
+    if problem.model_options.solve_thermal:
+        field_names.append('T')
+    if problem.model_options.solve_SEI:
+        field_names.extend(['cSEI','jSEI','deltaSEI'])
+        SEI_model = problem.SEI_model_a if problem.SEI_model_a else problem.SEI_model_c
+    Nx = problem.f_1.phi_s.vector()[:].shape[0]
+    for field in field_names:
         if field == 'cs':
-            problem.fom2rom['results'][field] = np.hstack( (problem.fom2rom['results'][field], np.zeros([problem.SGM.order*problem.f_1.phi_s.vector()[:].shape[0], N+1])) )
+            problem.fom2rom['results'][field] = np.hstack( (problem.fom2rom['results'][field], np.zeros([problem.SGM.order*Nx, N+1])) )
+        elif field == 'cSEI':
+            problem.fom2rom['results'][field] = np.hstack( (problem.fom2rom['results'][field], np.zeros([SEI_model.SLagM.order*Nx, N+1])) )      
         else:
-            problem.fom2rom['results'][field] = np.hstack( (problem.fom2rom['results'][field], np.zeros([problem.f_1.phi_s.vector()[:].shape[0], N+1])) )
+            problem.fom2rom['results'][field] = np.hstack( (problem.fom2rom['results'][field], np.zeros([Nx, N+1])) )
 
 
 #####################################################
@@ -368,10 +468,13 @@ def get_mesh_info(problem, label):
     vertex_index_NP = bmesh_vertex_to_mesh_vertex[refNP_bmesh_mat_connect]
 
         # dofs of the parent mesh of each boundary mesh finite element
+    mesh['boundary'] = dict()
+    mesh['boundary']['dofs_index'] = ver2dof[bmesh_vertex_to_mesh_vertex[bmesh_mat_connect]]
+
     dofs_index_PP = ver2dof[vertex_index_PP]
-    mesh['dofs_index_PP'] = dofs_index_PP
+    mesh['boundary']['dofs_index_PP'] = dofs_index_PP
     dofs_index_NP = ver2dof[vertex_index_NP]
-    mesh['dofs_index_NP'] = dofs_index_NP
+    mesh['boundary']['dofs_index_NP'] = dofs_index_NP
 
     return
 
@@ -439,3 +542,29 @@ def get_interfaces_dofs(problem):
         # Array containing the list of dofs in the cathode-separator interface
 
     return
+
+def get_spectral_info(problem):
+    """
+    Obtain the necessary pre-processed information about the spectral methods used in the model.
+
+    :param problem: Instance of class Problem or NDProblem.
+    :type problem: cideMOD.problem.NDProblem
+    """
+    problem.fom2rom['SGM'] = dict()
+
+    # Get SGM matrices of the Li mass transport equation in the active particles
+    problem.fom2rom['SGM']['cs'] = dict()
+    problem.fom2rom['SGM']['cs']['M'] = problem.SGM.M
+    problem.fom2rom['SGM']['cs']['K'] = problem.SGM.K
+    problem.fom2rom['SGM']['cs']['P'] = problem.SGM.P
+
+    # Get SGM matrices of the electrolyte solvent transport in the SEI
+    if problem.model_options.solve_SEI:
+        problem.fom2rom['SGM']['cSEI'] = dict()
+        SEI_model = problem.SEI_model_a if problem.SEI_model_a else problem.SEI_model_c
+        if SEI_model:
+            problem.fom2rom['SGM']['cSEI']['f'] = SEI_model.SLagM.f
+            problem.fom2rom['SGM']['cSEI']['D'] = SEI_model.SLagM.D
+            problem.fom2rom['SGM']['cSEI']['K1'] = SEI_model.SLagM.K1
+            problem.fom2rom['SGM']['cSEI']['K2'] = SEI_model.SLagM.K2
+            problem.fom2rom['SGM']['cSEI']['P'] = SEI_model.SLagM.P

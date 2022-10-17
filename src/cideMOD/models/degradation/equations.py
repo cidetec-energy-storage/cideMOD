@@ -31,13 +31,6 @@ __all__= [
     "SEI",
 ]
 
-def _get_n_mat(f):
-        n = 0
-        for name in f._fields:
-            if name.startswith('c_EC_0_a'):
-                n += 1
-        return n
-
 class SEI:
     """SEI (Solid-Electrolyte Interphase) growth model limited by solvent diffusion through the SEI.
 
@@ -48,21 +41,50 @@ class SEI:
         1: Safari et al. - 2009 - Multimodal Physics-Based Aging Model for Life Prediction of Li-Ion Batteries
         
     """
-    def __init__(self, order=2):
+    def __init__(self, tag, order=2):
+        assert tag in ['anode','cathode']
+        self.domain = tag[0]
+        self.tag = tag
         self.order = order
-        self.SLagM = self.SpectralLagrangeModel_EC(order)
+        self.SEI = None
 
-    def fields(self, n_mat):    
-        field_list =  ['c_EC_{}_a{}'.format( order, material) for material in range(n_mat) for order in range(self.order)]
+    def setup(self, problem):
+        self.electrode = getattr(problem, self.tag)
+        self.SEI = self.electrode.SEI
+        self.n_mat = len(self.electrode.active_material)
+        self.SLagM = self.SpectralLagrangeModel_EC(self.n_mat, self.tag, self.order)
+        self.j_Li = problem.j_Li_a if self.tag == 'anode' else problem.j_Li_c
+
+    def fields(self, n_mat = None):
+        if self.SEI is None:
+            assert n_mat is not None, "Please provide the number of active materials or setup the SEI object"
+        else:
+            n_mat = self.n_mat
+
+        field_list  = [f'j_sei_{self.domain}{material}' for material in range(n_mat)]
+        field_list += [f'delta_sei_{self.domain}{material}' for material in range(n_mat)]
+        field_list += [f'c_EC_{order}_{self.domain}{material}' for material in range(n_mat) for order in range(self.order)]
         return field_list
 
-    def initial_guess(self, f_0, c_0):
-        n_mat = _get_n_mat(f_0)
-        if n_mat!=0:
-            for material in range(n_mat):
-                c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(material))
+    def shape_functions(self, mesher, n_mat, V = None):
+        if V is None:
+            V = FunctionSpace(mesher.mesh, 'CG', 1)
+        restriction = mesher.anode if self.tag == 'anode' else mesher.cathode
+        E_j_sei = [(V, restriction) for material in range(n_mat)]
+        E_delta = [(V, restriction) for material in range(n_mat)]
+        E_c_EC  = [(V, restriction) for material in range(n_mat) for order in range(self.order)]
+        return E_j_sei + E_delta + E_c_EC
+
+    def initial_guess(self, f_0):
+        if self.n_mat!=0:
+            c_0 = self.SEI.c_EC_sln * self.SEI.eps
+            for material in range(self.n_mat):
+                c_EC_index = f_0._fields.index(f'c_EC_0_{self.domain}{material}')
                 for j in range(self.order):
                     assign(f_0[c_EC_index+j], interpolate(Constant(c_0), f_0[c_EC_index+j].function_space()))
+
+                delta_0_am = f_0._asdict()[f'delta_sei_{self.domain}{material}']
+                assign(delta_0_am, interpolate(Constant(self.SEI.delta0), delta_0_am.function_space()))
 
     def j_SEI(self, j_SEI, test, dx, i_0s, phi_s, phi_e, T, J, G_film, SEI, F, R):
 
@@ -81,34 +103,37 @@ class SEI:
         else:
             return (delta_0 - delta_1) * test * dx
 
-    def equations(self, f_0, f_1, test, dx, active_material, F, R, DT = None):
-        if len(active_material)>0:
-            assert hasattr(active_material[0].electrode,'SEI')
-        SEI = active_material[0].electrode.SEI
+    def equations(self, f_0, f_1, test, dx, F, R, DT = None):
         F_SEI = []
-        for i, material in enumerate(active_material):
-            j_sei_index = f_1._fields.index(f'j_sei_a{i}')
-            delta_index = f_1._fields.index(f'delta_a{i}')
-            c_EC_index = f_1._fields.index(f'c_EC_0_a{i}')
-            j_int_index = f_1._fields.index(f'j_Li_a{i}')
+        for i, material in enumerate(self.electrode.active_material):
+            j_sei_index = f_1._fields.index(f'j_sei_{self.domain}{i}')
+            delta_index = f_1._fields.index(f'delta_sei_{self.domain}{i}')
+            c_EC_index = f_1._fields.index(f'c_EC_0_{self.domain}{i}')
             
-            i_0s = F * f_1[c_EC_index] * SEI.k_f_s
-            G_film = SEI.R + f_1[delta_index] / SEI.kappa
-            J = f_1[j_int_index] + f_1[j_sei_index] 
-            F_SEI.append(self.j_SEI(f_1[j_sei_index], test[j_sei_index], dx, i_0s, f_1.phi_s, f_1.phi_e, f_1.temp, J, G_film, SEI, F, R))
-            F_SEI.append(self.delta_growth(DT, f_0[delta_index], f_1[delta_index], f_1[j_sei_index], SEI, F ,test[delta_index], dx))
+            i_0s = F * f_1[c_EC_index] * self.SEI.k_f_s
+            G_film = self.SEI.R + f_1[delta_index] / self.SEI.kappa
+            J = self.j_Li.total[i]
+            F_SEI.append(self.j_SEI(f_1[j_sei_index], test[j_sei_index], dx, i_0s, f_1.phi_s, f_1.phi_e, f_1.temp, J, G_film, self.SEI, F, R))
+            F_SEI.append(self.delta_growth(DT, f_0[delta_index], f_1[delta_index], f_1[j_sei_index], self.SEI, F ,test[delta_index], dx))
 
         if DT:
-            F_SEI.extend(self.SLagM.wf(f_0, f_1, test, dx, DT, active_material, SEI, F))
+            F_SEI.extend(self.SLagM.wf(f_0, f_1, test, dx, DT, self.SEI, F))
         else:
             F_SEI.extend(self.SLagM.wf_0(f_0, f_1, test, dx))
         
         return F_SEI
 
+    def __bool__(self):
+        return bool(self.SEI)
+
     class SpectralLagrangeModel_EC():
         
-        def __init__(self, order=2):
+        def __init__(self, n_mat, tag, order=2):
+            assert tag in ('anode','cathode')
+            self.domain = tag[0]
+            self.tag = tag
             self.order = order
+            self.n_mat = n_mat
             self.poly = Lagrange(order)
             self.f = self.poly.f
             self.df = self.poly.df
@@ -152,29 +177,25 @@ class SEI:
             self.P = P_d
 
         def wf_0(self, f_0, f_1, test, dx):
-
-            n_mat = _get_n_mat(f_0)
             F_EC_0 = []
-            for material in range(n_mat):
-                c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(material))
+            for material in range(self.n_mat):
+                c_EC_index = f_0._fields.index(f'c_EC_0_{self.domain}{material}')
                 for j in range(self.order):
                     F_EC_0.append([(f_1[c_EC_index+j] - f_0[c_EC_index+j]) * test[c_EC_index+j] * dx])
             return F_EC_0
 
-        def wf(self, f_0, f_1, test, dx : Measure, DT, materials:List, SEI, F):
-
+        def wf(self, f_0, f_1, test, dx:Measure, DT, SEI, F):
             F_EC_ret = []
-            for k, material in enumerate(materials):
-                c_EC_index = f_0._fields.index('c_EC_0_a{}'.format(k))
-                c_EC_0 = [f_0[c_EC_index+k] for k in range(self.order)] + [SEI.c_EC_sln * SEI.eps]
-                c_EC = [f_1[c_EC_index+k] for k in range(self.order)] + [SEI.c_EC_sln * SEI.eps]
-                j_SEI_index = f_0._fields.index('j_sei_a{}'.format(k))
-                delta_index = f_0._fields.index('delta_a{}'.format(k))
+            for k in range(self.n_mat):
+                c_EC_index = f_0._fields.index(f'c_EC_0_{self.domain}{k}')
+                c_EC_0 = [f_0[c_EC_index+j] for j in range(self.order)] + [SEI.c_EC_sln * SEI.eps]
+                c_EC = [f_1[c_EC_index+j] for j in range(self.order)] + [SEI.c_EC_sln * SEI.eps]
+                j_SEI_index = f_0._fields.index(f'j_sei_{self.domain}{k}')
+                delta_index = f_0._fields.index(f'delta_sei_{self.domain}{k}')
                 self.K = 1 / f_1[delta_index] * DT.dt(f_0[delta_index], f_1[delta_index]) * self.K1 + 1 / f_1[delta_index]**2 * SEI.D_EC * self.K2
                 for j in range(self.order):
                     F_EC = 0
                     for i in range(self.order+1):
-
                         F_EC += self.D[i, j] * DT.dt(c_EC_0[i], c_EC[i]) * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
                         F_EC += self.K[i, j] * c_EC[i] * test[c_EC_index+j] * dx(metadata={"quadrature_degree":2})
 

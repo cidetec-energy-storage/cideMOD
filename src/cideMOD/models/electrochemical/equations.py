@@ -182,16 +182,16 @@ def i_n_equation(k, c_e, c_s, c_s_max, alpha):
 def ButtlerVolmer_equation(alpha, F, R, T, eta):
     return 2 * sinh((alpha*F/R) * eta / T )
 
-def overpotential_equation(phi_s, phi_e, OCV, J=None, SEI=None, delta=None):
+def overpotential_equation(phi_s, phi_e, OCV, J=None, SEI=None, delta_sei=None):
     if SEI:
-        G = SEI.R + delta / SEI.kappa
+        G = SEI.R + delta_sei / SEI.kappa
         return phi_s - phi_e - OCV - J * G 
     else:
         return phi_s - phi_e - OCV
 
-def j_Li_equation(material, c_e, c_s_surf, alpha, phi_s, phi_e, F, R, T, current, J=None, SEI=None, delta=None):
+def j_Li_equation(material, c_e, c_s_surf, alpha, phi_s, phi_e, F, R, T, current, J=None, SEI=None, delta_sei=None):
     i_n = i_n_equation(material.k_0,c_e,c_s_surf,material.c_s_max,alpha)
     ocv = material.U(c_s_surf/material.c_s_max, current) + material.delta_S(c_s_surf/material.c_s_max, current)*(T-material.U.T_ref)
-    eta = overpotential_equation(phi_s, phi_e, ocv, J, SEI, delta)
+    eta = overpotential_equation(phi_s, phi_e, ocv, J, SEI, delta_sei)
     BV = ButtlerVolmer_equation(alpha, F, R, T, eta)
     return F*i_n*BV

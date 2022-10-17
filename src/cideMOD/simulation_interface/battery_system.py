@@ -91,7 +91,7 @@ class CSI:
 
         if save_path:
             if isinstance(save_path, str):
-                pass
+                self.save_path = save_path
             else:
                 self.save_path = init_results_folder(name, overwrite=overwrite, copy_files=[cell_data, self.simulation_options])
         else:

@@ -115,6 +115,8 @@ class electrolyteInterface(parser):
         self.solventSurfConcentration = self._parse_value("solventSurfConcentration")
         self.rateConstant = self._parse_value("rateConstant")
 
+    def __bool__(self) -> bool :
+        return bool(self.dic) and all(bool(getattr(self,var)) for var in ["molecularWeight", "EC_eps", "density", "rateConstant"])
 
 class electrode(parser):
     def __init__(self, cell, dic):

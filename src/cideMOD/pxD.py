@@ -22,6 +22,7 @@ from multiphenics import *
 import json
 import os
 import sys
+import functools
 import numpy as np
 from collections import namedtuple
 
@@ -40,7 +41,7 @@ from cideMOD.models.particle_models import *
 from cideMOD.models.thermal.equations import *
 from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
-from cideMOD.helpers.extract_fom_info import get_mesh_info, initialize_results, extend_results
+from cideMOD.helpers.extract_fom_info import get_mesh_info, get_spectral_info, initialize_results, extend_results
 
 # Activate this only for production
 # set_log_active(False)
@@ -152,103 +153,86 @@ class Problem:
     def set_new_state(self, time, new_state):
         self.time = time
         assert all(k in new_state.keys() for k in ['ce', 'phie', 'phis', 'jLi', 'cs'])
+        if self.model_options.solve_thermal:
+            assert('T' in new_state.keys())
+        if self.model_options.solve_SEI:
+            assert all(k in new_state.keys() for k in ['cSEI', 'deltaSEI', 'jSEI'])
         _print('\r - Initializing state ... ', end='\r')
-        if not hasattr(self, 'nd_model'): # problem with dimensions
 
-            ######################## ce ########################
-            assign(self.f_0.c_e, self.P1_map.generate_function({'anode':new_state['ce'],'separator':new_state['ce'],'cathode':new_state['ce']}))
+        ######################## ce ##########################
+        assign(self.f_0.c_e, self.P1_map.generate_function({'anode':new_state['ce'],'separator':new_state['ce'],'cathode':new_state['ce']}))
 
-            ######################## phie ########################
-            assign(self.f_0.phi_e, self.P1_map.generate_function({'anode':new_state['phie'],'separator':new_state['phie'],'cathode':new_state['phie']}))
+        ######################## phie ########################
+        assign(self.f_0.phi_e, self.P1_map.generate_function({'anode':new_state['phie'],'separator':new_state['phie'],'cathode':new_state['phie']}))
 
-            ######################## phis ########################
-            assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':new_state['phis'],'cathode':new_state['phis']}))
-            if self.fom2rom['areCC']:
-                assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':new_state['phis'],'positiveCC':new_state['phis']}))
+        ######################## phis ########################
+        assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':new_state['phis'],'cathode':new_state['phis']}))
+        if self.fom2rom['areCC']:
+            assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':new_state['phis'],'positiveCC':new_state['phis']}))
 
-            ######################## jLi ########################
-            assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':self.F*new_state['jLi']}))
-            assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':self.F*new_state['jLi']}))
-            # TODO: write in a generalized way for more than one material
+        ######################## jLi #########################
+        assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':self.F*new_state['jLi']}))
+        assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':self.F*new_state['jLi']}))
+        # TODO: write in a generalized way for more than one material
 
-            ######################## cs ########################
-            fields = self.f_0._fields
+        ######################## cs ##########################
+        fields = self.f_0._fields
 
-            # Get the number of mesh dofs
-            ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
+        # Get the number of mesh dofs
+        ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
 
-            # Add values of the first coefficients to the cs_surf calculation
-            cs_0 = new_state['cs'][:ndofs]
+        # Add values of the first coefficients to the cs_surf calculation
+        cs_0 = new_state['cs'][:ndofs]
 
-            # Loop through SGM order
-            for j in range(1, self.SGM.order):
+        # Loop through SGM order
+        for j in range(1, self.SGM.order):
 
-                idx_a = fields.index("c_s_"+str(j)+"_a0")
-                idx_c = fields.index("c_s_"+str(j)+"_c0")
-                cs_jth = new_state['cs'][j*ndofs:(j+1)*ndofs]
+            idx_a = fields.index("c_s_"+str(j)+"_a0")
+            idx_c = fields.index("c_s_"+str(j)+"_c0")
+            cs_jth = new_state['cs'][j*ndofs:(j+1)*ndofs]
 
-                assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':cs_jth}))
-                assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':cs_jth}))
-                
-                # Add to the cs_surf variable
-                cs_0 += cs_jth
-
-            # cs_surf initialization
-            assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':cs_0}))
-            assign(self.f_0[fields.index("c_s_0_c0")], self.P1_map.generate_function({'cathode':cs_0}))
+            assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':cs_jth}))
+            assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':cs_jth}))
             
-        else: # adimensional problem
-            varnames = {'ce':'c_e', 'phie':'phi_e', 'phis':'phi_s', 'jLi':'j_Li', 'cs': 'cs'}
-            new_state = {varnames[key]:item for key, item in new_state.items()}
-            adim_state = self.nd_model.scale_variables(new_state)
+            # Add to the cs_surf variable
+            cs_0 += cs_jth
 
-            ######################## ce ########################
-            assign(self.f_0.c_e, self.P1_map.generate_function({'anode':adim_state['c_e'],'separator':adim_state['c_e'],'cathode':adim_state['c_e']}))
+        # cs_surf initialization
+        assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':cs_0}))
+        assign(self.f_0[fields.index("c_s_0_c0")], self.P1_map.generate_function({'cathode':cs_0}))
 
-            ######################## phie ########################
-            assign(self.f_0.phi_e, self.P1_map.generate_function({'anode':adim_state['phi_e'],'separator':adim_state['phi_e'],'cathode':adim_state['phi_e']}))
-
-            ######################## phis ########################
-            assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':adim_state['phi_s'],'cathode':adim_state['phi_s']}))
+        ######################## T ########################
+        if self.model_options.solve_thermal:
+            assign(self.f_0.temp, self.P1_map.generate_function({'anode': new_state['T'], 'separator': new_state['T'], 'cathode': new_state['T']}))
             if self.fom2rom['areCC']:
-                assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':adim_state['phi_s'],'positiveCC':adim_state['phi_s']}))
+                assign(self.f_0.temp, self.P1_map.generate_function({'negativeCC': new_state['T'], 'positiveCC': new_state['T']}))
 
-            ######################## jLi ########################
-            a_s_a = self.anode.active_material[0].a_s*self.F
-            a_s_c = self.cathode.active_material[0].a_s*self.F
-            assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':a_s_a*adim_state['j_Li']}))
-            assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':a_s_c*adim_state['j_Li']}))
-            # TODO: write in a generalized way for more than one material
+        ####################### j_sei #######################
+        if self.model_options.solve_SEI:
+            if self.SEI_model_a:
+                assign(self.f_0.j_sei_a0, self.P1_map.generate_function({'anode':self.F*new_state['jSEI']}))
+            if self.SEI_model_c:
+                assign(self.f_0.j_sei_c0, self.P1_map.generate_function({'cathode':self.F*new_state['jSEI']}))
 
-            ######################## cs ########################
-            fields = self.f_0._fields
+        ##################### delta_sei #####################
+        if self.model_options.solve_SEI:
+            if self.SEI_model_a:
+                assign(self.f_0.delta_sei_a0, self.P1_map.generate_function({'anode':new_state['deltaSEI']}))
+            if self.SEI_model_c:
+                assign(self.f_0.delta_sei_c0, self.P1_map.generate_function({'cathode':new_state['deltaSEI']}))
 
-            # Get the number of mesh dofs
-            ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
-
-            # Add values of the first coefficients to the cs_surf calculation
-            cs_0 = new_state['cs'][:ndofs]
-            adim_cs_a = self.nd_model.scale_variables({'c_s_0_a0':cs_0})['c_s_0_a0']
-            adim_cs_c = self.nd_model.scale_variables({'c_s_0_c0':cs_0})['c_s_0_c0']
-            # Loop through SGM order
-            for j in range(1, self.SGM.order):
-
-                idx_a = fields.index(f"c_s_{j}_a0")
-                idx_c = fields.index(f"c_s_{j}_c0")
-
-                cs_jth = new_state['cs'][j*ndofs:(j+1)*ndofs]
-                adim_cs = self.nd_model.scale_variables({f"c_s_{j}_a0":cs_jth, f"c_s_{j}_c0":cs_jth})
-                # Save current coefficients in their corresponding variables
-                assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':adim_cs[f"c_s_{j}_a0"]}))
-                assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':adim_cs[f"c_s_{j}_c0"]}))
-
-                # Add to the cs_surf variable
-                adim_cs_a += adim_cs[f"c_s_{j}_a0"]
-                adim_cs_c += adim_cs[f"c_s_{j}_c0"]
-
-            # cs_surf initialization
-            assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':adim_cs_a}))
-            assign(self.f_0[fields.index("c_s_0_c0")], self.P1_map.generate_function({'cathode':adim_cs_c}))
+        ####################### c_EC ########################
+        if self.model_options.solve_SEI:
+            # Loop over SEI models
+            for SEI_model in [self.SEI_model_a, self.SEI_model_c]:
+                if not SEI_model:
+                    continue
+                # Loop in number of materials
+                for i in range(1):
+                    # Loop through SGM order
+                    for j in range(SEI_model.SLagM.order):
+                        c_EC_index = fields.index(f"c_EC_{j}_{SEI_model.domain}{i}")
+                        assign(self.f_0[c_EC_index], self.P1_map.generate_function({SEI_model.tag:new_state['cSEI'][j*ndofs:(j+1)*ndofs]}))
 
         block_assign(self.u_2, self.u_1)
         block_assign(self.u_0, self.u_1)
@@ -266,10 +250,14 @@ class Problem:
         _print(' - Initializing state - Done ')
 
     def _build_extra_models(self):
-        #Extra models
-        if not 'nd_model' in self.__dict__:
-            self.SEI_model = SEI()
-            self.mechanics = mechanical_model(self.cell)
+        self.SEI_model_a = SEI('anode')
+        self.SEI_model_c = SEI('cathode')
+        self.mechanics = mechanical_model(self.cell)
+
+    def _setup_extra_models(self):
+        if self.model_options.solve_SEI:
+            self.SEI_model_a.setup(self)
+            self.SEI_model_c.setup(self)
 
     def setup(self, mesh_engine=None):
         if not 'mesher' in self.__dict__:
@@ -287,13 +275,19 @@ class Problem:
         self.v_app = Constant(0, name='v_app')
         self.i_app = Constant(0, name='i_app')
         self.time = 0.
-        self.Q_sei = 0
+        self.SEI_avg_vars = { avg_var : dict(
+                anode=[0 for _ in range(self.number_of_anode_materials)],
+                cathode=[0 for _ in range(self.number_of_cathode_materials)],
+            ) for avg_var in ['Q_sei', 'L_sei', 'Q_sei_instant']
+        }
 
         self.build_implicit_sgm()
         self.build_fs()
         self.build_transport_properties()
+        self.build_coupled_variables()
         if not self.c_s_implicit_coupling:
             self.build_explicit_sgm()
+        self._setup_extra_models()
 
         # Extract mesh info needed for ROM model
         results_label = 'scaled' if not hasattr(self, 'nd_model') else 'unscaled'
@@ -301,11 +295,8 @@ class Problem:
             # Empty dictionary
             get_mesh_info(self, results_label)
 
-        # Store 'Cs' SGM matrices
-        self.fom2rom['SGM'] = dict()
-        self.fom2rom['SGM']['M'] = self.SGM.M
-        self.fom2rom['SGM']['K'] = self.SGM.K
-        self.fom2rom['SGM']['P'] = self.SGM.P
+        # Store spectral method pre-processed matrices for 'c_s' (and 'c_EC' if SEI model is solved)
+        get_spectral_info(self)
 
         _print(' - Build cell parameters - Done ')
 
@@ -379,19 +370,16 @@ class Problem:
                 self.snes_solver_parameters["snes_solver"])
 
     def set_storage_order(self):
+        self.post_processing_functions = {'internals':[], 'globals':[]}
         self.internal_storage_order = ['c_e', 'phi_e', 'phi_s', 'j_Li']
-        if self.model_options.solve_SEI:
-            self.internal_storage_order.extend(['c_EC_0_a0', 'delta_a0', 'j_sei_a0'])
         if 'a' in self.cell.structure:
-            self.internal_storage_order.append('j_Li_e_a')
+            self.internal_storage_order.append('j_Li_a_total')
             self.internal_storage_order.append(
                     ['x_a', 'list_of_scalar', len(self.anode.active_material)])
         if 'c' in self.cell.structure:
-            self.internal_storage_order.append('j_Li_e_c')
+            self.internal_storage_order.append('j_Li_c_total')
             self.internal_storage_order.append(
                     ['x_c', 'list_of_scalar', len(self.cathode.active_material)])
-        self.post_processing_functions = []
-        self.post_processing_functions.append(self.calc_SOC)
 
         self.global_storage_order = {
             'voltage': {
@@ -416,6 +404,11 @@ class Problem:
             #     'header': 'Total_lithium [mol]'
             # }
         }
+        if 'cathode_SOC' in self.global_storage_order:
+            self.post_processing_functions['globals'].append(self.calc_SOC)
+        elif any( [any([ var == (stored_var if isinstance(stored_var,str) else stored_var[0]) for stored_var in self.internal_storage_order]) for var in ['x_a', 'x_c']] ):
+            self.post_processing_functions['internals'].append(self.calc_SOC)
+
         if self.model_options.solve_thermal:
             self.internal_storage_order.append('temp')
             self.global_storage_order['temperature'] = {
@@ -429,14 +422,25 @@ class Problem:
             #     'header': "Thickness change [m]"
             # }
         if self.model_options.solve_SEI:
-            self.global_storage_order['Q_sei'] = {
-                'fnc': self.get_Q_sei,
-                'header': 'Capacity loss to SEI [Ah]'
-            }
-            self.global_storage_order['delta_sei'] = {
-                'fnc': self.get_L_sei,
-                'header': 'Average SEI thickness [m]'
-            }
+            if self.SEI_model_a or self.SEI_model_c:
+                self.post_processing_functions['globals'].append(self.calc_SEI_average_variables)
+
+            for electrode in ['anode', 'cathode']:
+                domain = electrode[0]
+                SEI_model = self.SEI_model_a if electrode == 'anode' else self.SEI_model_c
+                if not SEI_model:
+                    continue
+                for k, am in enumerate(SEI_model.electrode.active_material):
+                    SEI_label = 'SEI' if electrode == 'anode' else 'CEI'
+                    self.global_storage_order[f'Q_sei_{domain}{k}'] = {
+                        'fnc': functools.partial(self.get_Q_sei,electrode,k),
+                        'header': f"Capacity loss to {SEI_label} {k} [Ah]"
+                    }
+                    self.global_storage_order[f'delta_sei_{domain}{k}'] = {
+                        'fnc': functools.partial(self.get_L_sei,electrode,k),
+                        'header': f'Average {SEI_label} {k} thickness [m]'
+                    }
+                    self.internal_storage_order.extend([f'c_EC_0_{domain}{k}', f'delta_sei_{domain}{k}', f'j_sei_{domain}{k}'])
 
         # Additional internal variables. Electric current density.
         # self.internal_storage_order.append(['electric_current', 'vector'])
@@ -462,17 +466,19 @@ class Problem:
         elements.append('lm_app')
         elements += ['j_Li_a{}'.format(i) for i in range(self.number_of_anode_materials)]
         elements += ['j_Li_c{}'.format(i) for i in range(self.number_of_cathode_materials)]
+        # Add SEI model elements
         if self.model_options.solve_SEI:
-            elements += ['j_sei_a{}'.format(i) for i in range(self.number_of_anode_materials)]
-            elements += ['delta_a{}'.format(i) for i in range(self.number_of_anode_materials)]
-            # Add c_EC elements
-            elements += self.SEI_model.fields(self.number_of_anode_materials)
+            if self.cell.negative_electrode.SEI:
+                elements += self.SEI_model_a.fields(self.number_of_anode_materials)
+            if self.cell.positive_electrode.SEI:
+                elements += self.SEI_model_c.fields(self.number_of_cathode_materials)
+        # Add SGM elements
         if self.c_s_implicit_coupling:
-            # Add SGM elements
             elements += self.SGM.fields(self.number_of_anode_materials, 'anode')
             elements += self.SGM.fields(self.number_of_cathode_materials, 'cathode')
-        # Add Temperature elements
+        # Add Thermal model elements
         elements += ['temp']
+        # Add Mechanical model elements
         if self.model_options.solve_mechanic:
             elements += self.mechanics.fields()
         
@@ -487,20 +493,20 @@ class Problem:
         LM_app = (P1, self.mesher.positive_tab)
         E_j_Li_a = [(P1, self.mesher.anode) for i in range(self.number_of_anode_materials)]
         E_j_Li_c = [(P1, self.mesher.cathode) for i in range(self.number_of_cathode_materials)]
-        if self.model_options.solve_SEI:
-            E_j_sei_a = [(P1, self.mesher.anode) for i in range(self.number_of_anode_materials)]
-            E_delta_a = [(P1, self.mesher.anode) for i in range(self.number_of_anode_materials)]
-            # Define c_EC function spaces
-            E_c_EC_a = [(P1, self.mesher.anode) for fs in range(len(self.SEI_model.fields(
-                self.number_of_anode_materials)))]
 
         E_electrochemical = [E_c_e, E_phi_e, E_phi_s]
         if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
             E_electrochemical.extend([ E_phi_s_CC, LM_phi_s_CC])
         E_electrochemical.append(LM_app)
         E_electrochemical += E_j_Li_a + E_j_Li_c
+
+        # Define SEI model Function Spaces
+        E_sei = []
         if self.model_options.solve_SEI:
-            E_electrochemical += E_j_sei_a + E_delta_a + E_c_EC_a
+            if self.cell.negative_electrode.SEI:
+                E_sei += self.SEI_model_a.shape_functions(self.mesher, self.number_of_anode_materials, V = P1)
+            if self.cell.positive_electrode.SEI:
+                E_sei += self.SEI_model_c.shape_functions(self.mesher, self.number_of_cathode_materials, V = P1)
             
         # Define SGM function spaces
         E_c_s = []
@@ -519,12 +525,11 @@ class Problem:
         E_thermal = [E_T]
 
         # Define Mechanics function spaces
+        E_mechanics = []
         if self.model_options.solve_mechanic:
             E_mechanics = self.mechanics.shape_functions(self.mesher.mesh)
-        else:
-            E_mechanics = []
 
-        FS_total = E_electrochemical + E_c_s + E_thermal + E_mechanics
+        FS_total = E_electrochemical + E_sei + E_c_s + E_thermal + E_mechanics
 
         self.W = BlockFunctionSpace([FS[0] for FS in FS_total], restrict=[FS[1] for FS in FS_total])
         self.V = FunctionSpace(self.mesher.mesh, 'CG', 1)
@@ -683,8 +688,10 @@ class Problem:
             phi_s_c = max(U_c_ini)[0] if U_c_ini else 0
 
         if self.model_options.solve_SEI:
-            self.SEI_model.initial_guess(self.f_0, self.anode.SEI.c_EC_sln * self.anode.SEI.eps)
-            assign(self.f_0.delta_a0, interpolate(Constant(self.anode.SEI.delta0), self.f_0.delta_a0.function_space()))
+            if self.SEI_model_a:
+                self.SEI_model_a.initial_guess(self.f_0)
+            if self.SEI_model_c:
+                self.SEI_model_c.initial_guess(self.f_0)
             
         # Finally the values are incorporated in the Function
         assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':0, 'cathode':phi_s_c-phi_s_a }))
@@ -718,7 +725,7 @@ class Problem:
         if not self.ready:
             self.setup()
 
-        store_fom = not adaptive
+        store_fom = not adaptive and self.c_s_implicit_coupling
         if store_fom:
             if self.current_timestep == 0:
                 initialize_results(self, int(np.ceil((t_f-self.time)/min_step)))
@@ -1001,18 +1008,41 @@ class Problem:
         self.update_c_s_surf(relaxation=relaxation)
         timer.stop()
 
+    def build_coupled_variables(self):
+        # build j_Li
+        self._J_Li = namedtuple('J_Li', ['total', 'int', 'LLI', 'SEI', 'C_dl', 'total_0'])
+        for electrode in [self.anode, self.cathode]:
+            j_Li = self._J_Li._make([list() for _ in range(len(self._J_Li._fields))])
+            setattr(self, f'j_Li_{electrode.tag}', j_Li )
+            for idx, am in enumerate(electrode.active_material):
+                # Intercalation/Deintercalation
+                j_Li.int.append( self.f_1._asdict()[f'j_Li_{electrode.tag}{idx}'] )
+                # Solid Electrolyte Interphase
+                j_Li.SEI.append( self.f_1._asdict()[f'j_sei_{electrode.tag}{idx}'] if self.model_options.solve_SEI and electrode.SEI else 0)
+                # Double layer capacitance
+                j_Li.C_dl.append( electrode.C_dl * self.DT.dt(self.f_0.phi_s-self.f_0.phi_e,self.f_1.phi_s-self.f_1.phi_e) if electrode.C_dl else 0)
+                # Lost of Lithium Inventory
+                j_Li.LLI.append( j_Li.SEI[idx] )
+                # Total Li flux
+                j_Li.total_0.append( j_Li.int[idx] + j_Li.LLI[idx] ) # To be used inside wf 0
+                j_Li.total.append( j_Li.int[idx] + j_Li.LLI[idx] + j_Li.C_dl[idx])         
+
     def build_wf_0(self):
         # Notice that some of them could be list.
         d = self.mesher.get_measures()
-        self.j_Li_e_a = 0
-        self.j_Li_e_c = 0
-        self.j_Li_e_a += sum((material.a_s*self.f_1._asdict()['j_Li_a{}'.format(i)]
-            for i, material in enumerate(self.anode.active_material)))
-        self.j_Li_e_c += sum((material.a_s*self.f_1._asdict()['j_Li_c{}'.format(i)]
-            for i, material in enumerate(self.cathode.active_material)))
-        if self.model_options.solve_SEI:
-            self.j_Li_e_a += sum(material.a_s*self.f_1._asdict()['j_sei_a{}'.format(i)]
-            for i, material in enumerate(self.anode.active_material))
+
+        # build j_Li term = sum(j_Li * a_s)
+        for electrode, j_Li in zip([self.anode,self.cathode], [self.j_Li_a, self.j_Li_c]):
+            j_Li_term = []
+            for ff, field in enumerate(j_Li._fields):
+                j_Li_term.append(0)
+                for i, am in enumerate(electrode.active_material):
+                    j_Li_term[ff] += j_Li._asdict()[field][i] * am.a_s
+            setattr(self, f'j_Li_{electrode.tag}_term', self._J_Li._make(j_Li_term))
+
+        # Variables to be saved in WH
+        self.j_Li_a_total = self.j_Li_a_term.total
+        self.j_Li_c_total = self.j_Li_c_term.total
 
         # c_e_0
         F_c_e_0 = [(self.f_1.c_e - self.f_0.c_e) * self.test.c_e * d.x_a +
@@ -1022,40 +1052,34 @@ class Problem:
         # c_s_0
         F_c_s_0 = []
         if self.c_s_implicit_coupling:
-            F_c_s_0_a = self.SGM.wf_0(
-                self.f_0, self.f_1, self.test, 'anode', d.x_a)
-            F_c_s_0_c = self.SGM.wf_0(
-                self.f_0, self.f_1, self.test, 'cathode', d.x_c)
+            F_c_s_0_a = self.SGM.wf_0(self.f_0, self.f_1, self.test, 'anode', d.x_a)
+            F_c_s_0_c = self.SGM.wf_0(self.f_0, self.f_1, self.test, 'cathode', d.x_c)
             F_c_s_0 = F_c_s_0_a + F_c_s_0_c
 
         # phi_e
-        F_phi_e_a = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_a, c_e=self.f_1.c_e, j_Li=self.j_Li_e_a, kappa=self.anode.kappa, kappa_D=self.anode.kappa_D, domain_grad=self.anode.grad, L=self.anode.L)
+        F_phi_e_a = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_a, c_e=self.f_1.c_e, j_Li=self.j_Li_a_term.total_0, kappa=self.anode.kappa, kappa_D=self.anode.kappa_D, domain_grad=self.anode.grad, L=self.anode.L)
         F_phi_e_s = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_s, c_e=self.f_1.c_e, j_Li=None, kappa=self.separator.kappa, kappa_D=self.separator.kappa_D, domain_grad=self.separator.grad, L=self.separator.L)
-        F_phi_e_c = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_Li=self.j_Li_e_c, kappa=self.cathode.kappa, kappa_D=self.cathode.kappa_D, domain_grad=self.cathode.grad, L=self.cathode.L)
+        F_phi_e_c = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_Li=self.j_Li_c_term.total_0, kappa=self.cathode.kappa, kappa_D=self.cathode.kappa_D, domain_grad=self.cathode.grad, L=self.cathode.L)
 
-        self.F_phi_e = F_phi_e_a \
-                     + F_phi_e_s \
-                     + F_phi_e_c
-
-        self.F_phi_e = [self.F_phi_e]
+        self.F_phi_e = [ F_phi_e_a + F_phi_e_s + F_phi_e_c ]
 
         # phi_s
         if 'ncc' in self.cell.structure:
             sigma_ratio_a = self.anode.sigma/self.negativeCC.sigma
-            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
+            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
-            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L)
+            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L)
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
             sigma_ratio_c = self.cathode.sigma/self.positiveCC.sigma 
-            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
+            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
             bc_index = 1
         elif 'c' in self.cell.structure:
-            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L)
+            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L)
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s, ds = d.s_c)
             bc_index = 0
             F_phi_s_pcc = 0
@@ -1072,22 +1096,21 @@ class Problem:
             self.F_phi_s = [F_phi_s_a + F_phi_s_c] 
         self.F_phi_s[bc_index] += -F_phi_bc_p
 
-        # j_Li
-        F_j_Li = []
         # Build c_s surface for anode and cathode
         c_s_surf_a = self.c_s_a_ini
         c_s_surf_c = self.c_s_c_ini
 
-        # ANODE
+        # j_Li
+        F_j_Li = []
+
+        # j_Li. Anode
         for i, material in enumerate(self.anode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
-            if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
-                j_sei_index = self.f_1._fields.index(f'j_sei_a{i}')
-                J_total= self.f_1[j_sei_index]+self.f_1[j_li_index]
+            if self.model_options.solve_SEI and self.SEI_model_a:
+                delta_index = self.f_1._fields.index(f'delta_sei_a{i}')
                 j_li = j_Li_equation(material, self.f_1.c_e, c_s_surf_a[i],
                                     self.alpha, self.f_1.phi_s, self.f_1.phi_e, self.F, self.R, self.f_1.temp, self.i_app,
-                                    J_total, self.anode.SEI, self.f_1[delta_index])
+                                    self.j_Li_a.total_0[i], self.SEI_model_a.SEI, self.f_1[delta_index])
             else:
                 j_li = j_Li_equation(material, self.f_1.c_e, c_s_surf_a[i], 
                                     self.alpha, self.f_1.phi_s, self.f_1.phi_e, self.F, self.R, self.f_1.temp, self.i_app)
@@ -1097,20 +1120,28 @@ class Problem:
                 j_li * self.test[j_li_index] * d.x_a
             )
 
-        if self.model_options.solve_SEI:
-            F_j_Li.extend(self.SEI_model.equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.F, self.R))
+        if self.model_options.solve_SEI and self.SEI_model_a:
+            F_j_Li.extend(self.SEI_model_a.equations(self.f_0, self.f_1, self.test, d.x_a, self.F, self.R))
 
-        # CATHODE
+        # j_Li. Cathode
         for i, material in enumerate(self.cathode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
-            j_li = j_Li_equation(material, self.f_1.c_e, c_s_surf_c[i], self.alpha, self.f_1.phi_s, 
-            self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app)
+            if self.model_options.solve_SEI and self.SEI_model_c:
+                delta_index = self.f_1._fields.index(f'delta_sei_c{i}')
+                j_li = j_Li_equation(material, self.f_1.c_e, c_s_surf_c[i],
+                                    self.alpha, self.f_1.phi_s, self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app,
+                                    self.j_Li_c.total_0[i], self.SEI_model_c.SEI, self.f_1[delta_index])
+            else:
+                j_li = j_Li_equation(material, self.f_1.c_e, c_s_surf_c[i], self.alpha, self.f_1.phi_s, 
+                                    self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app)
 
             F_j_Li.append(
                 self.f_1[j_li_index] * self.test[j_li_index] * d.x_c -
                 j_li * self.test[j_li_index] * d.x_c
             )
 
+        if self.model_options.solve_SEI and self.SEI_model_c:
+            F_j_Li.extend(self.SEI_model_c.equations(self.f_0, self.f_1, self.test, d.x_c, self.F, self.R))
 
         # T_0
 
@@ -1194,16 +1225,10 @@ class Problem:
 
         d = self.mesher.get_measures()
 
-        # Double layer capacitance:
-        if self.anode.C_dl:
-            self.j_Li_e_a += self.anode.C_dl * self.DT.dt(self.f_0.phi_s-self.f_0.phi_e,self.f_1.phi_s-self.f_1.phi_e) * sum([material.a_s for material in self.anode.active_material])
-        if self.cathode.C_dl:
-            self.j_Li_e_c += self.cathode.C_dl * self.DT.dt(self.f_0.phi_s-self.f_0.phi_e,self.f_1.phi_s-self.f_1.phi_e) * sum([material.a_s for material in self.cathode.active_material])
-
         # c_e
-        F_c_e_a = c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_a, DT=self.DT, j_Li=self.j_Li_e_a, D_e=self.anode.D_e,eps_e=self.anode.eps_e,t_p=self.t_p, F=self.F, domain_grad=self.anode.grad, L=self.anode.L)
+        F_c_e_a = c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_a, DT=self.DT, j_Li=self.j_Li_a_term.total, D_e=self.anode.D_e,eps_e=self.anode.eps_e,t_p=self.t_p, F=self.F, domain_grad=self.anode.grad, L=self.anode.L)
         F_c_e_s = c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_s, DT=self.DT, j_Li=None, D_e=self.separator.D_e,eps_e=self.separator.eps_e,t_p=self.t_p, F=self.F, domain_grad=self.separator.grad, L=self.separator.L)
-        F_c_e_c = c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_c, DT=self.DT, j_Li=self.j_Li_e_c, D_e=self.cathode.D_e,eps_e=self.cathode.eps_e,t_p=self.t_p, F=self.F, domain_grad=self.cathode.grad, L=self.cathode.L)
+        F_c_e_c = c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_c, DT=self.DT, j_Li=self.j_Li_c_term.total, D_e=self.cathode.D_e,eps_e=self.cathode.eps_e,t_p=self.t_p, F=self.F, domain_grad=self.cathode.grad, L=self.cathode.L)
 
         self.F_c_e = [F_c_e_a + F_c_e_s + F_c_e_c]
 
@@ -1225,11 +1250,11 @@ class Problem:
         F_j_Li = []
         for i, material in enumerate(self.anode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
-            if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
+            if self.model_options.solve_SEI and self.SEI_model_a:
+                delta_index = self.f_1._fields.index(f'delta_sei_a{i}')
                 j_li = j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_a[i],
                                     alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=self.i_app,
-                                    J=self.j_Li_e_a/material.a_s, SEI=self.anode.SEI, delta=self.f_1[delta_index])
+                                    J=self.j_Li_a.total[i], SEI=self.anode.SEI, delta_sei=self.f_1[delta_index])
             else:
                 j_li = j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_a[i],
                                     alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=self.i_app)
@@ -1237,21 +1262,30 @@ class Problem:
                 self.f_1[j_li_index] * self.test[j_li_index] * d.x_a - j_li * self.test[j_li_index] * d.x_a
             )
         
-        if self.model_options.solve_SEI:
-                F_j_Li.append(self.SEI_model.equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.F, self.R, self.DT))
+        if self.model_options.solve_SEI and self.SEI_model_a:
+                F_j_Li.append(self.SEI_model_a.equations(self.f_0, self.f_1, self.test, d.x_a, self.F, self.R, self.DT))
 
         for i, material in enumerate(self.cathode.active_material):
-            j_li_index = self.f_1._fields.index('j_Li_c0')
-            j_li = j_Li_equation(material, self.f_1.c_e, self.c_s_surf_c[i], self.alpha, self.f_1.phi_s, 
-                self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app)
+            j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
+            if self.model_options.solve_SEI and self.SEI_model_c:
+                delta_index = self.f_1._fields.index(f'delta_sei_c{i}')
+                j_li = j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_c[i],
+                                    alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=-self.i_app,
+                                    J=self.j_Li_c.total[i], SEI=self.cathode.SEI, delta_sei=self.f_1[delta_index])
+            else:
+                j_li = j_Li_equation(material, self.f_1.c_e, self.c_s_surf_c[i], self.alpha, self.f_1.phi_s, 
+                    self.f_1.phi_e, self.F, self.R, self.f_1.temp, -self.i_app)
             F_j_Li.append(
-                self.f_1[j_li_index+i] * self.test[j_li_index+i] * d.x_c - j_li * self.test[j_li_index+i] * d.x_c
+                self.f_1[j_li_index] * self.test[j_li_index] * d.x_c - j_li * self.test[j_li_index] * d.x_c
             )
         
+        if self.model_options.solve_SEI and self.SEI_model_c:
+            F_j_Li.append(self.SEI_model_c.equations(self.f_0, self.f_1, self.test, d.x_c, self.F, self.R, self.DT))
+
         # phi_e
-        F_phi_e_a = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_a, c_e=self.f_1.c_e, j_Li=self.j_Li_e_a, kappa=self.anode.kappa, kappa_D=self.anode.kappa_D, domain_grad=self.anode.grad, L=self.anode.L)
+        F_phi_e_a = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_a, c_e=self.f_1.c_e, j_Li=self.j_Li_a_term.total, kappa=self.anode.kappa, kappa_D=self.anode.kappa_D, domain_grad=self.anode.grad, L=self.anode.L)
         F_phi_e_s = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_s, c_e=self.f_1.c_e, j_Li=None, kappa=self.separator.kappa, kappa_D=self.separator.kappa_D, domain_grad=self.separator.grad, L=self.separator.L)
-        F_phi_e_c = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_Li=self.j_Li_e_c, kappa=self.cathode.kappa, kappa_D=self.cathode.kappa_D, domain_grad=self.cathode.grad, L=self.cathode.L)
+        F_phi_e_c = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_Li=self.j_Li_c_term.total, kappa=self.cathode.kappa, kappa_D=self.cathode.kappa_D, domain_grad=self.cathode.grad, L=self.cathode.L)
         
         self.F_phi_e = F_phi_e_a \
                      + F_phi_e_s \
@@ -1262,20 +1296,20 @@ class Problem:
         # phi_s
         if 'ncc' in self.cell.structure:
             sigma_ratio_a = self.anode.sigma/self.negativeCC.sigma
-            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
+            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
-            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L)
+            F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L)
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
             sigma_ratio_c = self.cathode.sigma/self.positiveCC.sigma 
-            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
+            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
             bc_index = 1
         elif 'c' in self.cell.structure:
-            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L)
+            F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L)
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s, ds = d.s_c)
             bc_index = 0
             F_phi_s_pcc = 0
@@ -1295,21 +1329,10 @@ class Problem:
         # T
 
         if self.model_options.solve_thermal:
-
-            j_li_a = []
-            j_li_c = []
-
-            for i, material in enumerate(self.anode.active_material):
-                j_li_index = self.f_1._fields.index('j_Li_a0')
-                j_li_a.append(self.f_1[j_li_index+i])
-            for i, material in enumerate(self.cathode.active_material):
-                j_li_index = self.f_1._fields.index('j_Li_c0')
-                j_li_c.append(self.f_1[j_li_index+i])
-
             q_ncc = q_equation(self.negativeCC, self.f_1, None, self.test.temp, d.x_ncc, None)
             q_a = q_equation(self.anode, self.f_1, self.c_s_surf_a, self.test.temp, d.x_a, self.i_app)
             q_s = q_equation(self.separator, self.f_1, None, self.test.temp, d.x_s, None)
-            q_c = q_equation(self.cathode, self.f_1, self.c_s_surf_c, self.test.temp, d.x_c, self.i_app)
+            q_c = q_equation(self.cathode, self.f_1, self.c_s_surf_c, self.test.temp, d.x_c, -self.i_app)
             q_pcc = q_equation(self.positiveCC, self.f_1, None, self.test.temp, d.x_pcc, None)
 
             F_T_ncc = T_equation(T_0=self.f_0.temp, T=self.f_1.temp, test=self.test.temp, dx=d.x_ncc, DT=self.DT, rho=self.negativeCC.rho,
@@ -1437,6 +1460,34 @@ class Problem:
         for i, material in enumerate(self.cathode.active_material):
             self.x_c[i] = c_s_surf_c[i]/material.c_s_max
 
+    def calc_SEI_average_variables(self):
+        if not self.model_options.solve_SEI:
+            return
+        for electrode in ['anode','cathode']:
+            if electrode == 'anode':
+                if not self.SEI_model_a:
+                    continue
+                domain = 'a'
+                dx = self.mesher.dx_a
+                materials = self.anode.active_material
+            else:
+                if not self.SEI_model_c:
+                    continue
+                domain = 'c'
+                dx = self.mesher.dx_c
+                materials = self.cathode.active_material
+
+            # Q_sei
+            for k, am in enumerate(materials):
+                j_instant_sei = assemble(-(self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'])*am.a_s*dx)*am.electrode.L
+                Q_sei_instant =  self.get_timestep() * 0.5 * j_instant_sei * self.cell.area /3600
+                self.SEI_avg_vars['Q_sei_instant'][electrode][k] = Q_sei_instant
+                self.SEI_avg_vars['Q_sei'][electrode][k] += Q_sei_instant
+
+            # L_sei
+                L_sei = assemble(self.f_1._asdict()[f'delta_sei_{domain}{k}']*dx)
+                self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
+
     def get_voltage(self, x=None):
         if x is None:
             x = self.f_1
@@ -1479,15 +1530,11 @@ class Problem:
         self.Q_out -= self.get_current() * self.get_timestep() / 3600
         return self.Q_out
 
-    def get_Q_sei(self):
-        j_instant_sei = assemble(-(self.f_1.j_sei_a0+self.f_0.j_sei_a0)*self.anode.active_material[0].a_s*self.mesher.dx_a)*self.anode.L
-        value =  self.get_timestep() * 0.5 * j_instant_sei * self.cell.area /3600
-        self.Q_sei += value
-        return self.Q_sei
+    def get_Q_sei(self, electrode, index):
+        return self.SEI_avg_vars['Q_sei'][electrode][index]
 
-    def get_L_sei(self):
-        L_sei = [assemble(self.f_1[self.f_1._fields.index(f'delta_a{i}')]*self.mesher.dx_a) for i in range(self.number_of_anode_materials)]
-        return L_sei
+    def get_L_sei(self, electrode, index = None):
+        return self.SEI_avg_vars['L_sei'][electrode][index]
 
     def get_stoichiometry(self):
         self.calc_SOC()
@@ -1679,11 +1726,24 @@ class NDProblem(Problem):
     def __init__(self, cell:CellParser, model_options:ModelOptions, save_path=None):
         super().__init__(cell, model_options, save_path)
         self.nd_model = NondimensionalModel(self.cell, model_options)
-        self.thermal_boundary_conditions = dict()
+        self.thermal_boundary_conditions = {surface:dict(h_t=None,T_ref=None,ds=None) for surface in ['negativePlug', 'positivePlug', 'Y_m', 'general']}
 
-    def add_thermal_boundary_condition(self, surface_label, h_t, T_ref = None):
-        assert surface_label in ['Y_m']
-        self.thermal_boundary_conditions[surface_label] = { 'h_t': h_t, 'T_ref': T_ref}
+    def add_thermal_boundary_condition(self, surface, h_t, T_ref = None):
+        assert surface in self.thermal_boundary_conditions, f"Unrecognized surface '{surface}'. Available options: '" + "' '".join(self.thermal_boundary_conditions.keys()) + "'"
+        self.thermal_boundary_conditions[surface] = {'h_t': h_t, 'T_ref': T_ref, 'ds':None}
+
+    def _setup_thermal_boundary_conditions(self):
+        for surface, bc_dic in self.thermal_boundary_conditions.items():
+            if bc_dic['h_t'] is None:
+                bc_dic['h_t'] = self.h_t
+            if bc_dic['T_ref'] is None:
+                bc_dic['T_ref'] = self.T_ext
+            if surface in self.mesher.field_data:
+                bc_dic['ds'] = self.mesher.ds(self.mesher.field_data[surface])
+            elif surface == 'general':
+                bc_dic['ds'] = self.mesher.ds(0)
+            else:
+                raise RuntimeError(f"Unable to find the right dolfin.Measure of '{surface}'")
     
     def _build_nonlinear_properties(self):
         dim_f_1 = self.nd_model.dimensional_variables(self.f_1)
@@ -1692,12 +1752,147 @@ class NDProblem(Problem):
         self.kappa = constant_expression(self.cell.electrolyte.ionicConductivity, **{**self.dim_variables._asdict(), 'T_0':self.T_ini, 't_p':self.t_p})
         self.activity = constant_expression(self.cell.electrolyte.activityDependence, **{**self.dim_variables._asdict(), 'T_0':self.T_ini, 't_p':self.t_p})
 
+    def set_new_state(self, time, new_state):
+        self.time = time
+        assert all(k in new_state.keys() for k in ['ce', 'phie', 'phis', 'jLi', 'cs'])
+        if self.model_options.solve_thermal:
+            assert('T' in new_state.keys())
+        if self.model_options.solve_SEI:
+            assert all(k in new_state.keys() for k in ['cSEI', 'deltaSEI', 'jSEI'])
+        _print('\r - Initializing state ... ', end='\r')
+      
+        varnames = {'ce':'c_e', 'phie':'phi_e', 'phis':'phi_s', 'jLi':'j_Li', 'cs': 'cs'}
+        if self.model_options.solve_thermal:
+            varnames['T'] = 'temp'
+        if self.model_options.solve_SEI:
+            varnames = {**varnames,
+                'cSEI':{'anode':'c_EC_a0', 'cathode':'c_EC_c0'},
+                'deltaSEI':{'anode':'delta_sei_a0', 'cathode':'delta_sei_c0'},
+                'jSEI':'j_sei'
+            }
+        adim_state = dict()
+        for key,item in new_state.items():
+            if isinstance(varnames[key],str):
+                adim_state[varnames[key]]=item
+            else:
+                for subdomain, varname in varnames[key].items():
+                    adim_state[varname]=item #.copy()
+        adim_state = self.nd_model.scale_variables(adim_state)
+
+        ######################## ce ########################
+        assign(self.f_0.c_e, self.P1_map.generate_function({'anode':adim_state['c_e'],'separator':adim_state['c_e'],'cathode':adim_state['c_e']}))
+
+        ######################## phie ########################
+        assign(self.f_0.phi_e, self.P1_map.generate_function({'anode':adim_state['phi_e'],'separator':adim_state['phi_e'],'cathode':adim_state['phi_e']}))
+
+        ######################## phis ########################
+        assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':adim_state['phi_s'],'cathode':adim_state['phi_s']}))
+        if self.fom2rom['areCC']:
+            assign(self.f_0.phi_s_cc, self.P1_map.generate_function({'negativeCC':adim_state['phi_s'],'positiveCC':adim_state['phi_s']}))
+
+        ######################## jLi ########################
+        a_s_a = self.anode.active_material[0].a_s*self.F
+        a_s_c = self.cathode.active_material[0].a_s*self.F
+        assign(self.f_0.j_Li_a0, self.P1_map.generate_function({'anode':a_s_a*adim_state['j_Li']}))
+        assign(self.f_0.j_Li_c0, self.P1_map.generate_function({'cathode':a_s_c*adim_state['j_Li']}))
+        # TODO: write in a generalized way for more than one material
+
+        ######################## cs ########################
+        fields = self.f_0._fields
+
+        # Get the number of mesh dofs
+        ndofs = self.f_0[fields.index("c_s_0_a0")].vector()[:].shape[0]
+
+        # Add values of the first coefficients to the cs_surf calculation
+        cs_0 = new_state['cs'][:ndofs]
+        adim_cs_a = self.nd_model.scale_variables({'c_s_0_a0':cs_0})['c_s_0_a0']
+        adim_cs_c = self.nd_model.scale_variables({'c_s_0_c0':cs_0})['c_s_0_c0']
+        # Loop through SGM order
+        for j in range(1, self.SGM.order):
+
+            idx_a = fields.index(f"c_s_{j}_a0")
+            idx_c = fields.index(f"c_s_{j}_c0")
+
+            cs_jth = new_state['cs'][j*ndofs:(j+1)*ndofs]
+            adim_cs = self.nd_model.scale_variables({f"c_s_{j}_a0":cs_jth, f"c_s_{j}_c0":cs_jth})
+            # Save current coefficients in their corresponding variables
+            assign(self.f_0[idx_a], self.P1_map.generate_function({'anode':adim_cs[f"c_s_{j}_a0"]}))
+            assign(self.f_0[idx_c], self.P1_map.generate_function({'cathode':adim_cs[f"c_s_{j}_c0"]}))
+
+            # Add to the cs_surf variable
+            adim_cs_a += adim_cs[f"c_s_{j}_a0"]
+            adim_cs_c += adim_cs[f"c_s_{j}_c0"]
+
+        # cs_surf initialization
+        assign(self.f_0[fields.index("c_s_0_a0")], self.P1_map.generate_function({'anode':adim_cs_a}))
+        assign(self.f_0[fields.index("c_s_0_c0")], self.P1_map.generate_function({'cathode':adim_cs_c}))
+
+        ######################### T #########################
+        if self.model_options.solve_thermal:
+            if self.fom2rom['areCC']:
+                assign(self.f_0.temp, self.P1_map.generate_function({'negativeCC': adim_state['temp'],
+                        'anode': adim_state['temp'], 'separator': adim_state['temp'], 'cathode': adim_state['temp'],
+                        'positiveCC': adim_state['temp']}))
+            else:
+                assign(self.f_0.temp, self.P1_map.generate_function({'anode': adim_state['temp'],
+                        'separator': adim_state['temp'], 'cathode': adim_state['temp']}))
+
+        ####################### j_sei #######################
+        if self.model_options.solve_SEI:
+            if self.SEI_model_a:
+                assign(self.f_0.j_sei_a0, self.P1_map.generate_function({'anode':a_s_a*adim_state['j_sei']}))
+            if self.SEI_model_c:
+                assign(self.f_0.j_sei_c0, self.P1_map.generate_function({'cathode':a_s_c*adim_state['j_sei']}))
+
+        ##################### delta_sei #####################
+        if self.model_options.solve_SEI:
+            if self.SEI_model_a:
+                assign(self.f_0.delta_sei_a0, self.P1_map.generate_function({'anode':adim_state['delta_sei_a0']}))
+            if self.SEI_model_c:
+                assign(self.f_0.delta_sei_c0, self.P1_map.generate_function({'cathode':adim_state['delta_sei_c0']}))
+
+        ####################### c_EC ########################
+        if self.model_options.solve_SEI:
+            # Loop over SEI models
+            for SEI_model in [self.SEI_model_a, self.SEI_model_c]:
+                if not SEI_model:
+                    continue
+                # Loop in number of materials
+                for i in range(1):
+                    # Loop through SGM order
+                    for j in range(SEI_model.SLagM.order):
+                        c_EC_index = fields.index(f"c_EC_{j}_{SEI_model.domain}{i}")
+                        assign(self.f_0[c_EC_index], self.P1_map.generate_function({SEI_model.tag:adim_state[f"c_EC_{SEI_model.domain}{i}"][j*ndofs:(j+1)*ndofs]}))
+
+        block_assign(self.u_2, self.u_1)
+        block_assign(self.u_0, self.u_1)
+        
+        # Save mesh information to avoid obtain it again
+        mesh_  = self.fom2rom['mesh'].copy()
+        areCC_ = self.fom2rom['areCC']
+
+        self._init_rom_dict()
+
+        # Save older mesh information
+        self.fom2rom['mesh'] = mesh_
+        self.fom2rom['areCC'] = areCC_
+
+        _print(' - Initializing state - Done ')
+
     def _build_extra_models(self):
         #Extra models
-        self.SEI_model = self.nd_model.SpectralLagrangeModel_EC()
+        self.SEI_model_a = self.nd_model.SEI(self.nd_model, 'anode')
+        self.SEI_model_c = self.nd_model.SEI(self.nd_model, 'cathode')
         self.mechanics = mechanical_model(self.cell)
         # if self.cell.electrolyte.type != 'liquid' and self.model_options.solve_mechanic:
         #     self.c_s_implicit_coupling = False
+
+    def _setup_extra_models(self):
+        # Thermal Model
+        self._setup_thermal_boundary_conditions()
+        # SEI Model
+        self.SEI_model_a.setup(self)
+        self.SEI_model_c.setup(self)
 
     def mesh(self, mesh_engine=GmshMesher, copy=False):
         if mesh_engine is None:
@@ -1758,9 +1953,10 @@ class NDProblem(Problem):
         assign(self.f_0.phi_s, self.P1_map.generate_function({'anode':phi_s_a_el, 'cathode':phi_s_c_el}))
 
         if self.model_options.solve_SEI:
-            # TODO: scale variables
-            self.SEI_model.initial_guess(self.f_0, self.nd_model.scale_variables({'c_EC_a0':self.anode.SEI.c_EC_sln * self.anode.SEI.eps})['c_EC_a0'])
-            assign(self.f_0.delta_a0, interpolate(Constant(self.nd_model.scale_variables({'delta_sei_a0':self.anode.SEI.delta0})['delta_sei_a0']), self.f_0.delta_a0.function_space()))
+            if self.SEI_model_a:
+                self.SEI_model_a.initial_guess(self.f_0)
+            if self.SEI_model_c:
+                self.SEI_model_c.initial_guess(self.f_0)
 
         if 'pcc' in self.cell.structure or 'ncc' in self.cell.structure:
             phi_s_a_cc = self.nd_model.scale_variables({'phi_s_cc': 0})['phi_s_cc']
@@ -1772,15 +1968,43 @@ class NDProblem(Problem):
         temp_ini = self.nd_model.scale_variables( {'T': self.T_ini} )['T']
         assign(self.f_0.temp, interpolate(Constant(temp_ini), self.f_0.temp.function_space()))
 
+    def build_coupled_variables(self):
+        phi_S, phi_L, phi_T = self.nd_model.solid_potential, self.nd_model.liquid_potential, self.nd_model.thermal_potential
+        # build ^j_Li = L_0/I_0*j_Li*a_s
+        self._J_Li = namedtuple('J_Li', ['total', 'int', 'LLI', 'SEI', 'C_dl', 'total_0'])
+        for electrode in [self.anode, self.cathode]:
+            j_Li = self._J_Li._make([list() for _ in range(len(self._J_Li._fields))])
+            setattr(self, f'j_Li_{electrode.tag}', j_Li )
+            for idx, am in enumerate(electrode.active_material):
+                # Intercalation/Deintercalation
+                j_Li.int.append( self.f_1._asdict()[f'j_Li_{electrode.tag}{idx}'] )
+                # Solid Electrolyte Interphase
+                j_Li.SEI.append( self.f_1._asdict()[f'j_sei_{electrode.tag}{idx}'] if self.model_options.solve_SEI and electrode.SEI else 0)
+                # Double layer capacitance
+                j_Li.C_dl.append(0)
+                if electrode.C_dl:
+                    j_Li.C_dl[idx] += electrode.C_dl/self.nd_model.t_c*phi_T*am.a_s*self.nd_model.L_0 * \
+                                      self.DT.dt(phi_S/phi_T*self.f_0.phi_s-phi_L/phi_T*self.f_0.phi_e, \
+                                                 phi_S/phi_T*self.f_1.phi_s-phi_L/phi_T*self.f_1.phi_e)
+                # Lost of Lithium Inventory
+                j_Li.LLI.append( j_Li.SEI[idx] )
+                # Total Li flux
+                j_Li.total_0.append( j_Li.int[idx] + j_Li.LLI[idx] ) # To be used inside wf 0
+                j_Li.total.append( j_Li.int[idx] + j_Li.LLI[idx] + j_Li.C_dl[idx])  
+    
     def build_wf_0(self):
         # Notice that some of them could be list.
         d = self.mesher.get_measures()
 
-        self.j_Li_e_a = sum((self.f_1._asdict()['j_Li_a{}'.format(i)] for i, material in enumerate(self.anode.active_material)))
-        self.j_Li_e_c = sum((self.f_1._asdict()['j_Li_c{}'.format(i)] for i, material in enumerate(self.cathode.active_material)))
-        if self.model_options.solve_SEI:
-            self.j_Li_e_a += sum((self.f_1[self.f_1._fields.index(f'j_sei_a{i}')] for i, mat in enumerate(self.anode.active_material)))
-            
+        # build ^j_Li term = sum(^j_Li) # Notice that in the nondimensional model, f['j_Li'] = L_0/I_0*j_Li*a_s
+        for electrode, j_Li in zip([self.anode,self.cathode], [self.j_Li_a, self.j_Li_c]):
+            j_Li_term = [ sum(j_Li._asdict()[field]) for field in j_Li._fields ]
+            setattr(self, f'j_Li_{electrode.tag}_term', self._J_Li._make(j_Li_term))
+        
+        # Variables to be saved in WH
+        self.j_Li_a_total = self.j_Li_a_term.total
+        self.j_Li_c_total = self.j_Li_c_term.total
+        
         # c_e_0
         F_c_e_0 = [ (self.f_1.c_e - self.f_0.c_e) * self.test.c_e * d.x_a +
                     (self.f_1.c_e - self.f_0.c_e) * self.test.c_e * d.x_s +
@@ -1793,35 +2017,33 @@ class NDProblem(Problem):
         F_c_s_0 = F_c_s_0_a + F_c_s_0_c
 
         # phi_e
-        F_phi_e_a = self.nd_model.phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_a, c_e=self.f_1.c_e, j_li=self.j_Li_e_a, T=self.f_1.temp, domain=self.anode)
+        F_phi_e_a = self.nd_model.phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_a, c_e=self.f_1.c_e, j_li=self.j_Li_a_term.total_0, T=self.f_1.temp, domain=self.anode)
         F_phi_e_s = self.nd_model.phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_s, c_e=self.f_1.c_e, j_li=None, T=self.f_1.temp, domain=self.separator)
-        F_phi_e_c = self.nd_model.phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_li=self.j_Li_e_c, T=self.f_1.temp, domain=self.cathode)
+        F_phi_e_c = self.nd_model.phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_li=self.j_Li_c_term.total_0, T=self.f_1.temp, domain=self.cathode)
         
-        self.F_phi_e = F_phi_e_a \
-                     + F_phi_e_s \
-                     + F_phi_e_c
+        self.F_phi_e = [ F_phi_e_a + F_phi_e_s + F_phi_e_c ]
 
         # phi_s
         F_phi_s_el = 0
         F_phi_s_cc = 0
         if 'pcc' in self.cell.structure:
             F_phi_s_pcc = self.nd_model.phi_s_conductor_equation(domain=self.positiveCC, phi_s_cc=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c)
-            F_phi_s_c = self.nd_model.phi_s_electrode_equation(domain=self.cathode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_li=self.j_Li_e_c, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc)
+            F_phi_s_c = self.nd_model.phi_s_electrode_equation(domain=self.cathode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_li=self.j_Li_c_term.int, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc)
             F_phi_bc_p = self.nd_model.phi_s_bc(i_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, area_ratio=self.mesher.area_ratio_c, eq_scaling=1)
             F_phi_s_el += F_phi_s_c
             F_phi_s_cc += F_phi_s_pcc - F_phi_bc_p
         else:
-            F_phi_s_c = self.nd_model.phi_s_electrode_equation(domain=self.cathode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_li=self.j_Li_e_c)
+            F_phi_s_c = self.nd_model.phi_s_electrode_equation(domain=self.cathode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_li=self.j_Li_c_term.int)
             F_phi_bc_p = self.nd_model.phi_s_bc(i_app = self.f_1.lm_app, test=self.test.phi_s, ds = d.s_c, area_ratio=self.mesher.area_ratio_c, eq_scaling=self.nd_model.sigma_ref/self.cathode.sigma)
             F_phi_s_el += F_phi_s_c - F_phi_bc_p
 
         if 'ncc' in self.cell.structure:
-            F_phi_s_a = self.nd_model.phi_s_electrode_equation(domain=self.anode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_li=self.j_Li_e_a, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc)
+            F_phi_s_a = self.nd_model.phi_s_electrode_equation(domain=self.anode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_li=self.j_Li_a_term.int, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc)
             F_phi_s_ncc = self.nd_model.phi_s_conductor_equation(domain=self.negativeCC, phi_s_cc=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a)
             F_phi_s_el += F_phi_s_a
             F_phi_s_cc += F_phi_s_ncc
         else:
-            F_phi_s_a = self.nd_model.phi_s_electrode_equation(domain=self.anode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_li=self.j_Li_e_a)
+            F_phi_s_a = self.nd_model.phi_s_electrode_equation(domain=self.anode, phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_li=self.j_Li_a_term.int)
             F_phi_s_el += F_phi_s_a 
 
         if 'pcc' in self.cell.structure or 'ncc' in self.cell.structure:
@@ -1830,20 +2052,22 @@ class NDProblem(Problem):
             self.F_phi_s = [ F_phi_s_el, F_phi_s_cc, F_lm_phi_s ]
         else:
             self.F_phi_s = [ F_phi_s_el ]
-        self.F_phi_e = [self.F_phi_e]
-        # j_Li
+
         # Build c_s surface for anode and cathode
         c_s_surf_a = self.c_s_a_ini
         c_s_surf_c = self.c_s_c_ini
 
+        # j_Li
         F_j_Li = []
+
+        # j_Li. Anode
         for i, material in enumerate(self.anode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
-            if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
+            if self.model_options.solve_SEI and self.SEI_model_a:
+                delta_index = self.f_1._fields.index(f'delta_sei_a{i}')
                 j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=c_s_surf_a[i],
                                     alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=self.i_app,
-                                    J=self.j_Li_e_a/material.a_s, SEI=self.anode.SEI, delta=self.f_1[delta_index])
+                                    J=self.j_Li_a.total_0[i], delta_sei=self.f_1[delta_index])
             else:
                 j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=c_s_surf_a[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=self.i_app)
 
@@ -1852,21 +2076,31 @@ class NDProblem(Problem):
                 j_li * self.test[j_li_index] * d.x_a
             )
         
-        if self.model_options.solve_SEI:
-            F_j_Li.extend(self.nd_model.SEI_equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material))
+        if self.model_options.solve_SEI and self.SEI_model_a:
+            F_j_Li.extend(self.SEI_model_a.SEI_equations(self.f_0, self.f_1, self.test, d.x_a))
 
+        # j_Li. Cathode
         for i, material in enumerate(self.cathode.active_material):
-            j_li_index = self.f_1._fields.index('j_Li_c0')
-            j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=c_s_surf_c[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=-self.i_app)
+            j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
+            if self.model_options.solve_SEI and self.SEI_model_c:
+                delta_index = self.f_1._fields.index(f'delta_sei_c{i}')
+                j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=c_s_surf_c[i],
+                                    alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=-self.i_app,
+                                    J=self.j_Li_c.total_0[i], delta_sei=self.f_1[delta_index])
+            else:
+                j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=c_s_surf_c[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=-self.i_app)
 
             F_j_Li.append(
-                self.f_1[j_li_index+i] * self.test[j_li_index+i] * d.x_c - \
-                j_li * self.test[j_li_index+i] * d.x_c
+                self.f_1[j_li_index] * self.test[j_li_index] * d.x_c - \
+                j_li * self.test[j_li_index] * d.x_c
             )
+        
+        if self.model_options.solve_SEI and self.SEI_model_c:
+            F_j_Li.extend(self.SEI_model_c.SEI_equations(self.f_0, self.f_1, self.test, d.x_c))
         
         # T_0
 
-        F_T_0 = [(self.f_1.temp- self.f_0.temp) * self.test.temp * d.x ]
+        F_T_0 = [(self.f_1.temp - self.f_0.temp) * self.test.temp * d.x ]
 
         # Boundary Conditions
         if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
@@ -1908,9 +2142,9 @@ class NDProblem(Problem):
         d = self.mesher.get_measures()
 
         # c_e
-        F_c_e_a = self.nd_model.c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_a, DT=self.DT, j_li=self.j_Li_e_a, domain=self.anode)
+        F_c_e_a = self.nd_model.c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_a, DT=self.DT, j_li=self.j_Li_a_term.total, domain=self.anode)
         F_c_e_s = self.nd_model.c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_s, DT=self.DT, j_li=None, domain=self.separator)
-        F_c_e_c = self.nd_model.c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_c, DT=self.DT, j_li=self.j_Li_e_c, domain=self.cathode)
+        F_c_e_c = self.nd_model.c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_c, DT=self.DT, j_li=self.j_Li_c_term.total, domain=self.cathode)
         
         self.F_c_e = [ F_c_e_a \
               + F_c_e_s \
@@ -1930,11 +2164,11 @@ class NDProblem(Problem):
         F_j_Li = []
         for i, material in enumerate(self.anode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
-            if self.model_options.solve_SEI:
-                delta_index = self.f_1._fields.index(f'delta_a{i}')
+            if self.model_options.solve_SEI and self.SEI_model_a:
+                delta_index = self.f_1._fields.index(f'delta_sei_a{i}')
                 j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_a[i],
                                     alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=self.i_app,
-                                    J=self.j_Li_e_a/material.a_s, SEI=self.anode.SEI, delta=self.f_1[delta_index])
+                                    J=self.j_Li_a.total[i], delta_sei=self.f_1[delta_index])
             else:
                 j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_a[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=self.i_app)
 
@@ -1942,16 +2176,25 @@ class NDProblem(Problem):
                 (self.f_1[j_li_index] - j_li) * self.test[j_li_index] * d.x_a
             )
 
-        if self.model_options.solve_SEI:
-            F_j_Li.extend(self.nd_model.SEI_equations(self.f_0, self.f_1, self.test, d.x_a, self.anode.active_material, self.DT))
+        if self.model_options.solve_SEI and self.SEI_model_a:
+            F_j_Li.extend(self.SEI_model_a.SEI_equations(self.f_0, self.f_1, self.test, d.x_a, self.DT))
 
         for i, material in enumerate(self.cathode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
-            j_li = self.nd_model.j_Li_equation(material = material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_c[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=-self.i_app)
+            if self.model_options.solve_SEI and self.SEI_model_a:
+                delta_index = self.f_1._fields.index(f'delta_sei_a{i}')
+                j_li = self.nd_model.j_Li_equation(material=material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_c[i],
+                                    alpha=self.alpha, phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, F=self.F, R=self.R, T=self.f_1.temp, current=-self.i_app,
+                                    J=self.j_Li_c.total[i], delta_sei=self.f_1[delta_index])
+            else:
+                j_li = self.nd_model.j_Li_equation(material = material, c_e=self.f_1.c_e, c_s_surf=self.c_s_surf_c[i], phi_s=self.f_1.phi_s, phi_e=self.f_1.phi_e, T=self.f_1.temp, current=-self.i_app)
 
             F_j_Li.append(
                 ( self.f_1[j_li_index] - j_li ) * self.test[j_li_index] * d.x_c
             )
+
+        if self.model_options.solve_SEI and self.SEI_model_c:
+            F_j_Li.extend(self.SEI_model_c.SEI_equations(self.f_0, self.f_1, self.test, d.x_c, self.DT))
 
         if self.model_options.solve_thermal:
             F_T_ncc = self.nd_model.T_equation(self.negativeCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, self.i_app, d.x_ncc)
@@ -1959,12 +2202,10 @@ class NDProblem(Problem):
             F_T_s = self.nd_model.T_equation(self.separator, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, None, d.x_s)
             F_T_c = self.nd_model.T_equation(self.cathode, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, self.c_s_surf_c, -self.i_app, d.x_c)
             F_T_pcc = self.nd_model.T_equation(self.positiveCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, -self.i_app, d.x_pcc)
-            F_T_bc_c = self.nd_model.T_bc_equation(self.positiveCC if 'pcc' in self.cell.structure else self.cathode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_c)
-            F_T_bc_a = self.nd_model.T_bc_equation(self.negativeCC if 'ncc' in self.cell.structure else self.anode, self.f_1.temp, self.T_ext, self.h_t, self.test.temp, d.s_a)
-            h_t = self.thermal_boundary_conditions['Y_m']['h_t'] if 'Y_m' in self.thermal_boundary_conditions else self.h_t
-            T_ref = (self.thermal_boundary_conditions['Y_m']['T_ref'] or self.T_ext) if 'Y_m' in self.thermal_boundary_conditions else self.T_ext
-            F_T_bc_Ym = self.nd_model.T_bc_equation(None, self.f_1.temp, T_ref, h_t, self.test.temp, d.s_Ym)
-            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc_c + F_T_bc_a + F_T_bc_Ym ]
+            F_T_bc = 0
+            for surface, bc_dic in self.thermal_boundary_conditions.items():
+                F_T_bc += self.nd_model.T_bc_equation(self.f_1.temp, bc_dic['T_ref'], bc_dic['h_t'], self.test.temp, bc_dic['ds'])
+            self.F_T = [F_T_ncc + F_T_a + F_T_s + F_T_c + F_T_pcc + F_T_bc]
         else:
             self.F_T = [(self.f_1.temp - self.f_0.temp) * self.test.temp * d.x ]
 
@@ -2008,15 +2249,33 @@ class NDProblem(Problem):
             x=self.f_1
         return self.nd_model.T_ref+ self.nd_model.thermal_gradient*x.temp.vector().max()
 
-    def get_Q_sei(self):
-        if 'Q_sei' not in self.__dict__:
-            self.Q_sei = 0
-        j_instant_sei = assemble(-(self.f_1.j_sei_a0+self.f_0.j_sei_a0)*self.mesher.dx_a)*self.nd_model.I_0*self.nd_model.L_0**2
-        value =  self.get_timestep() * 0.5 * j_instant_sei /3600
-        self.Q_sei += value
-        return self.Q_sei
+    def calc_SEI_average_variables(self):
+        if not self.model_options.solve_SEI:
+            return
+        for electrode in ['anode','cathode']:
+            if electrode == 'anode':
+                if not self.SEI_model_a:
+                    continue
+                domain = 'a'
+                dx = self.mesher.dx_a
+                materials = self.anode.active_material
+            else:
+                if not self.SEI_model_c:
+                    continue
+                domain = 'c'
+                dx = self.mesher.dx_c
+                materials = self.cathode.active_material
 
-    def get_L_sei(self):
-        L_sei = [self.f_1[self.f_1._fields.index(f'delta_a{i}')].vector()[self.P1_map.domain_dof_map['anode']].mean()* self.nd_model.delta_sei_a[i] for i in range(self.number_of_anode_materials)]
-        return L_sei
+            # Q_sei
+            for k, am in enumerate(materials):
+                j_instant_sei = assemble(-(self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'])*dx)*self.nd_model.I_0*self.nd_model.L_0**2
+                Q_sei_instant =  self.get_timestep() * 0.5 * j_instant_sei /3600
+                self.SEI_avg_vars['Q_sei_instant'][electrode][k] = Q_sei_instant
+                self.SEI_avg_vars['Q_sei'][electrode][k] += Q_sei_instant
 
+            # L_sei
+            domain_dofs = self.P1_map.domain_dof_map[electrode]
+            delta_sei_ref = self.nd_model.delta_sei_a if electrode == 'anode' else self.nd_model.delta_sei_c
+            for k, am in enumerate(materials):
+                L_sei = self.f_1._asdict()[f'delta_sei_{domain}{k}'].vector()[domain_dofs].mean() * delta_sei_ref[k]
+                self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
