@@ -25,6 +25,7 @@ import sys
 import functools
 import numpy as np
 from collections import namedtuple
+from typing import Union
 
 from cideMOD.simulation_interface.triggers import SolverCrashed, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.config_parser import CellParser
@@ -588,14 +589,10 @@ class Problem:
         self.test = self.FE._make(block_split(self.u))
 
         # Explicit coupled SGM functions
-        self.c_s_surf_1_anode = [Function(self.V) for n in range(
-            self.number_of_anode_materials)]
-        self.c_s_surf_0_anode = [Function(self.V) for n in range(
-            self.number_of_anode_materials)]
-        self.c_s_surf_1_cathode = [Function(self.V) for n in range(
-            self.number_of_cathode_materials)]
-        self.c_s_surf_0_cathode = [Function(self.V) for n in range(
-            self.number_of_cathode_materials)]
+        self.c_s_surf_1_anode = [Function(self.V) for n in range(self.number_of_anode_materials)]
+        self.c_s_surf_0_anode = [Function(self.V) for n in range(self.number_of_anode_materials)]
+        self.c_s_surf_1_cathode = [Function(self.V) for n in range(self.number_of_cathode_materials)]
+        self.c_s_surf_0_cathode = [Function(self.V) for n in range(self.number_of_cathode_materials)]
         
         self.eigenstrain = Function(self.V)
 
@@ -1534,27 +1531,34 @@ class Problem:
                 if not self.SEI_model_a:
                     continue
                 domain = 'a'
-                dx = self.mesher.dx_a
                 materials = self.anode.active_material
-                volume = self.mesher.volumes.x_a
+                volume = self.mesher.volumes.x_a*am.electrode.L * self.cell.area
             else:
                 if not self.SEI_model_c:
                     continue
                 domain = 'c'
-                dx = self.mesher.dx_c
                 materials = self.cathode.active_material
-                volume = self.mesher.volumes.x_c
+                volume = self.mesher.volumes.x_c*am.electrode.L * self.cell.area
 
             # Q_sei
             for k, am in enumerate(materials):
-                j_instant_sei = assemble(-(self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'])*am.a_s*dx)*am.electrode.L
-                Q_sei_instant =  self.get_timestep() * 0.5 * j_instant_sei * self.cell.area /3600
+                j_instant_sei = 0.5*self.get_avg((self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'])*am.a_s, domain)
+                Q_sei_instant =  -self.get_timestep() * j_instant_sei * volume / 3600
                 self.SEI_avg_vars['Q_sei_instant'][electrode][k] = Q_sei_instant
                 self.SEI_avg_vars['Q_sei'][electrode][k] += Q_sei_instant
 
             # L_sei
-                L_sei = assemble(self.f_1._asdict()[f'delta_sei_{domain}{k}']*dx)/volume
+                L_sei = self.get_avg(self.f_1._asdict()[f'delta_sei_{domain}{k}'], domain)
                 self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
+
+    def get_avg(self, variable, domain:Union[Measure,str], integral_type = 'x'):
+        if isinstance(domain, Measure):
+            dx = domain
+            volume = self.mesher.volumes[self.mesher.get_measures().index(dx)]
+        else:
+            dx = self.mesher.get_measures()._asdict()[f'{integral_type}_{domain}']
+            volume = self.mesher.volumes._asdict()[f'{integral_type}_{domain}']
+        return assemble(variable*dx)/volume
 
     def get_voltage(self, x=None):
         if x is None:
@@ -1563,7 +1567,7 @@ class Problem:
             phi_s = x.phi_s_cc
         else:
             phi_s = x.phi_s
-        return assemble(phi_s * self.mesher.ds_c)/self.mesher.volumes.s_c
+        return self.get_avg(phi_s, self.mesher.ds_c)
 
     def get_temperature(self, x=None):
         if x is None:
@@ -1591,7 +1595,7 @@ class Problem:
     def get_current(self, x=None):
         if x is None:
             x = self.f_1
-        return assemble(x.lm_app * self.mesher.ds_c)/self.mesher.volumes.s_c * self.area
+        return self.get_avg(x.lm_app, self.mesher.ds_c) * self.area
 
     def get_capacity(self):
         if 'Q_out' not in self.__dict__:
@@ -1614,34 +1618,30 @@ class Problem:
     def get_hydrostatic_stress(self, electrode, index = None):
         if electrode == 'anode':
             sigma_h = self.LAM_model_a.sigma_h
-            dx = self.mesher.dx_a
         elif electrode == 'cathode':
             sigma_h = self.LAM_model_c.sigma_h
-            dx = self.mesher.dx_c
         else:
             raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
         if index is None:
             index = range(len(sigma_h))
         elif isinstance(index, int):
             index = [index]
-        V_electrode = assemble(1*dx)
-        return [assemble(sigma_h_am*dx)/V_electrode for i, sigma_h_am in enumerate(sigma_h) if i in index]
+        domain = electrode[0]
+        return [self.get_avg(sigma_h_am,domain) for i, sigma_h_am in enumerate(sigma_h) if i in index]
 
     def get_eps_s_avg(self, electrode, index = None):
         if electrode == 'anode':
             materials = self.anode.active_material
-            dx = self.mesher.dx_a
         elif electrode == 'cathode':
             materials = self.cathode.active_material
-            dx = self.mesher.dx_c
         else:
             raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
         if index is None:
             index = range(len(materials))
         elif isinstance(index, int):
             index = [index]
-        V_electrode = assemble(1*dx)
-        return [100*assemble(am.eps_s*dx)/V_electrode for i, am in enumerate(materials) if i in index]
+        domain = electrode[0]
+        return [100*self.get_avg(am.eps_s, domain) for i, am in enumerate(materials) if i in index]
 
     def get_eps_s_approx_a(self):
         return 100 - assemble(self.anode.active_material[0].eps_s*self.mesher.dx_a)/self.cell.negative_electrode.active_materials[0].volumeFraction * 100
@@ -1651,16 +1651,17 @@ class Problem:
 
     def get_soc_c(self):
         if self.c_s_implicit_coupling:
+            domain = 'c'
             x_c = []
             leg_int = self.SGM._leg_volume_integral()
             for k, material in enumerate(self.cathode.active_material):
                 x_c.append(0)
-                c_s_index = self.f_1._fields.index('c_s_0_{}{}'.format('c', k))
+                c_s_index = self.f_1._fields.index(f'c_s_0_{domain}{k}')
                 for i in range(self.SGM.order):
                     if i==0:
-                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[c_s_index+ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]/self.mesher.volumes.x_c
+                        c = self.get_avg(self.f_1[c_s_index]-sum([self.f_1[c_s_index+ind] for ind in range(1,self.SGM.order)]),domain)*leg_int[i]
                     else:
-                        c = assemble(self.f_1[c_s_index+i]*self.mesher.dx_c)*leg_int[i]/self.mesher.volumes.x_c
+                        c = self.get_avg(self.f_1[c_s_index+i],domain)*leg_int[i]
                     x_c[k]+=c
                 x_c[k]*=3/material.c_s_max
             return x_c
@@ -1811,7 +1812,7 @@ class StressProblem(Problem):
     def set_storage_order(self):
         super().set_storage_order()
         self.internal_storage_order.append(['displacement', 'vector'])
-        self.post_processing_functions.append(self.calc_displacement)
+        self.post_processing_functions['internals'].append(self.calc_displacement)
         self.global_storage_order['thickness'] = {
             'fnc': self.calculate_thickness_change,
             'header': "Thickness change [m]"
@@ -2345,14 +2346,14 @@ class NDProblem(Problem):
         if x is None:
             x = self.f_1
         if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * assemble( x.phi_s_cc * self.mesher.ds_c) / self.mesher.volumes.s_c
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * self.get_avg( x.phi_s_cc, self.mesher.ds_c )
         else:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * assemble( x.phi_s * self.mesher.ds_c) / self.mesher.volumes.s_c
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * self.get_avg( x.phi_s, self.mesher.ds_c )
 
     def get_current(self, x=None):
         if x is None:
             x = self.f_1
-        return assemble( x.lm_app * self.mesher.ds_c ) / self.mesher.volumes.s_c * self.Q
+        return self.get_avg( x.lm_app, self.mesher.ds_c ) * self.Q
 
     def get_temperature(self, x=None):
         if x is None:
@@ -2369,62 +2370,54 @@ class NDProblem(Problem):
                 if not self.SEI_model_a:
                     continue
                 domain = 'a'
-                dx = self.mesher.dx_a
                 materials = self.anode.active_material
-                volume = self.mesher.volumes.x_a
+                volume = self.mesher.volumes.x_a * mesh_scaling
             else:
                 if not self.SEI_model_c:
                     continue
                 domain = 'c'
-                dx = self.mesher.dx_c
                 materials = self.cathode.active_material
-                volume = self.mesher.volumes.x_c
+                volume = self.mesher.volumes.x_c * mesh_scaling
 
             # Q_sei
             for k, am in enumerate(materials):
-                j_instant_sei = assemble(-(self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'])*dx)*self.nd_model.I_0/(am.a_s*L_0) * mesh_scaling
-                Q_sei_instant =  self.get_timestep() * 0.5 * j_instant_sei / 3600
+                j_instant_sei = 0.5 * self.get_avg(self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'],domain)*self.nd_model.I_0/L_0
+                Q_sei_instant =  - self.get_timestep() * j_instant_sei * volume / 3600
                 self.SEI_avg_vars['Q_sei_instant'][electrode][k] = Q_sei_instant
                 self.SEI_avg_vars['Q_sei'][electrode][k] += Q_sei_instant
 
             # L_sei
             delta_sei_ref = self.nd_model.delta_sei_a if electrode == 'anode' else self.nd_model.delta_sei_c
             for k, am in enumerate(materials):
-                L_sei = assemble(self.f_1._asdict()[f'delta_sei_{domain}{k}']*dx)/volume * delta_sei_ref[k]
+                L_sei = self.get_avg(self.f_1._asdict()[f'delta_sei_{domain}{k}'], domain)* delta_sei_ref[k]
                 self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
 
     def get_hydrostatic_stress(self, electrode, index = None):
         if electrode == 'anode':
             E_ref = self.nd_model.E_a_ref
             sigma_h = self.LAM_model_a.sigma_h
-            dx = self.mesher.dx_a
-            volume = self.mesher.volumes.x_a
         elif electrode == 'cathode':
             E_ref = self.nd_model.E_c_ref
             sigma_h = self.LAM_model_c.sigma_h
-            dx = self.mesher.dx_c
-            volume = self.mesher.volumes.x_c
         else:
             raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
         if index is None:
             index = range(len(sigma_h))
         elif isinstance(index, int):
             index = [index]
-        return [E_ref_am*assemble(sigma_h_am*dx)/volume for i, (E_ref_am, sigma_h_am) in enumerate(zip(E_ref, sigma_h)) if i in index]
+        domain = electrode[0]
+        return [E_ref_am*self.get_avg(sigma_h_am,domain) for i, (E_ref_am, sigma_h_am) in enumerate(zip(E_ref, sigma_h)) if i in index]
 
     def get_eps_s_avg(self, electrode, index = None):
         if electrode == 'anode':
             materials = self.anode.active_material
-            dx = self.mesher.dx_a
-            volume = self.mesher.volumes.x_a
         elif electrode == 'cathode':
             materials = self.cathode.active_material
-            dx = self.mesher.dx_c
-            volume = self.mesher.volumes.x_c
         else:
             raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
         if index is None:
             index = range(len(materials))
         elif isinstance(index, int):
             index = [index]
-        return [100*assemble(am.eps_s*dx)/volume for i, am in enumerate(materials) if i in index]
+        domain = electrode[0]
+        return [100*self.get_avg(am.eps_s, domain) for i, am in enumerate(materials) if i in index]

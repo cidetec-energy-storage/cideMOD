@@ -92,7 +92,7 @@ class CSI:
         if name is None and save_path is None:
             self.save_path = None
         else:
-            self.save_path = init_results_folder(os.path.join(save_path or '', name or ''), overwrite=overwrite, copy_files=[cell_data, self.simulation_options])
+            self.save_path = init_results_folder(os.path.join(save_path or '', name or '').rstrip('/'), overwrite=overwrite, copy_files=[cell_data, self.simulation_options])
 
         # Create the problem
         self.create_problem()
