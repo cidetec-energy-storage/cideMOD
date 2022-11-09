@@ -105,7 +105,7 @@ class SolventLimitedSEIModel(BaseModel):
         delta_S = self.scale_variables({'dU/dT': material.delta_S}).get('dU/dT',lambda *args,**kwargs: 0)
         ocv = ocv_ref(c_s_surf, current)+delta_S(c_s_surf, current)*(T+(self.T_ref-material.U.T_ref)/self.thermal_gradient)
         eta = self.solid_potential/self.thermal_potential*phi_s - self.liquid_potential/self.thermal_potential*phi_e - ocv
-        if all(key in kwargs for key in ('delta_sei','J')):
+        if all(key in kwargs and kwargs[key] is not None for key in ('delta_sei','J')):
             sei_resistance = SEI.R+mat_dp['delta_ref_sei']*kwargs['delta_sei']/SEI.kappa
             eta -= sei_resistance/self.thermal_potential * kwargs['J'] * self.I_0/(self.L_0*material.a_s)
         return eta

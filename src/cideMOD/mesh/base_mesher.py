@@ -30,6 +30,7 @@ from dolfin import (
     Timer,
     assemble,
     cells,
+    Constant
 )
 from multiphenics import BlockFunctionSpace, MeshRestriction
 
@@ -251,6 +252,10 @@ class BaseMesher:
             self.area_ratio_a = 1
             self.area_ratio_c = 1
 
+    def _compute_volumes(self):
+        d = self.get_measures()
+        volumes = namedtuple('ScaledVolumes', d._fields)
+        self.volumes = volumes._make([assemble(Constant(1)*dx) for dx in d])
 
 class DolfinMesher(BaseMesher):
     def build_mesh(self):
@@ -405,6 +410,9 @@ class DolfinMesher(BaseMesher):
         self.dS_a_cc = self.dS(self.field_data['interfaces']['anode-CC'], metadata={**meta, "direction": int_dir("-")})
         self.dS_cc_c = self.dS(self.field_data['interfaces']['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
         self.dS_c_cc = self.dS(self.field_data['interfaces']['cathode-CC'], metadata={**meta, "direction": int_dir("+")})
+
+        # Compute volumes 
+        self._compute_volumes()
 
         timer.stop()
         print('Finished building mesh')

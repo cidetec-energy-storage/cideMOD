@@ -89,18 +89,13 @@ class CSI:
         self.cell = self.load_cell_data(cell_data, data_path)
         self.reference_capacity = self.cell.capacity
 
-        if save_path:
-            if isinstance(save_path, str):
-                self.save_path = save_path
-            else:
-                self.save_path = init_results_folder(name, overwrite=overwrite, copy_files=[cell_data, self.simulation_options])
-        else:
+        if name is None and save_path is None:
             self.save_path = None
-        # Create the problem
-        if self.simulation_options.mode == 'P2D':
-            self.problem = Problem(self.cell, self.simulation_options, save_path = self.save_path)
         else:
-            self.problem = NDProblem(self.cell, self.simulation_options, save_path = self.save_path)
+            self.save_path = init_results_folder(os.path.join(save_path or '', name or ''), overwrite=overwrite, copy_files=[cell_data, self.simulation_options])
+
+        # Create the problem
+        self.create_problem()
 
         # Create the solver
 

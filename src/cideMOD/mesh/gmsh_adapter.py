@@ -195,6 +195,7 @@ class GmshConverter(BaseMesher):
         self.dS_cc_c = self.dS(self.field_data['interfaces']['cathode-CC'], metadata={**meta, "direction": int_dir("-")})
 
         self.calc_area_ratios(scale)
+        self._compute_volumes()
         t.stop()
 
     def gmsh_convert(self):

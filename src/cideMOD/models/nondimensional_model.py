@@ -26,6 +26,7 @@ from dolfin import grad, inner
 
 class NondimensionalModel(ThermalModel, MechanicModel, SolventLimitedSEIModel, ElectrochemicalModel):
     def physical_variables(self, problem):
+        # Electrochemical & Thermal Model
         c_e = self.c_e_0 + self.delta_c_e_ref * problem.P1_map.generate_vector({'anode':problem.f_1.c_e,'separator':problem.f_1.c_e,'cathode':problem.f_1.c_e})
         phi_e = self.phi_e_ref + self.liquid_potential * problem.P1_map.generate_vector({'anode':problem.f_1.phi_e,'separator':problem.f_1.phi_e,'cathode':problem.f_1.phi_e})
         phi_s_el = self.phi_s_ref + self.solid_potential * problem.P1_map.generate_vector({'anode':problem.f_1.phi_s,'cathode':problem.f_1.phi_s})
@@ -57,12 +58,22 @@ class NondimensionalModel(ThermalModel, MechanicModel, SolventLimitedSEIModel, E
             'temp': T
         }
 
-        unscaled_vars = self.unscale_variables(problem.f_1._asdict())
+        # SEI Model
+        f_1 = problem.f_1
+        unscaled_vars = self.unscale_variables(f_1._asdict())
+        if self.solve_sei and bool(problem.SEI_model_a or problem.SEI_model_c):
+            for electrode in ['anode', 'cathode']:
+                domain = electrode[0]
+                SEI_model = problem.SEI_model_a if electrode == 'anode' else problem.SEI_model_c
+                if not SEI_model:
+                    continue
+                for am in range(SEI_model.n_mat):
+                    for SEI_var in [f'j_sei_{domain}{am}', f'delta_sei_{domain}{am}']+[f'c_EC_{j}_{domain}{am}' for j in range(SEI_model.order)]:
+                        vars[SEI_var] = unscaled_vars[SEI_var]
         for physical_var in ['electric_current', 'ionic_current', 'q_ohmic_e', 'q_ohmic_s', 'q_rev_a', 'q_rev_c', 'q_irrev_a', 'q_irrev_c']:
-
             if not any([ (var if isinstance(var, str) else var[0]) == physical_var for var in problem.internal_storage_order ]):
                 continue
-            
+        
             elif physical_var == 'electric_current':
                 phi_s, phi_s_cc = unscaled_vars['phi_s'], unscaled_vars['phi_s_cc']
                 electric_current = lambda domain, phis: - domain.sigma / self.L_0 * grad(phis)

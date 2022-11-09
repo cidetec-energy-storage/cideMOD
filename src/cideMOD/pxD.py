@@ -203,9 +203,10 @@ class Problem:
 
         ######################## T ########################
         if self.model_options.solve_thermal:
-            assign(self.f_0.temp, self.P1_map.generate_function({'anode': new_state['T'], 'separator': new_state['T'], 'cathode': new_state['T']}))
             if self.fom2rom['areCC']:
                 assign(self.f_0.temp, self.P1_map.generate_function({'negativeCC': new_state['T'], 'positiveCC': new_state['T']}))
+            else:
+                assign(self.f_0.temp, self.P1_map.generate_function({subdomain: new_state['T'] for subdomain in ['negativeCC', 'anode', 'separator', 'cathode', 'positiveCC']}))
 
         ####################### j_sei #######################
         if self.model_options.solve_SEI:
@@ -430,8 +431,8 @@ class Problem:
                 SEI_model = self.SEI_model_a if electrode == 'anode' else self.SEI_model_c
                 if not SEI_model:
                     continue
+                SEI_label = 'SEI' if electrode == 'anode' else 'CEI'
                 for k, am in enumerate(SEI_model.electrode.active_material):
-                    SEI_label = 'SEI' if electrode == 'anode' else 'CEI'
                     self.global_storage_order[f'Q_sei_{domain}{k}'] = {
                         'fnc': functools.partial(self.get_Q_sei,electrode,k),
                         'header': f"Capacity loss to {SEI_label} {k} [Ah]"
@@ -442,7 +443,7 @@ class Problem:
                     }
                     self.internal_storage_order.extend([f'c_EC_0_{domain}{k}', f'delta_sei_{domain}{k}', f'j_sei_{domain}{k}'])
 
-        # Additional internal variables. Electric current density.
+        # Additional internal variables.
         # self.internal_storage_order.append(['electric_current', 'vector'])
         # self.internal_storage_order.append(['ionic_current', 'vector'])
         # self.internal_storage_order.extend(['q_ohmic_e', 'q_ohmic_s'])
@@ -725,6 +726,8 @@ class Problem:
         if not self.ready:
             self.setup()
 
+        self.prepare_solve(store_delay, self.time)
+
         store_fom = not adaptive and self.c_s_implicit_coupling
         if store_fom:
             if self.current_timestep == 0:
@@ -735,7 +738,6 @@ class Problem:
         else:
             self.WH.store(self.time, store_fom=store_fom)
 
-        self.prepare_solve(store_delay, self.time)
         if i_app is not None:
             v_app_t=None
             assert isinstance(i_app, (str, int, float))
@@ -1120,9 +1122,6 @@ class Problem:
                 j_li * self.test[j_li_index] * d.x_a
             )
 
-        if self.model_options.solve_SEI and self.SEI_model_a:
-            F_j_Li.extend(self.SEI_model_a.equations(self.f_0, self.f_1, self.test, d.x_a, self.F, self.R))
-
         # j_Li. Cathode
         for i, material in enumerate(self.cathode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
@@ -1140,8 +1139,13 @@ class Problem:
                 j_li * self.test[j_li_index] * d.x_c
             )
 
+        # SEI Model
+        F_sei_0 = []
+        if self.model_options.solve_SEI and self.SEI_model_a:
+            F_sei_0.extend(self.SEI_model_a.equations(self.f_0, self.f_1, self.test, d.x_a, self.F, self.R))
+
         if self.model_options.solve_SEI and self.SEI_model_c:
-            F_j_Li.extend(self.SEI_model_c.equations(self.f_0, self.f_1, self.test, d.x_c, self.F, self.R))
+            F_sei_0.extend(self.SEI_model_c.equations(self.f_0, self.f_1, self.test, d.x_c, self.F, self.R))
 
         # T_0
 
@@ -1203,6 +1207,7 @@ class Problem:
             + self.F_phi_e \
             + self.F_phi_s + self.F_lm_app \
             + F_j_Li  \
+            + F_sei_0 \
             + F_c_s_0\
             + F_T_0 \
             + self.F_mechanics
@@ -1233,7 +1238,6 @@ class Problem:
         self.F_c_e = [F_c_e_a + F_c_e_s + F_c_e_c]
 
         # c_s
-        F_c_s = []
         F_c_s = self.implicit_sgm_wf()
 
         if self.SGM.c_s_surf(self.f_1, 'anode'):
@@ -1261,9 +1265,6 @@ class Problem:
             F_j_Li.append(
                 self.f_1[j_li_index] * self.test[j_li_index] * d.x_a - j_li * self.test[j_li_index] * d.x_a
             )
-        
-        if self.model_options.solve_SEI and self.SEI_model_a:
-                F_j_Li.append(self.SEI_model_a.equations(self.f_0, self.f_1, self.test, d.x_a, self.F, self.R, self.DT))
 
         for i, material in enumerate(self.cathode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
@@ -1278,20 +1279,21 @@ class Problem:
             F_j_Li.append(
                 self.f_1[j_li_index] * self.test[j_li_index] * d.x_c - j_li * self.test[j_li_index] * d.x_c
             )
+
+        # SEI Model
+        self.F_sei = []
+        if self.model_options.solve_SEI and self.SEI_model_a:
+                self.F_sei.append(self.SEI_model_a.equations(self.f_0, self.f_1, self.test, d.x_a, self.F, self.R, self.DT))
         
         if self.model_options.solve_SEI and self.SEI_model_c:
-            F_j_Li.append(self.SEI_model_c.equations(self.f_0, self.f_1, self.test, d.x_c, self.F, self.R, self.DT))
+            self.F_sei.append(self.SEI_model_c.equations(self.f_0, self.f_1, self.test, d.x_c, self.F, self.R, self.DT))
 
         # phi_e
         F_phi_e_a = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_a, c_e=self.f_1.c_e, j_Li=self.j_Li_a_term.total, kappa=self.anode.kappa, kappa_D=self.anode.kappa_D, domain_grad=self.anode.grad, L=self.anode.L)
         F_phi_e_s = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_s, c_e=self.f_1.c_e, j_Li=None, kappa=self.separator.kappa, kappa_D=self.separator.kappa_D, domain_grad=self.separator.grad, L=self.separator.L)
         F_phi_e_c = phi_e_equation(phi_e=self.f_1.phi_e, test=self.test.phi_e, dx=d.x_c, c_e=self.f_1.c_e, j_Li=self.j_Li_c_term.total, kappa=self.cathode.kappa, kappa_D=self.cathode.kappa_D, domain_grad=self.cathode.grad, L=self.cathode.L)
         
-        self.F_phi_e = F_phi_e_a \
-                     + F_phi_e_s \
-                     + F_phi_e_c
-
-        self.F_phi_e = [self.F_phi_e]
+        self.F_phi_e = [ F_phi_e_a  + F_phi_e_s + F_phi_e_c ]
         
         # phi_s
         if 'ncc' in self.cell.structure:
@@ -1359,6 +1361,7 @@ class Problem:
             + self.F_phi_e \
             + self.F_phi_s + self.F_lm_app\
             + F_j_Li \
+            + self.F_sei \
             + F_c_s \
             + self.F_T \
             + self.F_mechanics
@@ -1367,8 +1370,7 @@ class Problem:
         self.F_var_implicit = BlockForm(F_var_implicit)
         self.J_var_implicit = BlockForm(J_var_implicit)
 
-        self.problem_implicit = BlockNonlinearProblem(
-            self.F_var_implicit,  self.u_2, self.bc, self.J_var_implicit)
+        self.problem_implicit = BlockNonlinearProblem(self.F_var_implicit,  self.u_2, self.bc, self.J_var_implicit)
         self.solver_implicit = BlockPETScSNESSolver(self.problem_implicit)
         self.set_use_options(self.solver_implicit, use_options=self.use_options)
 
@@ -1470,12 +1472,14 @@ class Problem:
                 domain = 'a'
                 dx = self.mesher.dx_a
                 materials = self.anode.active_material
+                volume = self.mesher.volumes.x_a
             else:
                 if not self.SEI_model_c:
                     continue
                 domain = 'c'
                 dx = self.mesher.dx_c
                 materials = self.cathode.active_material
+                volume = self.mesher.volumes.x_c
 
             # Q_sei
             for k, am in enumerate(materials):
@@ -1485,7 +1489,7 @@ class Problem:
                 self.SEI_avg_vars['Q_sei'][electrode][k] += Q_sei_instant
 
             # L_sei
-                L_sei = assemble(self.f_1._asdict()[f'delta_sei_{domain}{k}']*dx)
+                L_sei = assemble(self.f_1._asdict()[f'delta_sei_{domain}{k}']*dx)/volume
                 self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
 
     def get_voltage(self, x=None):
@@ -1495,7 +1499,7 @@ class Problem:
             phi_s = x.phi_s_cc
         else:
             phi_s = x.phi_s
-        return assemble(phi_s * self.mesher.ds_c)
+        return assemble(phi_s * self.mesher.ds_c)/self.mesher.volumes.s_c
 
     def get_temperature(self, x=None):
         if x is None:
@@ -1522,7 +1526,7 @@ class Problem:
     def get_current(self, x=None):
         if x is None:
             x = self.f_1
-        return assemble(x.lm_app * self.mesher.ds_c) * self.area
+        return assemble(x.lm_app * self.mesher.ds_c)/self.mesher.volumes.s_c * self.area
 
     def get_capacity(self):
         if 'Q_out' not in self.__dict__:
@@ -1533,7 +1537,7 @@ class Problem:
     def get_Q_sei(self, electrode, index):
         return self.SEI_avg_vars['Q_sei'][electrode][index]
 
-    def get_L_sei(self, electrode, index = None):
+    def get_L_sei(self, electrode, index):
         return self.SEI_avg_vars['L_sei'][electrode][index]
 
     def get_stoichiometry(self):
@@ -1557,9 +1561,9 @@ class Problem:
                 c_s_index = self.f_1._fields.index('c_s_0_{}{}'.format('c', k))
                 for i in range(self.SGM.order):
                     if i==0:
-                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]
+                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]/self.mesher.volumes.x_c
                     else:
-                        c = assemble(self.f_1[c_s_index+i]*self.mesher.dx_c)*leg_int[i]
+                        c = assemble(self.f_1[c_s_index+i]*self.mesher.dx_c)*leg_int[i]/self.mesher.volumes.x_c
                     x_c[k]+=c
                 x_c[k]*=3/material.c_s_max
             return x_c
@@ -1969,7 +1973,10 @@ class NDProblem(Problem):
         assign(self.f_0.temp, interpolate(Constant(temp_ini), self.f_0.temp.function_space()))
 
     def build_coupled_variables(self):
+        # Get some reference parameters
         phi_S, phi_L, phi_T = self.nd_model.solid_potential, self.nd_model.liquid_potential, self.nd_model.thermal_potential
+        I_0, L_0, t_c = self.nd_model.I_0, self.nd_model.L_0, self.nd_model.t_c
+
         # build ^j_Li = L_0/I_0*j_Li*a_s
         self._J_Li = namedtuple('J_Li', ['total', 'int', 'LLI', 'SEI', 'C_dl', 'total_0'])
         for electrode in [self.anode, self.cathode]:
@@ -1983,7 +1990,7 @@ class NDProblem(Problem):
                 # Double layer capacitance
                 j_Li.C_dl.append(0)
                 if electrode.C_dl:
-                    j_Li.C_dl[idx] += electrode.C_dl/self.nd_model.t_c*phi_T*am.a_s*self.nd_model.L_0 * \
+                    j_Li.C_dl[idx] += electrode.C_dl*phi_T/t_c/I_0 * am.a_s*L_0 * \
                                       self.DT.dt(phi_S/phi_T*self.f_0.phi_s-phi_L/phi_T*self.f_0.phi_e, \
                                                  phi_S/phi_T*self.f_1.phi_s-phi_L/phi_T*self.f_1.phi_e)
                 # Lost of Lithium Inventory
@@ -2075,9 +2082,6 @@ class NDProblem(Problem):
                 self.f_1[j_li_index] * self.test[j_li_index] * d.x_a - \
                 j_li * self.test[j_li_index] * d.x_a
             )
-        
-        if self.model_options.solve_SEI and self.SEI_model_a:
-            F_j_Li.extend(self.SEI_model_a.SEI_equations(self.f_0, self.f_1, self.test, d.x_a))
 
         # j_Li. Cathode
         for i, material in enumerate(self.cathode.active_material):
@@ -2094,12 +2098,16 @@ class NDProblem(Problem):
                 self.f_1[j_li_index] * self.test[j_li_index] * d.x_c - \
                 j_li * self.test[j_li_index] * d.x_c
             )
+
+        # SEI Model
+        F_sei_0 = []
+        if self.model_options.solve_SEI and self.SEI_model_a:
+            F_sei_0.extend(self.SEI_model_a.SEI_equations(self.f_0, self.f_1, self.test, d.x_a))
         
         if self.model_options.solve_SEI and self.SEI_model_c:
-            F_j_Li.extend(self.SEI_model_c.SEI_equations(self.f_0, self.f_1, self.test, d.x_c))
+            F_sei_0.extend(self.SEI_model_c.SEI_equations(self.f_0, self.f_1, self.test, d.x_c))
         
         # T_0
-
         F_T_0 = [(self.f_1.temp - self.f_0.temp) * self.test.temp * d.x ]
 
         # Boundary Conditions
@@ -2120,11 +2128,12 @@ class NDProblem(Problem):
         ]
         
         F_var_0 = F_c_e_0 \
-                     + self.F_phi_e \
-                     + self.F_phi_s + self.F_lm_app \
-                     + F_j_Li  \
-                     + F_T_0 \
-                     + F_c_s_0
+                + self.F_phi_e \
+                + self.F_phi_s + self.F_lm_app \
+                + F_j_Li  \
+                + F_sei_0 \
+                + F_c_s_0 \
+                + F_T_0 
 
         J_var_0 = block_derivative(F_var_0, self.u_2, self.du)
         self.F_var_0 = BlockForm(F_var_0)
@@ -2146,12 +2155,9 @@ class NDProblem(Problem):
         F_c_e_s = self.nd_model.c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_s, DT=self.DT, j_li=None, domain=self.separator)
         F_c_e_c = self.nd_model.c_e_equation(c_e_0=self.f_0.c_e,c_e=self.f_1.c_e, test=self.test.c_e, dx=d.x_c, DT=self.DT, j_li=self.j_Li_c_term.total, domain=self.cathode)
         
-        self.F_c_e = [ F_c_e_a \
-              + F_c_e_s \
-              + F_c_e_c ]
+        self.F_c_e = [ F_c_e_a + F_c_e_s + F_c_e_c ]
 
         # c_s
-
         F_c_s = self.implicit_sgm_wf()
 
         if self.SGM.c_s_surf(self.f_1, 'anode') and self.SGM.c_s_surf(self.f_1, 'cathode'):
@@ -2161,6 +2167,7 @@ class NDProblem(Problem):
             self.c_s_surf_a = self.c_s_a_ini
             self.c_s_surf_c = self.c_s_c_ini
 
+        # j_Li
         F_j_Li = []
         for i, material in enumerate(self.anode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_a{i}')
@@ -2176,9 +2183,6 @@ class NDProblem(Problem):
                 (self.f_1[j_li_index] - j_li) * self.test[j_li_index] * d.x_a
             )
 
-        if self.model_options.solve_SEI and self.SEI_model_a:
-            F_j_Li.extend(self.SEI_model_a.SEI_equations(self.f_0, self.f_1, self.test, d.x_a, self.DT))
-
         for i, material in enumerate(self.cathode.active_material):
             j_li_index = self.f_1._fields.index(f'j_Li_c{i}')
             if self.model_options.solve_SEI and self.SEI_model_a:
@@ -2193,9 +2197,15 @@ class NDProblem(Problem):
                 ( self.f_1[j_li_index] - j_li ) * self.test[j_li_index] * d.x_c
             )
 
-        if self.model_options.solve_SEI and self.SEI_model_c:
-            F_j_Li.extend(self.SEI_model_c.SEI_equations(self.f_0, self.f_1, self.test, d.x_c, self.DT))
+        # SEI Model
+        self.F_sei = []
+        if self.model_options.solve_SEI and self.SEI_model_a:
+            self.F_sei.extend(self.SEI_model_a.SEI_equations(self.f_0, self.f_1, self.test, d.x_a, self.DT))
 
+        if self.model_options.solve_SEI and self.SEI_model_c:
+            self.F_sei.extend(self.SEI_model_c.SEI_equations(self.f_0, self.f_1, self.test, d.x_c, self.DT))
+
+        # Thermal model
         if self.model_options.solve_thermal:
             F_T_ncc = self.nd_model.T_equation(self.negativeCC, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, None, self.i_app, d.x_ncc)
             F_T_a = self.nd_model.T_equation(self.anode, self.DT, self.f_1.temp, self.f_0.temp, self.test.temp, self.f_1, self.c_s_surf_a, self.i_app, d.x_a)
@@ -2213,7 +2223,9 @@ class NDProblem(Problem):
                         + self.F_phi_e \
                         + self.F_phi_s + self.F_lm_app\
                         + F_j_Li \
-                        + F_c_s + self.F_T
+                        + self.F_sei \
+                        + F_c_s \
+                        + self.F_T
 
         J_var_implicit = block_derivative(F_var_implicit, self.u_2, self.du)
         self.F_var_implicit = BlockForm(F_var_implicit)
@@ -2235,14 +2247,14 @@ class NDProblem(Problem):
         if x is None:
             x = self.f_1
         if 'ncc' in self.cell.structure or 'pcc' in self.cell.structure:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (assemble( x.phi_s_cc * self.mesher.ds_c) / assemble(1*self.mesher.ds_c) )
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * assemble( x.phi_s_cc * self.mesher.ds_c) / self.mesher.volumes.s_c
         else:
-            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * (assemble( x.phi_s * self.mesher.ds_c) / assemble(1*self.mesher.ds_c))
+            return self.nd_model.phi_s_ref + self.nd_model.solid_potential * assemble( x.phi_s * self.mesher.ds_c) / self.mesher.volumes.s_c
 
     def get_current(self, x=None):
         if x is None:
             x = self.f_1
-        return assemble( x.lm_app * self.mesher.ds_c ) / assemble(1*self.mesher.ds_c) * self.Q
+        return assemble( x.lm_app * self.mesher.ds_c ) / self.mesher.volumes.s_c * self.Q
 
     def get_temperature(self, x=None):
         if x is None:
@@ -2252,6 +2264,8 @@ class NDProblem(Problem):
     def calc_SEI_average_variables(self):
         if not self.model_options.solve_SEI:
             return
+        L_0 = self.nd_model.L_0
+        mesh_scaling = L_0 ** self.mesher.dimension
         for electrode in ['anode','cathode']:
             if electrode == 'anode':
                 if not self.SEI_model_a:
@@ -2259,23 +2273,24 @@ class NDProblem(Problem):
                 domain = 'a'
                 dx = self.mesher.dx_a
                 materials = self.anode.active_material
+                volume = self.mesher.volumes.x_a
             else:
                 if not self.SEI_model_c:
                     continue
                 domain = 'c'
                 dx = self.mesher.dx_c
                 materials = self.cathode.active_material
+                volume = self.mesher.volumes.x_c
 
             # Q_sei
             for k, am in enumerate(materials):
-                j_instant_sei = assemble(-(self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'])*dx)*self.nd_model.I_0*self.nd_model.L_0**2
-                Q_sei_instant =  self.get_timestep() * 0.5 * j_instant_sei /3600
+                j_instant_sei = assemble(-(self.f_1._asdict()[f'j_sei_{domain}{k}']+self.f_0._asdict()[f'j_sei_{domain}{k}'])*dx)*self.nd_model.I_0/(am.a_s*L_0) * mesh_scaling
+                Q_sei_instant =  self.get_timestep() * 0.5 * j_instant_sei / 3600
                 self.SEI_avg_vars['Q_sei_instant'][electrode][k] = Q_sei_instant
                 self.SEI_avg_vars['Q_sei'][electrode][k] += Q_sei_instant
 
             # L_sei
-            domain_dofs = self.P1_map.domain_dof_map[electrode]
             delta_sei_ref = self.nd_model.delta_sei_a if electrode == 'anode' else self.nd_model.delta_sei_c
             for k, am in enumerate(materials):
-                L_sei = self.f_1._asdict()[f'delta_sei_{domain}{k}'].vector()[domain_dofs].mean() * delta_sei_ref[k]
+                L_sei = assemble(self.f_1._asdict()[f'delta_sei_{domain}{k}']*dx)/volume * delta_sei_ref[k]
                 self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
