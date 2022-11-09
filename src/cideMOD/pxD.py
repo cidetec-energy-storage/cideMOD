@@ -447,28 +447,22 @@ class Problem:
                 'header': 'Average SEI thickness [m]'
             }
         if self.model_options.solve_LAM:
-            if self.cell.negative_electrode.LAM:
-                for i in range(self.number_of_anode_materials):
-                    self.global_storage_order[f'eps_s_a{i}_avg'] = {
-                        'fnc': functools.partial(self.get_eps_s_avg,'anode',index=i),
-                        'header': f'eps_s_a{i} [%]'
+            for electrode in ['anode', 'cathode']:
+                domain = electrode[0]
+                LAM_model = self.LAM_model_a if electrode == 'anode' else self.LAM_model_c
+                if not LAM_model:
+                    continue
+                for i in range(len(LAM_model.electrode.active_material)):
+                    self.global_storage_order[f'eps_s_{domain}{i}_avg'] = {
+                        'fnc': functools.partial(self.get_eps_s_avg,electrode,index=i),
+                        'header': f'eps_s_{domain}{i} [%]'
                     }
-                    self.global_storage_order[f'sigma_h_a{i}_avg'] = {
-                        'fnc': functools.partial(self.get_hydrostatic_stress,'anode',index=i),
-                        'header': f'sigma_h_a{i} [Pa]'
-                    }
-            if self.cell.positive_electrode.LAM:
-                for i in range(self.number_of_cathode_materials):
-                    self.global_storage_order[f'eps_s_c{i}_avg'] = {
-                        'fnc': functools.partial(self.get_eps_s_avg,'cathode',index=i),
-                        'header': f'eps_s_c{i} [%]'
-                    }
-                    self.global_storage_order[f'sigma_h_c{i}_avg'] = {
-                        'fnc': functools.partial(self.get_hydrostatic_stress,'cathode',index=i),
-                        'header': f'sigma_h_c{i} [Pa]'
+                    self.global_storage_order[f'sigma_h_{domain}{i}_avg'] = {
+                        'fnc': functools.partial(self.get_hydrostatic_stress,electrode,index=i),
+                        'header': f'sigma_h_{domain}{i} [Pa]'
                     }
 
-        # Additional internal variables. Electric current density.
+        # Additional internal variables.
         # self.internal_storage_order.append(['electric_current', 'vector'])
         # self.internal_storage_order.append(['ionic_current', 'vector'])
         # self.internal_storage_order.extend(['q_ohmic_e', 'q_ohmic_s'])
@@ -1095,7 +1089,7 @@ class Problem:
 
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/self.negativeCC.sigma
+            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/assemble(1*d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1103,7 +1097,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/self.positiveCC.sigma 
+            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/assemble(1*d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1315,7 +1309,7 @@ class Problem:
         
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/self.negativeCC.sigma
+            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/assemble(1*d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_e_a, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1323,7 +1317,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/self.positiveCC.sigma 
+            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/assemble(1*d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_e_c, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1454,9 +1448,9 @@ class Problem:
         timer = Timer('Explicit Processing')
         try:
             if self.model_options.solve_LAM:
-                for electrode, LAM_model in zip(['anode','cathode'],[self.LAM_model_a, self.LAM_model_c]):
+                for LAM_model in [self.LAM_model_a, self.LAM_model_c]:
                     if LAM_model:
-                        LAM_model.update_eps_s(self)                
+                        LAM_model.update_eps_s(self)           
         except Exception as e:
             timer.stop()
             return e
@@ -1644,17 +1638,14 @@ class Problem:
            self.i_app.assign(i/self.Q)
 
     def exit(self, errorcode):
-        self.fom2rom['results']['time']    = self.WH.global_var_arrays[0].copy()
-        v_index = [i+1 for i,v in enumerate(self.WH.global_vars.keys()) if v=='voltage'][0]
-        self.fom2rom['results']['voltage'] = self.WH.global_var_arrays[v_index].copy()
+        self.fom2rom['results']['time']    = self.WH.get_global_variable('time').copy()
+        self.fom2rom['results']['voltage'] = self.WH.get_global_variable('voltage').copy()
         self.WH.write_globals(self.model_options.clean_on_exit)
         if self.c_s_implicit_coupling:
             for i, _ in enumerate(self.c_s_surf_1_anode):
-                assign(self.c_s_surf_1_anode[i], project(
-                    self.SGM.c_s_surf(self.f_1, 'anode')[i]))
+                assign(self.c_s_surf_1_anode[i], project(self.SGM.c_s_surf(self.f_1, 'anode')[i]))
             for i, _ in enumerate(self.c_s_surf_1_cathode):
-                assign(self.c_s_surf_1_cathode[i], project(
-                    self.SGM.c_s_surf(self.f_1, 'cathode')[i]))
+                assign(self.c_s_surf_1_cathode[i], project(self.SGM.c_s_surf(self.f_1, 'cathode')[i]))
         return errorcode
 
 
