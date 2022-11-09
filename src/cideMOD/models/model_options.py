@@ -24,12 +24,14 @@ class ModelOptions(BaseModel):
 
     :param mode: Simulation mode, default "P2D" 
     :type mode: str
-    :param solve_thermal: Wether to solve thermal problem or not, default False 
+    :param solve_thermal: Whether to solve thermal problem or not, default False 
     :type solve_thermal: bool
-    :param solve_mechanic: Wether to solve mechanic problem or not, default False 
+    :param solve_mechanic: Whether to solve mechanic problem or not, default False 
     :type solve_mechanic: bool
-    :param solve_SEI: Wether to solve SEI problem or not, default False 
+    :param solve_SEI: Whether to solve SEI problem or not, default False 
     :type solve_SEI: bool
+    :param solve_LAM: Whether to solve LAM problem or not, default False 
+    :type solve_LAM: bool
     :param N_x: Discretization in x direciton, default 30 
     :type N_x: int
     :param N_y: Discretization in y direciton, default 10 
@@ -46,7 +48,7 @@ class ModelOptions(BaseModel):
     :type particle_order: int
     :param time_scheme: Time discretization scheme, default "euler_implicit" 
     :type time_scheme: str
-    :param clean_on_exit: Wether to clean from memory saved data at the end of the solve cycle or not, default True 
+    :param clean_on_exit: Whether to clean from memory saved data at the end of the solve cycle or not, default True 
     :type clean_on_exit: bool
     :return: ModelOptions instance
     :rtype: ModelOptions
@@ -55,6 +57,7 @@ class ModelOptions(BaseModel):
     solve_thermal: bool = False
     solve_mechanic: bool = False
     solve_SEI: bool = False
+    solve_LAM: bool = False
     N_x: int = 30
     N_y: int = 10
     N_z: int = 10

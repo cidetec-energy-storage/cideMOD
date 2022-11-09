@@ -116,6 +116,8 @@ class CSI:
             if data_path is None:
                 data_path = Path(cell_data).parent
             cell_data = Path(cell_data).name
+        else:
+            assert data_path is not None, 'data_path must be provided'
         return CellParser(cell_data, data_path)
 
     def read_test_plan(self, test_plan:Union[dict,str]=None):

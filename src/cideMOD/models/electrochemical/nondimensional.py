@@ -208,25 +208,25 @@ class ElectrochemicalModel(BaseModel):
         if j_li:
             weak_form += self.sigma_ref/domain.sigma * j_li*test*dx
         if lagrange_multiplier and dS:
-            weak_form += self.sigma_ref/domain.sigma * self.phi_s_interface(lagrange_multiplier, phi_s_test = test, dS=dS)
+            weak_form += self.phi_s_interface(lagrange_multiplier, phi_s_test = test, dS=dS, eq_scaling = self.sigma_ref/domain.sigma)
         return weak_form
 
     def phi_s_conductor_equation(self, domain, phi_s_cc, test, dx, lagrange_multiplier=None, dS=None):
         sigma_ratio = self.sigma_ref/self.sigma_cc_ref
         weak_form = domain.sigma * (sigma_ratio / (self.delta_sigma * self.sigma_ref)) * inner(grad(phi_s_cc), grad(test)) * dx(metadata={"quadrature_degree":0})
         if lagrange_multiplier and dS:
-            weak_form -= sigma_ratio*self.phi_s_interface(lagrange_multiplier, phi_s_cc_test = test, dS=dS)
+            weak_form -= self.phi_s_interface(lagrange_multiplier, phi_s_cc_test = test, dS=dS, eq_scaling = sigma_ratio)
         return weak_form
 
     def phi_s_bc(self, i_app, test, ds, area_ratio=1, eq_scaling=1):
         sigma_ratio = self.sigma_ref/self.sigma_cc_ref
         return sigma_ratio*eq_scaling*area_ratio*i_app*test*ds
 
-    def phi_s_interface(self, lagrange_multiplier, dS, phi_s_test = None, phi_s_cc_test=None):
+    def phi_s_interface(self, lagrange_multiplier, dS, phi_s_test = None, phi_s_cc_test=None, eq_scaling = 1):
         if phi_s_test:
-            interface_bc = lagrange_multiplier(dS.metadata()['direction'])*phi_s_test(dS.metadata()['direction'])*dS
+            interface_bc = eq_scaling*lagrange_multiplier(dS.metadata()['direction'])*phi_s_test(dS.metadata()['direction'])*dS
         elif phi_s_cc_test:
-             interface_bc = lagrange_multiplier(dS.metadata()['direction'])*phi_s_cc_test(dS.metadata()['direction'])*dS
+             interface_bc = eq_scaling*lagrange_multiplier(dS.metadata()['direction'])*phi_s_cc_test(dS.metadata()['direction'])*dS
         return  interface_bc
     
     def phi_s_continuity(self, phi_s_electrode, dS_el, phi_s_cc, lm_test, dS_cc):

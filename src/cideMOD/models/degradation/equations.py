@@ -24,22 +24,115 @@ import numpy
 from numpy.polynomial.legendre import *
 
 from cideMOD.numerics.polynomials import Lagrange
+from cideMOD.helpers.miscellaneous import project_onto_subdomains
 from numpy.polynomial.polynomial import *
 from ufl.operators import exp, sinh
 
 __all__= [
     "SEI",
+    "LAM"
 ]
 
+class LAM:
+    r"""
+    Loss of Active Material model from [1]_ and [2]_, compute the lost of active material due to particle cracking driven by stresses.
+
+    Notes
+    -----
+    ..note:: 
+        This model assumes that between cycles, the particle reach a steady state without stress. :math:`\sigma_{h,min} = 0`.
+
+    References
+    ----------
+    .. [1] X. Zhang, W. Shyy & A. M. Sastry (2007) Numerical Simulation of Intercalation-Induced Stress in 
+           Li-Ion Battery Electrode Particles. Journal of Electrochemical Society. 154 A910
+
+    .. [2] J. M. Reniers, G. Mulder & D. A. Howey (2019) Review and Performance Comparison of Mechanical-Chemical 
+           Degradation Models for Lithium-Ion Batteries. Journal of Electrochemical Society. 166 A3189
+    """
+    def __init__(self, tag):
+        assert tag in ['anode', 'cathode']
+        self.tag = tag
+        self.LAM = None
+
+    def setup(self, problem):
+        self.electrode = getattr(problem, self.tag)
+        self.LAM = self.electrode.LAM
+
+        # Compute eps_s variation
+        if problem.c_s_implicit_coupling:
+            c_s_r_average = problem.SGM.c_s_r_average(problem.f_1, self.tag)
+            c_s_surf = problem.SGM.c_s_surf(problem.f_1, self.tag)
+        else:
+            if self.tag == 'anode':
+                c_s_surf = problem.c_s_surf_1_anode
+                self.particle_model = problem.anode_particle_model
+                self.electrode_dofs = problem.anode_dofs
+            else:
+                c_s_surf = problem.c_s_surf_1_cathode
+                self.particle_model = problem.cathode_particle_model
+                self.electrode_dofs = problem.cathode_dofs
+            self.c_s_r_average = c_s_r_average = [Function(problem.V) for _ in self.electrode.active_material]
+
+        # if 'sigma_h' in problem.f_1._fields:
+        #     self.sigma_h = problem.f_1._asdict()['sigma_h']
+        self.sigma_h = self.hydrostatic_stress(c_s_r_average, c_s_surf)
+
+        self.delta_eps_s = self.eps_s_variation(self.sigma_h, problem.DT.delta_t)
+        
+    def eps_s_variation(self, sigma_h, delta_t):
+        delta_eps_s = []
+        for i, am in enumerate(self.electrode.active_material):
+            value = 0
+            if self.LAM.model == 'stress': 
+                sigma_h_am = conditional(gt(sigma_h[i],0), sigma_h[i], Constant(0.)) # hydrostatic compressive stress makes no contribution
+                value -= delta_t* self.LAM.beta * (sigma_h_am/am.critical_stress)**self.LAM.m
+            delta_eps_s.append(value)
+        return delta_eps_s
+
+    def approximation(self, dx):
+        delta_eps_s = []
+        for i, am in enumerate(self.electrode.active_material):
+            value = 0
+            if self.LAM.model == 'stress':
+                value = assemble(self.delta_eps_s[i]*dx)
+            delta_eps_s.append(value)
+        return delta_eps_s
+
+    def hydrostatic_stress(self, c_s_r_average, c_s):
+        sigma_h = []
+        for i, am in enumerate(self.electrode.active_material):
+            sigma_h.append( 2/9*am.omega*am.young/(1-am.poisson)*(3*c_s_r_average[i] - c_s[i]) )
+        return sigma_h
+
+    def update_eps_s(self, problem):
+        for i, delta_eps_s_am in enumerate(self.delta_eps_s):
+            eps_s_am = self.electrode.active_material[i].eps_s
+            eps_s_am.assign(project(eps_s_am + delta_eps_s_am, V = problem.V))
+            # eps_s_am.assign(project_onto_subdomains({self.tag:eps_s_am + delta_eps_s_am}, problem, V = problem.V_0))
+
+    def _update_c_s_r_average(self):
+        """
+        Once the particle models problem are solved the macroscopic model needs to be updated.
+        This function update the R-average concentration on the particles.
+        """
+        c_s_r_average_array = self.particle_model.get_average_c_s()
+        for i in range(len(self.electrode.active_material)):
+            self.c_s_r_average[i].vector()[self.electrode_dofs] = c_s_r_average_array[:, i]
+
+    def __bool__(self):
+        return bool(self.LAM)
+
+
 class SEI:
-    """SEI (Solid-Electrolyte Interphase) growth model limited by solvent diffusion through the SEI.
+    """
+    SEI (Solid-Electrolyte Interphase) growth model limited by solvent diffusion through the SEI.
 
     Args:
         order: Order of the inner spectral model for solvent diffusion, default is 2.
 
     References:
         1: Safari et al. - 2009 - Multimodal Physics-Based Aging Model for Life Prediction of Li-Ion Batteries
-        
     """
     def __init__(self, tag, order=2):
         assert tag in ['anode','cathode']

@@ -251,14 +251,24 @@ class Problem:
         _print(' - Initializing state - Done ')
 
     def _build_extra_models(self):
+        # SEI models
         self.SEI_model_a = SEI('anode')
         self.SEI_model_c = SEI('cathode')
+        # LAM models
+        self.LAM_model_a = LAM('anode')
+        self.LAM_model_c = LAM('cathode')
+        # Mechanical model
         self.mechanics = mechanical_model(self.cell)
 
     def _setup_extra_models(self):
+        # SEI models
         if self.model_options.solve_SEI:
             self.SEI_model_a.setup(self)
             self.SEI_model_c.setup(self)
+        # LAM models
+        if self.model_options.solve_LAM:
+            self.LAM_model_a.setup(self)
+            self.LAM_model_c.setup(self)
 
     def setup(self, mesh_engine=None):
         if not 'mesher' in self.__dict__:
@@ -297,7 +307,8 @@ class Problem:
             get_mesh_info(self, results_label)
 
         # Store spectral method pre-processed matrices for 'c_s' (and 'c_EC' if SEI model is solved)
-        get_spectral_info(self)
+        if self.c_s_implicit_coupling:
+            get_spectral_info(self)
 
         _print(' - Build cell parameters - Done ')
 
@@ -443,6 +454,22 @@ class Problem:
                     }
                     self.internal_storage_order.extend([f'c_EC_0_{domain}{k}', f'delta_sei_{domain}{k}', f'j_sei_{domain}{k}'])
 
+        if self.model_options.solve_LAM:
+            for electrode in ['anode', 'cathode']:
+                domain = electrode[0]
+                LAM_model = self.LAM_model_a if electrode == 'anode' else self.LAM_model_c
+                if not LAM_model:
+                    continue
+                for i in range(len(LAM_model.electrode.active_material)):
+                    self.global_storage_order[f'eps_s_{domain}{i}_avg'] = {
+                        'fnc': functools.partial(self.get_eps_s_avg,electrode,index=i),
+                        'header': f'eps_s_{domain}{i} [%]'
+                    }
+                    self.global_storage_order[f'sigma_h_{domain}{i}_avg'] = {
+                        'fnc': functools.partial(self.get_hydrostatic_stress,electrode,index=i),
+                        'header': f'sigma_h_{domain}{i} [Pa]'
+                    }
+
         # Additional internal variables.
         # self.internal_storage_order.append(['electric_current', 'vector'])
         # self.internal_storage_order.append(['ionic_current', 'vector'])
@@ -572,7 +599,27 @@ class Problem:
         
         self.eigenstrain = Function(self.V)
 
+        # Explicit processing functions
+        self._build_explicit_functions()
+
         timer.stop()
+
+    def _build_explicit_functions(self):
+        """This method define functions for explicit processing"""
+        elements, functions = [], []
+        if self.model_options.solve_LAM:
+            if self.cell.positive_electrode.LAM:
+                elements += [ f'eps_s_a{i}' for i in range(self.number_of_anode_materials)]
+                functions += [ Function(self.V) for i in range(self.number_of_anode_materials)]
+            if self.cell.negative_electrode.LAM:
+                elements += [ f'eps_s_c{i}' for i in range(self.number_of_cathode_materials)]
+                functions += [ Function(self.V) for i in range(self.number_of_cathode_materials)]
+
+        self.FE_explicit = namedtuple('Explicit_Finite_Element_Function',' '.join(elements))
+        self.f_ex = self.FE_explicit._make(functions)
+
+        for i, name in enumerate(self.f_ex._fields):
+            self.f_ex[i].rename(name, 'a Function')
 
     def build_implicit_sgm(self):
         # Build SGM with Implicit Coupling
@@ -590,14 +637,14 @@ class Problem:
         self.build_electrode_dof_mask()
         if self.model_options.solve_mechanic:
             self.anode_particle_model = StressEnhancedIntercalation(
-                active_material=self.anode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
+                active_material=self.anode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
             self.cathode_particle_model = StressEnhancedIntercalation(
-                active_material=self.cathode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
+                active_material=self.cathode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
         else:
-            self.anode_particle_model = SpectralLegendreModel(
-                active_material=self.anode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
-            self.cathode_particle_model = SpectralLegendreModel(
-                active_material=self.cathode.active_material, alpha=self.alpha, F=self.F, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
+            self.anode_particle_model = StandardParticleIntercalation(
+                active_material=self.anode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
+            self.cathode_particle_model = StandardParticleIntercalation(
+                active_material=self.cathode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
         timer.stop()
 
     def build_electrode_dof_mask(self):
@@ -780,15 +827,16 @@ class Problem:
                 errorcode = self.adaptive_timestep(i_app=i_app_t, v_app=v_app_t, max_step=max_step, min_step=min_step, t_max=t_f, triggers= triggers, initialize=(it==1))
             else:
                 errorcode = self.constant_timestep(i_app=i_app_t, v_app=v_app_t, timestep=min_step, triggers=triggers, initialize=(it==1))
+            errorcode_ex = self.explicit_processing()
             _print('Voltage: {v:.4f}\tCurrent: {i:.2e}\tTime: {time}\033[K'.format(
                 time=format_time(self.state['t']),
                 **self.state),end='\r')
             
-            if errorcode != 0:
+            if errorcode != 0 or errorcode_ex != 0:
                 timer.stop()
                 if store_fom:
                     self.WH.crop_results() # Crop results
-                return self.exit(errorcode)
+                return self.exit(errorcode if errorcode != 0 else errorcode_ex)
         _print(f"Reached max time {self.time:.2f} \033[K\n")
         timer.stop()
         return self.exit(errorcode)
@@ -1008,6 +1056,9 @@ class Problem:
         self.cathode_particle_model.solve()
 
         self.update_c_s_surf(relaxation=relaxation)
+        if self.model_options.solve_LAM:
+            self.LAM_model_a._update_c_s_r_average()
+            self.LAM_model_c._update_c_s_r_average()
         timer.stop()
 
     def build_coupled_variables(self):
@@ -1067,7 +1118,7 @@ class Problem:
 
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = self.anode.sigma/self.negativeCC.sigma
+            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/assemble(1*d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1075,7 +1126,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = self.cathode.sigma/self.positiveCC.sigma 
+            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/assemble(1*d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1297,7 +1348,7 @@ class Problem:
         
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = self.anode.sigma/self.negativeCC.sigma
+            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/assemble(1*d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1305,7 +1356,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = self.cathode.sigma/self.positiveCC.sigma 
+            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/assemble(1*d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1421,6 +1472,19 @@ class Problem:
         self.anode_particle_model.setup()
         self.cathode_particle_model.setup()
 
+    def explicit_processing(self):
+        timer = Timer('Explicit Processing')
+        try:
+            if self.model_options.solve_LAM:
+                for LAM_model in [self.LAM_model_a, self.LAM_model_c]:
+                    if LAM_model:
+                        LAM_model.update_eps_s(self)           
+        except Exception as e:
+            timer.stop()
+            return e
+        timer.stop()
+        return 0
+
     def calculate_total_lithium(self):
         internal_li = 0
         d = self.mesher.get_measures()
@@ -1507,7 +1571,7 @@ class Problem:
         return x.temp.vector().max() 
 
     def get_time_filter_error(self):
-        t=Timer('TF Error')
+        timer=Timer('TF Error')
         error = []
         for index in range(len(self.u_2.block_split())):
             try:
@@ -1518,9 +1582,10 @@ class Problem:
                     error.append(self.anode_particle_model.get_time_filter_error(self.nu, self.tau))
                     error.append(self.cathode_particle_model.get_time_filter_error(self.nu, self.tau))
             except Exception as e:
+                timer.stop()
                 raise e
         error.append(self.u_post_filter.block_vector().norm('linf'))
-        t.stop()
+        timer.stop()
         return error
 
     def get_current(self, x=None):
@@ -1546,6 +1611,38 @@ class Problem:
         X_a = [max(project(x, self.V).vector()[self.P1_map.domain_dof_map['anode']]) for x in self.x_a]
         return [X_a, X_c]
 
+    def get_hydrostatic_stress(self, electrode, index = None):
+        if electrode == 'anode':
+            sigma_h = self.LAM_model_a.sigma_h
+            dx = self.mesher.dx_a
+        elif electrode == 'cathode':
+            sigma_h = self.LAM_model_c.sigma_h
+            dx = self.mesher.dx_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(sigma_h))
+        elif isinstance(index, int):
+            index = [index]
+        V_electrode = assemble(1*dx)
+        return [assemble(sigma_h_am*dx)/V_electrode for i, sigma_h_am in enumerate(sigma_h) if i in index]
+
+    def get_eps_s_avg(self, electrode, index = None):
+        if electrode == 'anode':
+            materials = self.anode.active_material
+            dx = self.mesher.dx_a
+        elif electrode == 'cathode':
+            materials = self.cathode.active_material
+            dx = self.mesher.dx_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(materials))
+        elif isinstance(index, int):
+            index = [index]
+        V_electrode = assemble(1*dx)
+        return [100*assemble(am.eps_s*dx)/V_electrode for i, am in enumerate(materials) if i in index]
+
     def get_eps_s_approx_a(self):
         return 100 - assemble(self.anode.active_material[0].eps_s*self.mesher.dx_a)/self.cell.negative_electrode.active_materials[0].volumeFraction * 100
 
@@ -1561,7 +1658,7 @@ class Problem:
                 c_s_index = self.f_1._fields.index('c_s_0_{}{}'.format('c', k))
                 for i in range(self.SGM.order):
                     if i==0:
-                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]/self.mesher.volumes.x_c
+                        c = assemble((self.f_1[c_s_index]-sum([self.f_1[c_s_index+ind] for ind in range(1,self.SGM.order)]))*self.mesher.dx_c)*leg_int[i]/self.mesher.volumes.x_c
                     else:
                         c = assemble(self.f_1[c_s_index+i]*self.mesher.dx_c)*leg_int[i]/self.mesher.volumes.x_c
                     x_c[k]+=c
@@ -1595,17 +1692,14 @@ class Problem:
            self.i_app.assign(i/self.Q)
 
     def exit(self, errorcode):
-        self.fom2rom['results']['time']    = self.WH.global_var_arrays[0].copy()
-        v_index = [i+1 for i,v in enumerate(self.WH.global_vars.keys()) if v=='voltage'][0]
-        self.fom2rom['results']['voltage'] = self.WH.global_var_arrays[v_index].copy()
+        self.fom2rom['results']['time']    = self.WH.get_global_variable('time').copy()
+        self.fom2rom['results']['voltage'] = self.WH.get_global_variable('voltage').copy()
         self.WH.write_globals(self.model_options.clean_on_exit)
         if self.c_s_implicit_coupling:
             for i, _ in enumerate(self.c_s_surf_1_anode):
-                assign(self.c_s_surf_1_anode[i], project(
-                    self.SGM.c_s_surf(self.f_1, 'anode')[i]))
+                assign(self.c_s_surf_1_anode[i], project(self.SGM.c_s_surf(self.f_1, 'anode')[i]))
             for i, _ in enumerate(self.c_s_surf_1_cathode):
-                assign(self.c_s_surf_1_cathode[i], project(
-                    self.SGM.c_s_surf(self.f_1, 'cathode')[i]))
+                assign(self.c_s_surf_1_cathode[i], project(self.SGM.c_s_surf(self.f_1, 'cathode')[i]))
         return errorcode
 
 
@@ -1884,9 +1978,13 @@ class NDProblem(Problem):
         _print(' - Initializing state - Done ')
 
     def _build_extra_models(self):
-        #Extra models
+        # SEI Models
         self.SEI_model_a = self.nd_model.SEI(self.nd_model, 'anode')
         self.SEI_model_c = self.nd_model.SEI(self.nd_model, 'cathode')
+        # LAM Models
+        self.LAM_model_a = self.nd_model.LAM('anode')
+        self.LAM_model_c = self.nd_model.LAM('cathode')
+        # Mechanical Models
         self.mechanics = mechanical_model(self.cell)
         # if self.cell.electrolyte.type != 'liquid' and self.model_options.solve_mechanic:
         #     self.c_s_implicit_coupling = False
@@ -2294,3 +2392,39 @@ class NDProblem(Problem):
             for k, am in enumerate(materials):
                 L_sei = assemble(self.f_1._asdict()[f'delta_sei_{domain}{k}']*dx)/volume * delta_sei_ref[k]
                 self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
+
+    def get_hydrostatic_stress(self, electrode, index = None):
+        if electrode == 'anode':
+            E_ref = self.nd_model.E_a_ref
+            sigma_h = self.LAM_model_a.sigma_h
+            dx = self.mesher.dx_a
+            volume = self.mesher.volumes.x_a
+        elif electrode == 'cathode':
+            E_ref = self.nd_model.E_c_ref
+            sigma_h = self.LAM_model_c.sigma_h
+            dx = self.mesher.dx_c
+            volume = self.mesher.volumes.x_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(sigma_h))
+        elif isinstance(index, int):
+            index = [index]
+        return [E_ref_am*assemble(sigma_h_am*dx)/volume for i, (E_ref_am, sigma_h_am) in enumerate(zip(E_ref, sigma_h)) if i in index]
+
+    def get_eps_s_avg(self, electrode, index = None):
+        if electrode == 'anode':
+            materials = self.anode.active_material
+            dx = self.mesher.dx_a
+            volume = self.mesher.volumes.x_a
+        elif electrode == 'cathode':
+            materials = self.cathode.active_material
+            dx = self.mesher.dx_c
+            volume = self.mesher.volumes.x_c
+        else:
+            raise ValueError(f"Unrecognized electrode '{electrode}'. Available options: 'anode' or 'cathode'")
+        if index is None:
+            index = range(len(materials))
+        elif isinstance(index, int):
+            index = [index]
+        return [100*assemble(am.eps_s*dx)/volume for i, am in enumerate(materials) if i in index]

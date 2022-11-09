@@ -25,6 +25,7 @@ class BaseModel:
         self.solve_thermal = model_options.solve_thermal
         self.solve_mechanic = model_options.solve_mechanic
         self.solve_sei = model_options.solve_SEI
+        self.solve_lam = model_options.solve_LAM
         self.calc_dimensionless_parameters()
 
     def dimensional_variables(self, f_1):
@@ -46,6 +47,9 @@ class BaseModel:
         if self.solve_sei:
             scaled_dict_sei = self._scale_sei_variables(variables_dict)
             scaled_dict = {**scaled_dict, **scaled_dict_sei}
+        if self.solve_lam:
+            scaled_dict_lam = self._scale_lam_variables(variables_dict)
+            scaled_dict = {**scaled_dict, **scaled_dict_lam}
         return scaled_dict
 
     def unscale_variables(self, variables_dict):
@@ -59,6 +63,9 @@ class BaseModel:
         if self.solve_sei:
             unscaled_dict_sei = self._unscale_sei_variables(variables_dict)
             unscaled_dict = {**unscaled_dict, **unscaled_dict_sei}
+        if self.solve_lam:
+            unscaled_dict_lam = self._unscale_lam_variables(variables_dict)
+            unscaled_dict = {**unscaled_dict, **unscaled_dict_lam}
         return unscaled_dict
 
     def _parse_cell_value(self, value):
@@ -76,6 +83,8 @@ class BaseModel:
             self._calc_mechanic_dimensionless_parameters()
         if self.solve_sei:
             self._calc_sei_dimensionless_parameters()
+        if self.solve_lam:
+            self._calc_lam_dimensionless_parameters()
 
     def material_parameters(self, material):
         pars = self._material_electrochemical_parameters(material)
@@ -88,5 +97,8 @@ class BaseModel:
         if self.solve_sei:
             sei = self._material_sei_parameters(material)
             pars = {**pars, **sei}
+        if self.solve_lam:
+            lam = self._material_lam_parameters(material)
+            pars = {**pars, **lam}
         return pars
 

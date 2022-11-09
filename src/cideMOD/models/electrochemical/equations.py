@@ -103,9 +103,9 @@ def phi_s_equation(phi_s, test, dx, j_Li, sigma, domain_grad=None, L=None, scale
             F_phi_s += scale_factor*L * j_Li*test*dx
         if lagrange_multiplier and dS and (phi_s_test or phi_s_cc_test):
             if phi_s_test:
-                F_phi_s += scale_factor*phi_s_interface(lagrange_multiplier, dS, phi_s_test=phi_s_test)
+                F_phi_s += phi_s_interface(lagrange_multiplier, dS, phi_s_test=phi_s_test, scale_factor = scale_factor)
             elif phi_s_cc_test:
-                F_phi_s -= scale_factor*phi_s_interface(lagrange_multiplier, dS, phi_s_cc_test=phi_s_cc_test)
+                F_phi_s -= phi_s_interface(lagrange_multiplier, dS, phi_s_cc_test=phi_s_cc_test, scale_factor = scale_factor)
             else:
                 raise Exception("Invalid interface condition")
         return F_phi_s
@@ -115,11 +115,11 @@ def phi_s_equation(phi_s, test, dx, j_Li, sigma, domain_grad=None, L=None, scale
 def phi_s_bc(I_app, test, ds, scale_factor=1):
     return scale_factor*I_app * test * ds
 
-def phi_s_interface(lagrange_multiplier, dS, phi_s_test = None, phi_s_cc_test=None):
+def phi_s_interface(lagrange_multiplier, dS, phi_s_test = None, phi_s_cc_test=None, scale_factor = 1):
     if phi_s_test:
-        interface_bc = lagrange_multiplier(dS.metadata()['direction'])*phi_s_test(dS.metadata()['direction'])*dS
+        interface_bc = scale_factor*lagrange_multiplier(dS.metadata()['direction'])*phi_s_test(dS.metadata()['direction'])*dS
     elif phi_s_cc_test:
-        interface_bc = lagrange_multiplier(dS.metadata()['direction'])*phi_s_cc_test(dS.metadata()['direction'])*dS
+        interface_bc = scale_factor*lagrange_multiplier(dS.metadata()['direction'])*phi_s_cc_test(dS.metadata()['direction'])*dS
     return  interface_bc
 
 def phi_s_continuity(phi_s_electrode, phi_s_cc, lm_test, dS_el, dS_cc):

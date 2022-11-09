@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from dolfin import Constant, FunctionSpace, Measure, exp, interpolate
+from dolfin import Constant, FunctionSpace, Measure, assemble, interpolate, project, exp, conditional, gt
 from multiphenics import assign
 
 import numpy
@@ -25,7 +25,90 @@ from numpy.polynomial.polynomial import *
 from cideMOD.helpers.config_parser import electrode
 from cideMOD.numerics.polynomials import Lagrange
 from cideMOD.models.base.base_nondimensional import BaseModel
+from cideMOD.models.degradation.equations import LAM as LAM_dim
 
+
+class LAM_Model(BaseModel):
+    r"""
+    Loss of Active Material model from [1]_ and [2]_, compute the lost of active material due to particle cracking driven by stresses.
+
+    Notes
+    -----
+    ..note:: 
+        This model assumes that between cycles, the particle reach a steady state without stress. :math:`\sigma_{h,min} = 0`.
+        It has been implemented only for explicit processing.
+
+    References
+    ----------
+    .. [1] X. Zhang, W. Shyy & A. M. Sastry (2007) Numerical Simulation of Intercalation-Induced Stress in 
+           Li-Ion Battery Electrode Particles. Journal of Electrochemical Society. 154 A910
+
+    .. [2] J. M. Reniers, G. Mulder & D. A. Howey (2019) Review and Performance Comparison of Mechanical-Chemical 
+           Degradation Models for Lithium-Ion Batteries. Journal of Electrochemical Society. 166 A3189
+    """
+    def _unscale_lam_variables(self, variables_dict):
+        return {}
+
+    def _scale_lam_variables(self, variables_dict):
+        return {}
+    
+    def _calc_lam_dimensionless_parameters(self):
+        if not self.solve_mechanic:
+            self.E_a_ref = [am.young for am in self.cell.negative_electrode.active_materials]
+            self.E_c_ref = [am.young for am in self.cell.positive_electrode.active_materials]
+
+    def _material_lam_parameters(self, material):
+        LAM = material.electrode.LAM
+        params = dict()
+        c_s_max = material.maximumConcentration if isinstance(material, electrode.active_material) else material.c_s_max
+        if LAM.model == "stress":
+            delta_stress_h = 2/9*material.omega*c_s_max/(1-material.poisson)
+            params['tau_lam'] = LAM.beta*self.t_c*(delta_stress_h*material.young/material.critical_stress)**LAM.m
+            if not self.solve_mechanic:
+                params['delta_stress_h'] = delta_stress_h
+        return params
+
+    class LAM(LAM_dim):
+        
+        def setup(self, problem):
+            self.nd_model = problem.nd_model
+            super().setup(problem)
+
+        def eps_s_variation(self, sigma_h, delta_t):
+            delta_eps_s = []
+            for i, am in enumerate(self.electrode.active_material):
+                value = 0
+                if self.LAM.model == 'stress': 
+                    tau_lam = self.nd_model.material_parameters(am)['tau_lam']
+                    sigma_h_am = conditional(gt(sigma_h[i],0), sigma_h[i], Constant(0.)) # hydrostatic compressive stress makes no contribution
+                    value -= delta_t*tau_lam*sigma_h_am**self.LAM.m
+                delta_eps_s.append(value)
+            return delta_eps_s
+
+        def approximation(self, dx):
+            delta_eps_s = []
+            for i, am in enumerate(self.electrode.active_material):
+                value = 0
+                if self.LAM.model == 'stress':
+                    value = assemble(self.delta_eps_s[i]*dx)
+                delta_eps_s.append(value)
+            return delta_eps_s
+
+        def hydrostatic_stress(self, c_s_r_average, c_s):
+            E_ref = self.nd_model.E_a_ref if self.tag == 'anode' else self.nd_model.E_c_ref
+            sigma_h = []
+            for i, am in enumerate(self.electrode.active_material):
+                delta_stress_h = self.nd_model.material_parameters(am)['delta_stress_h']
+                sigma_h.append( delta_stress_h*am.young/E_ref[i]*(3*c_s_r_average[i] - c_s[i]) )
+            return sigma_h
+
+        def update_eps_s(self, problem):
+            for i, delta_eps_s_am in enumerate(self.delta_eps_s):
+                eps_s_am = self.electrode.active_material[i].eps_s
+                eps_s_am.assign(project(eps_s_am + delta_eps_s_am, V = problem.V))
+
+        def LAM_equations(self):
+            raise NotImplementedError("This model has been implemented only for explicit processing.")
 
 class SolventLimitedSEIModel(BaseModel):
 
