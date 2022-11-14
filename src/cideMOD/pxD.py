@@ -44,6 +44,12 @@ from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
 from cideMOD.helpers.extract_fom_info import get_mesh_info, get_spectral_info, initialize_results, extend_results
 
+import logging
+set_log_active(True)
+set_log_level(logging.ERROR)
+logging.getLogger("FFC").setLevel(logging.ERROR)
+logging.getLogger("UFL").setLevel(logging.ERROR)
+
 # Activate this only for production
 # set_log_active(False)
 
