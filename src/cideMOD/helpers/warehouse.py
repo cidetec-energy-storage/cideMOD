@@ -217,7 +217,7 @@ class Warehouse:
                     data = concatenate((array(self.global_var_arrays[0])[:,newaxis],global_var_array), axis = 1)
                     fmt = ("%2.2f \t"+ "%1.8e \t"*n)
                     headers = "Time [s]\t{}".format(self.global_vars[key]['header'])
-                    self._save_txt_file(fname, data, fmt, headers)
+                    self._save_txt_file(fname, data, fmt, headers, clean)
 
                 # Write condensated
                 self._write_compiled_output()
@@ -230,9 +230,10 @@ class Warehouse:
             if clean:
                 self.global_variables(self.global_vars)
 
-    def _save_txt_file(self, fname, data, fmt, headers):
+    def _save_txt_file(self, fname, data, fmt, headers, clean=True):
         if os.path.exists(fname):
-            with open(fname,'ab') as f:
+            fmode = 'ab' if clean else 'wb'
+            with open(fname, fmode) as f:
                 savetxt(fname=f, X=data, fmt=fmt)        
         else:
             savetxt(fname=fname, X=data, header=headers, fmt=fmt)

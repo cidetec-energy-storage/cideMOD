@@ -44,6 +44,12 @@ from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
 from cideMOD.helpers.extract_fom_info import get_mesh_info, get_spectral_info, initialize_results, extend_results
 
+import logging
+set_log_active(True)
+set_log_level(logging.ERROR)
+logging.getLogger("FFC").setLevel(logging.ERROR)
+logging.getLogger("UFL").setLevel(logging.ERROR)
+
 # Activate this only for production
 # set_log_active(False)
 
@@ -275,6 +281,9 @@ class Problem:
         if not 'mesher' in self.__dict__:
             self.mesh(mesh_engine)
         timer = Timer('Problem Setup')
+
+        #set_log_level(LogLevel.WARNING)
+        set_log_level(LogLevel.ERROR)
 
         self._build_extra_models()        
         self.use_options = False
@@ -1532,13 +1541,13 @@ class Problem:
                     continue
                 domain = 'a'
                 materials = self.anode.active_material
-                volume = self.mesher.volumes.x_a*am.electrode.L * self.cell.area
+                volume = self.mesher.volumes.x_a*self.anode.L * self.cell.area
             else:
                 if not self.SEI_model_c:
                     continue
                 domain = 'c'
                 materials = self.cathode.active_material
-                volume = self.mesher.volumes.x_c*am.electrode.L * self.cell.area
+                volume = self.mesher.volumes.x_c*self.cathode.L * self.cell.area
 
             # Q_sei
             for k, am in enumerate(materials):

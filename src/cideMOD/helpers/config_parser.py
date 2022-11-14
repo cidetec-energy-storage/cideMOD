@@ -312,8 +312,8 @@ class electrolyte(parser):
             self.ionicConductivity_Tref = 298.15
 
 class CellParser:
-    def __init__(self, params, data_path, log=True):
-        self.log =log
+    def __init__(self, params, data_path, log=False):
+        self.log = log
         assert isinstance(params, (dict, str)), "params argument must be dict or str"
         self.data_path = data_path
         if isinstance(params, dict):
@@ -406,9 +406,9 @@ class CellParser:
 
         self.capacity = min(self.negative_electrode.capacity() or 9e99, self.positive_electrode.capacity() or 9e99)
         if self.log:
-            _print('Capacidad Anodo: {}'.format(self.negative_electrode.capacity()))
-            _print('Capacidad Catodo: {}'.format(self.positive_electrode.capacity()))
-            _print('Capacidad Celda: {}'.format(self.capacity))
+            _print(f'Negative electrode capacity: {self.negative_electrode.capacity():.6f}')
+            _print(f'Positive electrode capacity: {self.positive_electrode.capacity():.6f}')
+            _print(f'Cell capacity: {self.capacity:.6f}')
 
         self.area = min(self.negative_electrode.area or 9e99, self.positive_electrode.area or 9e99)
 

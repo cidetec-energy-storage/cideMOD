@@ -15,8 +15,8 @@
         "thickness": {"unit": "m", "value": 88.0e-06},
         "area": {"unit": "m^2", "value": 0.067718},
         "porosity": {"unit": "-", "value": 0.485},
-        "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 49, "effective": true, "notas": "Ramadass (2004)"},
+        "bruggeman": {"unit": "-", "value": 1.5},
+        "electronicConductivity": {"unit": "S/m", "value": 100, "effective": true, "notas": "Ramadass (2004)"},
         "active_materials": 
         [
 	      {
@@ -56,15 +56,15 @@
         "height": {"unit": "m", "value": 0.26},
         "width": {"unit": "m", "value": 0.26},
         "porosity": {"unit": "-", "value": 0.55},
-        "bruggeman": {"unit": "-", "value": 4}
+        "bruggeman": {"unit": "-", "value": 1.5}
     },
     "positiveElectrode": {
         "name": "LCO",
         "thickness": {"unit": "m", "value": 80e-06},
         "area": {"unit": "m^2", "value": 0.0677},
         "porosity": {"unit": "-", "value": 0.385},
-        "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 59, "effective": true, "notas":"Ramadass (2004)"},
+        "bruggeman": {"unit": "-", "value": 1.5},
+        "electronicConductivity": {"unit": "S/m", "value": 100, "effective": true, "notas":"Ramadass (2004)"},
         "active_materials": 
         [
 	      {
@@ -89,16 +89,13 @@
         "name": "LiPF6",
         "diffusionConstant": {
             "unit": "m^2/s",
-            "value": 7.5e-10,
-            "effective": false,
-            "correction":"bruggeman"
+            "value": 1e-9,
+            "effective": true
         },
         "ionicConductivity": {
             "unit": "S/m",
-            "value": "(4.1253e-4+5.007e-3*(c_e*1e-3)-4.7212e-3*(c_e*1e-3)**2+1.5094e-3*(c_e*1e-3)**3-1.6018e-4*(c_e*1e-3)**4)*100",
-            "effective": false,
-            "correction":"bruggeman",
-            "notas":"Cambiado a Ramadass (2004)"
+            "value": 10,
+            "effective": true
         },
         "transferenceNumber": {"unit": "-", "value": 0.363},
         "activityDependence": {
