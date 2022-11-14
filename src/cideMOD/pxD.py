@@ -276,6 +276,9 @@ class Problem:
             self.mesh(mesh_engine)
         timer = Timer('Problem Setup')
 
+        #set_log_level(LogLevel.WARNING)
+        set_log_level(LogLevel.ERROR)
+
         self._build_extra_models()        
         self.use_options = False
         _print('Building problem setup')
@@ -1532,13 +1535,13 @@ class Problem:
                     continue
                 domain = 'a'
                 materials = self.anode.active_material
-                volume = self.mesher.volumes.x_a*am.electrode.L * self.cell.area
+                volume = self.mesher.volumes.x_a*self.anode.L * self.cell.area
             else:
                 if not self.SEI_model_c:
                     continue
                 domain = 'c'
                 materials = self.cathode.active_material
-                volume = self.mesher.volumes.x_c*am.electrode.L * self.cell.area
+                volume = self.mesher.volumes.x_c*self.cathode.L * self.cell.area
 
             # Q_sei
             for k, am in enumerate(materials):
