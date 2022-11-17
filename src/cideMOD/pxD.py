@@ -22,6 +22,7 @@ from multiphenics import *
 import json
 import os
 import sys
+import logging
 import functools
 import numpy as np
 from collections import namedtuple
@@ -44,14 +45,13 @@ from cideMOD.numerics import solver_conf
 from cideMOD.numerics.time_scheme import TimeScheme
 from cideMOD.helpers.extract_fom_info import get_mesh_info, get_spectral_info, initialize_results, extend_results
 
-import logging
+# Activate this only for production
+# set_log_active(False)
+
 set_log_active(True)
 set_log_level(logging.ERROR)
 logging.getLogger("FFC").setLevel(logging.ERROR)
 logging.getLogger("UFL").setLevel(logging.ERROR)
-
-# Activate this only for production
-# set_log_active(False)
 
 comm = MPI.comm_world
 if MPI.size(comm) > 1:
@@ -281,9 +281,6 @@ class Problem:
         if not 'mesher' in self.__dict__:
             self.mesh(mesh_engine)
         timer = Timer('Problem Setup')
-
-        #set_log_level(LogLevel.WARNING)
-        set_log_level(LogLevel.ERROR)
 
         self._build_extra_models()        
         self.use_options = False
@@ -1124,7 +1121,7 @@ class Problem:
 
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/assemble(1*d.x_a)/self.negativeCC.sigma
+            sigma_ratio_a = self.get_avg(self.anode.sigma,d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1132,7 +1129,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/assemble(1*d.x_c)/self.positiveCC.sigma 
+            sigma_ratio_c = self.get_avg(self.cathode.sigma,d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1354,7 +1351,7 @@ class Problem:
         
         # phi_s
         if 'ncc' in self.cell.structure:
-            sigma_ratio_a = assemble(self.anode.sigma*d.x_a)/assemble(1*d.x_a)/self.negativeCC.sigma
+            sigma_ratio_a = self.get_avg(self.anode.sigma,d.x_a)/self.negativeCC.sigma
             F_phi_s_a = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_a, j_Li=self.j_Li_a_term.int, sigma=self.anode.sigma, domain_grad=self.anode.grad, L=self.anode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_a_ncc, phi_s_test=self.test.phi_s)
             F_phi_s_ncc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_ncc, j_Li=None, sigma=self.negativeCC.sigma, domain_grad=self.negativeCC.grad, L=self.negativeCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_ncc_a, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_a) 
         else:
@@ -1362,7 +1359,7 @@ class Problem:
             F_phi_s_ncc = 0
         
         if 'pcc' in self.cell.structure:
-            sigma_ratio_c = assemble(self.cathode.sigma*d.x_c)/assemble(1*d.x_c)/self.positiveCC.sigma 
+            sigma_ratio_c = self.get_avg(self.cathode.sigma,d.x_c)/self.positiveCC.sigma 
             F_phi_s_c = phi_s_equation(phi_s=self.f_1.phi_s, test=self.test.phi_s, dx=d.x_c, j_Li=self.j_Li_c_term.int, sigma=self.cathode.sigma, domain_grad=self.cathode.grad, L=self.cathode.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_c_pcc, phi_s_test=self.test.phi_s)
             F_phi_s_pcc = phi_s_equation(phi_s=self.f_1.phi_s_cc, test=self.test.phi_s_cc, dx=d.x_pcc, j_Li=None, sigma=self.positiveCC.sigma, domain_grad=self.positiveCC.grad, L=self.positiveCC.L, lagrange_multiplier=self.f_1.lm_phi_s, dS=d.S_pcc_c, phi_s_cc_test=self.test.phi_s_cc, scale_factor=sigma_ratio_c) 
             F_phi_bc_p = phi_s_bc(I_app = self.f_1.lm_app, test=self.test.phi_s_cc, ds = d.s_c, scale_factor=sigma_ratio_c)
@@ -1561,7 +1558,9 @@ class Problem:
                 self.SEI_avg_vars['L_sei'][electrode][k] = L_sei
 
     def get_avg(self, variable, domain:Union[Measure,str], integral_type = 'x'):
-        if isinstance(domain, Measure):
+        if isinstance(variable, (float,int)):
+            return variable
+        elif isinstance(domain, Measure):
             dx = domain
             volume = self.mesher.volumes[self.mesher.get_measures().index(dx)]
         else:
@@ -1712,120 +1711,6 @@ class Problem:
                 assign(self.c_s_surf_1_cathode[i], project(self.SGM.c_s_surf(self.f_1, 'cathode')[i]))
         return errorcode
 
-
-class StressProblem(Problem):
-
-    def calculate_thickness_change(self):
-        timer = Timer('Thickness Change')
-
-        d = self.mesher.get_measures()
-
-        # Thickness change due to thermal expansion
-        if self.model_options.solve_thermal:
-            F_dL_thermal = sum(
-                [(self.f_1.temp * self.T_ini) * self.thermal_expansion_rate * L * dx for L, dx in [
-                    (self.negativeCC.L, d.x_ncc),
-                    (self.anode.L, d.x_a),
-                    (self.separator.L, d.x_s),
-                    (self.cathode.L, d.x_c),
-                    (self.positiveCC.L, d.x_pcc)
-                ] if L]
-            )
-            dL_th = assemble(F_dL_thermal)
-        else:
-            dL_th = 0
-
-        # Thickness change due to lithium (de)intercalation
-        self.strain = self.calc_strain()
-
-        dL_int = assemble(self.strain*(self.anode.L or 0) *
-                          d.x_a + self.strain*(self.cathode.L or 0)*d.x_c)
-
-        timer.stop()
-
-        return dL_th, dL_int
-
-    def calc_strain(self):
-        d = self.mesher.get_measures()
-
-        if self.c_s_implicit_coupling:
-            c_avg_anode = self.SGM.get_average_c_s(
-                self.f_1, self.anode)
-            c_avg_cathode = self.SGM.get_average_c_s(
-                self.f_1, self.cathode)
-
-            dV = 0
-            for i, material in enumerate(self.anode.active_material):
-                dV += material.eps_s * material.omega * \
-                    (c_avg_anode[i] - material.c_s_ini)
-
-            for i, material in enumerate(self.cathode.active_material):
-                dV += material.eps_s * material.omega * \
-                    (c_avg_cathode[i] - material.c_s_ini)
-
-        else:
-            c_avg_anode = [Function(self.V)
-                           for material in self.anode.active_material]
-            c_avg_cathode = [Function(self.V)
-                             for material in self.cathode.active_material]
-
-            c_s_avg_anode = self.anode_particle_model.get_average_c_s()
-            c_s_avg_cathode = self.cathode_particle_model.get_average_c_s()
-
-            dV = 0
-            for i, material in enumerate(self.anode.active_material):
-                c_avg_anode[i].vector()[self.anode_dofs] = c_s_avg_anode[:, i]
-                dV += material.eps_s * material.omega * \
-                    (c_avg_anode[i] - material.c_s_ini)
-
-            for i, material in enumerate(self.cathode.active_material):
-                c_avg_cathode[i].vector(
-                )[self.cathode_dofs] = c_s_avg_cathode[:, i]
-                dV += material.eps_s * material.omega * \
-                    (c_avg_cathode[i] - material.c_s_ini)
-        if assemble(dV*d.x_a + dV*d.x_c) == 0:
-            dV += DOLFIN_EPS
-        return dV 
-
-    def calc_displacement(self):
-        d = self.mesher.get_measures()
-        dim = self.mesher.mesh.geometric_dimension()
-        V = VectorFunctionSpace(self.mesher.mesh, 'CG', 2)
-        W = BlockFunctionSpace([V], restrict=[self.mesher.electrodes])
-        u = block_split(BlockTrialFunction(W))
-        v = block_split(BlockTestFunction(W))
-        a = [
-            [inner(sym(grad(u[0])), sym(grad(v[0]))) * d.x_a +
-             inner(sym(grad(u[0])), sym(grad(v[0]))) * d.x_c]
-        ]
-        A = block_assemble(a)
-        L = [
-            inner(self.strain * Identity(dim), sym(grad(v[0]))) * d.x_a + inner(
-                self.strain * Identity(dim), sym(grad(v[0]))) * d.x_c,
-        ]
-        b = block_assemble(L)
-
-        bc1 = DirichletBC(W.sub(0), Constant(
-            [0 for i in range(dim)]), self.mesher.interfaces, 1)
-        bc2 = DirichletBC(W.sub(0), Constant(
-            [0 for i in range(dim)]), self.mesher.interfaces, 2)
-        bcs = BlockDirichletBC([bc1, bc2])
-        bcs.apply(A)
-        bcs.apply(b)
-
-        displacement = BlockFunction(W)
-        block_solve(A, displacement.block_vector(), b)
-
-        self.displacement = block_split(displacement)[0]
-
-    def set_storage_order(self):
-        super().set_storage_order()
-        self.internal_storage_order.append(['displacement', 'vector'])
-        self.post_processing_functions['internals'].append(self.calc_displacement)
-        self.global_storage_order['thickness'] = {
-            'fnc': self.calculate_thickness_change,
-            'header': "Thickness change [m]"
-        }
 
 from cideMOD.models.nondimensional_model import NondimensionalModel
 
