@@ -1,5 +1,5 @@
-Install from docker
-^^^^^^^^^^^^^^^^^^^^
+Install dependencies with docker
+---------------------------------
 
 .. _docker_instructions:
 

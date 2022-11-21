@@ -1,7 +1,9 @@
 Dimensional model
 ==================
 
-The well-known P2D model described by :cite:t:`Doyle1993` is considered herein as a baseline. As each domain is normalized with its thickness, the gradients used are:
+The well-known P2D model described by :cite:t:`Doyle1993` is considered
+herein as a baseline. As each domain is normalized with its thickness,
+the gradients used are:
 
 .. math::
 
@@ -9,14 +11,18 @@ The well-known P2D model described by :cite:t:`Doyle1993` is considered herein a
         \nabla = \begin{pmatrix} \frac{\partial}{\partial x} \\ \frac{\partial}{\partial y} \\ \frac{\partial}{\partial z} \end{pmatrix} = \begin{pmatrix} \frac{1}{L_i} \frac{\partial}{\partial \hat{x}} \\ \frac{1}{H_i} \frac{\partial}{\partial \hat{y}} \\ \frac{1}{W_i} \frac{\partial}{\partial \hat{z}} \end{pmatrix}
     \end{gathered}
 
-Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height and width. However, in the case of the P2D model, only the first row of the vector is used.
+Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness,
+height and width. However, in the case of the P2D model, only the first
+row of the vector is used.
 
 .. rubric:: Electrochemical Model
 
 
 * Mass transport in the electrolyte
-    The mass transport in the electrolyte is calculated in :func:`c_e_equation <cideMOD.models.electrochemical.equations.c_e_equation>` function.
-    
+    The mass transport in the electrolyte is calculated in
+    :func:`c_e_equation <cideMOD.models.electrochemical.equations.c_e_equation>`
+    function.
+
     .. math::
 
         \begin{gathered}
@@ -25,7 +31,9 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
         \end{gathered}
 
 * Charge transport in the electrolyte
-    The charge transport in the electrolyte is calculated in :func:`phi_e_equation <cideMOD.models.electrochemical.equations.phi_e_equation>` function.
+    The charge transport in the electrolyte is calculated in
+    :func:`phi_e_equation <cideMOD.models.electrochemical.equations.phi_e_equation>`
+    function.
 
     .. math::
 
@@ -34,7 +42,9 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
         \end{gathered}
 
 * Charge transport in the electrode
-    The charge transport in the solid electron conductor materials is calculated in :func:`phi_s_equation <cideMOD.models.electrochemical.equations.phi_s_equation>` function.
+    The charge transport in the solid electron conductor materials is calculated in
+    :func:`phi_s_equation <cideMOD.models.electrochemical.equations.phi_s_equation>`
+    function.
 
     .. math::
 
@@ -44,10 +54,14 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
             \sigma_{eff} \nabla \varphi_s \Big|_{tab} = I_{app}
         \end{gathered}
 
-    In the current colectors, a similar equation is used, but in this case, there is no exchage with the electrolyte, therefore the right hand side term equals zero.
+    In the current colectors, a similar equation is used, but in this
+    case, there is no exchage with the electrolyte, therefore the right
+    hand side term equals zero.
 
 * Mass transport in the active material (pseudodimension)
-    The mass transport in the active material is calculated in the :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_coupling.SpectralLegendreModel>` class using Legendre polynomials.
+    The mass transport in the active material is calculated in the
+    :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_coupling.SpectralLegendreModel>`
+    class using Legendre polynomials.
 
     .. math::
 
@@ -58,8 +72,11 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
             - D_s^{eff} \nabla c_s \Bigg|_{r=R_p} = \frac{j_{i}}{F}
         \end{gathered}
 
-* Exchange between the electrolyte and the electrode by lithium intercalation
-    The intercalation exchange current between the electrolyte and the active materials is calculated in :func:`j_int <cideMOD.models.electrochemical.equations.j_Li_equation>` function.
+* Exchange between the electrolyte and the electrode by lithium
+  intercalation. The intercalation exchange current between the
+  electrolyte and the active materials is calculated in
+  :func:`j_int <cideMOD.models.electrochemical.equations.j_Li_equation>`
+  function.
 
     .. math::
 
@@ -68,7 +85,9 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
         \end{gathered}
 
 * Overpotential
-    The overpotential at each part of the electrode is calculated in :func:`overpotential <cideMOD.models.electrochemical.equations.overpotential>` function
+    The overpotential at each part of the electrode is calculated in the
+    :func:`overpotential <cideMOD.models.electrochemical.equations.overpotential>`
+    function.
 
     .. math::
 
@@ -79,7 +98,9 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
 .. rubric:: Thermal Model
 
 * Energy conservation:
-    The heat transfer across the cell is computed in :func:`T_equation <cideMOD.models.thermal.equations.T_equation>` function.
+    The heat transfer across the cell is computed in the
+    :func:`T_equation <cideMOD.models.thermal.equations.T_equation>`
+    function.
 
     .. math::
 
@@ -91,7 +112,8 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
         \end{gathered}
 
 * Heat generation:
-    Several heat sources have been considered. The formulation of this heat sources is based on :cite:t:`Chiew2019`
+    Several heat sources have been considered. The formulation of this
+    heat sources is based on :cite:t:`Chiew2019`
     
     .. math::
 
@@ -100,7 +122,10 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
         \end{gathered}
     
     * Ohmic heat source
-        This corresponds to the heat generated by the transport of charge within the cell. It is calculated in :func:`solid_ohmic_heat_equation <cideMOD.models.thermal.equations.solid_ohmic_heat_equation>` function:
+        This corresponds to the heat generated by the transport of
+        charge within the cell. It is calculated in the
+        :func:`solid_ohmic_heat_equation <cideMOD.models.thermal.equations.solid_ohmic_heat_equation>`
+        function:
 
         .. math::
 
@@ -111,7 +136,11 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
             \end{gathered}
 
     * Reversible reaction heat source
-        The reversible heat caused by the reaction is proportional to the entropy change, that is approximated with the variation of Open Circuit potential. It is calculated in :func:`reaction_reversible_heat <cideMOD.models.thermal.equations.reaction_reversible_heat>` function
+        The reversible heat caused by the reaction is proportional to
+        the entropy change, that is approximated with the variation of
+        Open Circuit potential. It is calculated in the
+        :func:`reaction_reversible_heat <cideMOD.models.thermal.equations.reaction_reversible_heat>`
+        function.
 
         .. math::
 
@@ -120,7 +149,11 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
             \end{gathered}
 
     * Irreversible polarization heat source
-        This represents the irreversible heating due to the polarization heat generated by the exchange current at the electrolyte-electrode interface. It is calculated in :func:`reaction_irreversible_heat <cideMOD.models.thermal.equations.reaction_irreversible_heat>` function
+        This represents the irreversible heating due to the
+        polarization heat generated by the exchange current at the
+        electrolyte-electrode interface. It is calculated in the
+        :func:`reaction_irreversible_heat <cideMOD.models.thermal.equations.reaction_irreversible_heat>`
+        function.
 
         .. math::
 
@@ -131,8 +164,11 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
 .. rubric:: Degradation Models
 
 * SEI formation side reaction
-    This model is implemented inside the :class:`SEI <cideMOD.models.degradation.equations.SEI>` class.
-    The model considers that the SEI is originated by the electrochemical reaction between EC solvent molecule, 2 lithium ions and 2 electrons at the electrode surface:
+    This model is implemented inside the
+    :class:`SEI <cideMOD.models.degradation.equations.SEI>` class.
+    The model considers that the SEI is originated by the
+    electrochemical reaction between EC solvent molecule, 2 lithium
+    ions and 2 electrons at the electrode surface:
 
     .. math::
 
@@ -148,7 +184,8 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
                 j_{SEI} = F k_{SEI} c_{EC} c_s e^{\frac{-\beta F}{RT}(\eta - (U_{SEI} - U_{eq}))}
             \end{gathered}
 
-    where the concentration of EC solvent at the SEI must be modelled according to the transport equation:
+    where the concentration of EC solvent at the SEI must be modelled
+    according to the transport equation:
 
     .. math::
 
@@ -166,7 +203,8 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
                 c_{EC} \big|_{r_{SEI}=R_s+\delta_{SEI}} = c_{EC}^0
             \end{gathered}
 
-    The SEI growth can be calculated from the reaction rate and SEI components properties:
+    The SEI growth can be calculated from the reaction rate and SEI
+    components properties:
 
     .. math::
 
@@ -182,7 +220,8 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
                 j_{tot} = j_{int} + j_{SEI}
             \end{gathered}
 
-    And the overpotential has now an additional component corresponding to the voltage drop caused by SEI resistance:
+    And the overpotential has now an additional component corresponding
+    to the voltage drop caused by SEI resistance:
 
     .. math::
 
@@ -190,4 +229,28 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
                 \eta = \varphi_s - \varphi_e - U_{eq}(c_s) - \frac{\delta_{SEI}}{\kappa_{SEI}} j_{tot} 
             \end{gathered}
 
-    
+* LAM model
+    This model is implemented inside the
+    :class:`SEI <cideMOD.models.degradation.equations.SEI>` class.
+    The model computes the lost of active material due to particle
+    cracking driven by stresses. Therefore, the decrease of the volume
+    fraction of active material is computed as
+
+    .. math::
+
+        \begin{gathered}
+            \sigma_\mathrm{h}=\frac{\sigma_\mathrm{r}+2\sigma_\mathrm{t}
+            }{3}=\frac{2\Omega E}{9\left ( 1-\nu \right )}\left ( 
+            3\int_{0}^{R}\tilde{c}r^2dr-\tilde{c} \right )
+        \end{gathered}
+
+    And the hydrostatic stress is computed from the equilibrium of
+    stresses of a spherical electrode particle
+
+    .. math::
+
+        \begin{gathered}
+            \frac{\partial \varepsilon_\mathrm{s}}{\partial t}=-\beta
+            \left ( \frac{\sigma_\mathrm{h}}{\sigma_\mathrm{cr}} 
+            \right )^m \qquad \sigma_\mathrm{h}>0
+        \end{gathered}

@@ -19,10 +19,10 @@ sys.path.insert(0, pathlib.Path(__file__).parents[2].joinpath('src').resolve().a
 
 project = 'cideMOD'
 copyright = '2021, CIDETEC'
-author = 'Raul Ciria Aylagas, Clara Ganuza, Elixabete Ayerbe'
+author = 'Raul Ciria Aylagas, Clara Ganuza, Ruben Parra, Elixabete Ayerbe'
 
 # The full version, including alpha/beta/rc tags
-release = 'v0.1'
+release = 'v0.2'
 
 
 # -- General configuration ---------------------------------------------------
@@ -54,10 +54,8 @@ bibtex_default_style = 'unsrt'
 
 # autodoc options
 autodoc_default_options = {
-    'ignore-module-all':True
+    'ignore-module-all': True
 }
-
-
 
 # -- Options for HTML output -------------------------------------------------
 
