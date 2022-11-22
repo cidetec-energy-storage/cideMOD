@@ -7,10 +7,10 @@ Install Multiphenics Docker image
 Once Docker is installed, the next step is to download the Multiphenics
 image and create the container to run cideMOD.
 
-Multiphenics is a python library that aimed at providing tools in
+Multiphenics is a Python library aimed at providing tools in
 FEniCS for an easy prototyping of multiphysics problems on conforming
-meshes. In particular, it used to facilitate the definition of
-subdomain/boundary restricted variables and enabled the definition of
+meshes. In particular, it is used to facilitate the definition of
+subdomain/boundary restricted variables and enable the definition of
 the problem by means of a block structure.
 
 1. Download the Docker image.

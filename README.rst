@@ -1,23 +1,24 @@
 cideMOD
 =======
-**cideMOD** refers to the Doyle-Fuller-Newman model in which the
-physicochemical equations are solved by Finite Element methods using
-`FEniCS <https://fenicsproject.org/>`_ library. It enables doing
-physics-based battery simulations with a wide variety of use cases,
-from different drive cycles to studies of the SEI growth under storage
+CIDETEC's open-source tool **cideMOD** is based on the Doyle--Fuller--Newman 
+model :cite:p:`Doyle1993` in which the physicochemical equations
+are solved by Finite Element methods using the `FEniCS`_
+:cite:p:`fenics` library. It enables doing physics-based battery cell
+(herein after cell) simulations with a wide variety of use cases, from
+different drive cycles to studies of the SEI growth under storage
 conditions.
 
-cideMOD is a pXD (pseudo X-dimensional) model that extends the original
-P2D (pseudo 2-dimensional) model, proposed by John Newman and
-co-workers, from 1D to 2D and 3D battery geometry. Therefore, charge
+**cideMOD** is a pseudo X-dimensional (pXD) model that extends the
+original pseudo 2-dimensional (P2D) model, proposed by Newman and
+co-workers, from 1D to 2D and 3D cell geometries. Therefore, charge
 balance, mass balance and reaction kinetics, as well as energy balance,
-are spatially resolved for the entire battery geometry, considering the
-inhomogeneity of battery state properties.
-cideMOD has some additional models for solving the cell thermal
-behaviour, including mayor heat sources, and studying the battery
-degradation with the SEI growth. It also supports several active
-materials in the electrodes, and, nonlinear and temperature dependent
-electrode and electrolyte transport properties.
+are spatially resolved for the entire cell geometry, considering the
+inhomogeneity of cell state properties.
+**cideMOD** has some additional models for solving the cell thermal
+behaviour, including mayor heat sources, and studying battery
+degradation mechanisms (e.g., SEI growth and loss of active material). 
+It also supports several active materials in the electrodes, and, 
+nonlinear and temperature dependent electrode and electrolyte transport properties.
 
 It allows complete customization of the cell geometry including the tab
 position for optimal configuration, as well as highly customizable
@@ -29,11 +30,11 @@ Installation
 Read the Installation Section in the documentation for more information
 and installation options.
 
-The cideMOD model is based on the finite element platform **FEniCS**
-and the library **multiphenics**. From here we will assume that the
-user has a working environment with *FEniCS* and *multiphenics*.
+The **cideMOD** model is based on the finite element platform FEniCS
+and the library multiphenics. From here we will assume that the
+user has a working environment with FEniCS and multiphenics.
 
-To use cideMOD, first install it using pip :
+To use **cideMOD**, first install it using pip :
 
 .. code-block:: console
 
@@ -41,9 +42,9 @@ To use cideMOD, first install it using pip :
    $ cd cideMOD
    $ pip install .
 
-The P3D/P4D models make use of **gmsh** meshes to create the battery
+The P3D/P4D models make use of Gmsh meshes to create the battery
 mesh. Therefore, the python environment should be able to locate the
-**gmsh** shared libraries.
+Gmsh shared libraries.
 If your *PYTHONPATH* doesn't contains gmsh, you should add it:
 
 .. code-block:: console
@@ -56,7 +57,7 @@ or
 
    $ export PYTHONPATH=$PYTHONPATH:$(find /usr/local/lib -name "gmsh-*-sdk")/lib
 
-Additionally **gmsh** needs from some libraries that you may not have
+Additionally Gmsh needs from some libraries that you may not have
 installed:
 
 .. code-block:: console

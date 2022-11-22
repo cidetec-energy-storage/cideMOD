@@ -23,7 +23,7 @@ To install FEniCS on Ubuntu, run the following commands:
     $ sudo apt-get update
     $ sudo apt-get install fenics
 
-CideMOD uses GMSH to create the 3D meshes necessary to run the P4D model. To run GMSH several libraries should be available in the machine:
+CideMOD uses Gmsh to create the 3D meshes necessary to run the P4D model. To run Gmsh several libraries should be available in the machine:
 
 .. code-block:: console
     

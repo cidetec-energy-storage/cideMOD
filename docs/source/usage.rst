@@ -124,10 +124,10 @@ variables.
    automatically defined in the code, and written in the
    `XDMF Format <https://www.xdmf.org/index.php/Main_Page>`_.
    The parameter :code:`store_delay` can be modified to a negative
-   value to supress this output, or to a positive value to specify the
-   frecuency (in timesteps) at which the results are saved to disk.
+   value to suppress this output, or to a positive value to specify the
+   frequency (in timesteps) at which the results are saved to the disk.
 * Global variables:
-   These are overall cell figures (for example cell voltage, current,
+   These are overall cell figures (for example; cell voltage, current,
    maximum temperature, etc...), that are calculated and saved as a
-   list of values over time internally in the memory. When the temporal
-   loop finish, they are saved to disk in text files.
+   list of values over time internally in the memory. When the time iterations are finished,
+   they are saved to disk as text files.

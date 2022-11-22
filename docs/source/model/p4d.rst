@@ -9,7 +9,7 @@ homogeneize truncation errors, this scaling is inspired in
 :meth:`scale_variables <cideMOD.models.base.base_nondimensional.BaseModel.scale_variables>`
 and :meth:`unscale_variables <cideMOD.models.base.base_nondimensional.BaseModel.unscale_variables>`
 of the class :class:`NondimensionalModel <cideMOD.models.nondimensional_model.NondimensionalModel>`
-contains the implementation of this variable rescaling.
+contain the implementation of this variable rescaling.
 The rescaled variables are obtained with the following relations:
 
 * Spatial and temporal dimensions:
@@ -17,8 +17,8 @@ The rescaled variables are obtained with the following relations:
    .. math::
 
       \begin{gathered}
-         \vec{x}= (L_a+L_s+L_c) \hat{\vec{x}} = L_0 \hat{\vec{x}}; \qquad  \nabla = \frac{1}{L_0} \hat{\nabla}   \\ 
-         r = R_s \hat{r};\qquad r_{SEI} = \delta_{SEI} \hat{r}_{SEI} + R_s  ;\qquad t=t_c\hat{t}
+         x = (L_\mathrm{a}+L_\mathrm{s}+L_\mathrm{c}) \hat{x} = L_0 \hat{x}; \qquad  \nabla = \frac{1}{L_0} \hat{\nabla}   \\ 
+         r = R_\mathrm{s} \hat{r};\qquad r_\mathrm{\scriptscriptstyle SEI} = \delta_\mathrm{\scriptscriptstyle SEI} \hat{r}_\mathrm{\scriptscriptstyle SEI} + R_\mathrm{s}  ;\qquad t=t_\mathrm{c}\hat{t}
       \end{gathered}
 
 * Potentials:
@@ -26,19 +26,19 @@ The rescaled variables are obtained with the following relations:
    .. math::
 
       \begin{gathered}
-         \Phi_T = \frac{R T_0}{\alpha F} ; \qquad \Phi_s = \frac{I_0 L_0}{\sigma_{ref}} ; \qquad \Phi_l = \Phi_T
+         \Phi_T = \frac{R T_0}{\alpha F} ; \qquad \Phi_\mathrm{s} = \frac{I_0 L_0}{\sigma_\mathrm{ref}} ; \qquad \Phi_\mathrm{l} = \Phi_T
       \end{gathered}
 
    .. math::
 
       \begin{gathered}
-         \varphi_{e}=\varphi_{e}^{ref}+\Phi_l\hat{\varphi_{e}} ;\qquad \varphi_{s}=\varphi_{s}^{ref}+\Phi_s\hat{\varphi_{s}}     
+         \varphi_\mathrm{e}=\varphi_\mathrm{e}^\mathrm{ref}+\Phi_\mathrm{l}\hat{\varphi}_\mathrm{e} ;\qquad \varphi_\mathrm{s}=\varphi_\mathrm{s}^\mathrm{ref}+\Phi_\mathrm{s}\hat{\varphi}_\mathrm{s}     
       \end{gathered}
 
    .. math::
 
       \begin{gathered}
-         U_{eq} = \varphi_{s}^{ref} - \varphi_{e}^{ref} + \Phi_T\hat{U}_{eq}
+         U_\mathrm{eq} = \varphi_\mathrm{s}^\mathrm{ref} - \varphi_\mathrm{e}^\mathrm{ref} + \Phi_T\hat{U}_\mathrm{eq}
          ; \qquad
          \eta=\Phi_T \hat{\eta}
       \end{gathered}
@@ -48,7 +48,7 @@ The rescaled variables are obtained with the following relations:
    .. math::
 
       \begin{gathered}
-              c_{e}=c_{e}^{ref}+\Delta c_e^{ref} \hat{c}_{e} ;\qquad \Delta c_e^{ref}=\frac{I_0 L_0 (1-t_+^0)}{D_e^{eff}F} ;\qquad c_{s}= c_s^{max} \hat{c_{s}}
+              c_\mathrm{e}=c_\mathrm{e}^\mathrm{ref}+\Delta c_\mathrm{e}^\mathrm{ref} \hat{c}_\mathrm{e} ;\qquad \Delta c_\mathrm{e}^\mathrm{ref}=\frac{I_0 L_0 (1-t_+^0)}{D_\mathrm{e}^\mathrm{eff,ref}F} ;\qquad c_\mathrm{s}= c_\mathrm{s}^\mathrm{max} \hat{c_\mathrm{s}}
           \end{gathered}
 
 * Current densities:
@@ -56,7 +56,7 @@ The rescaled variables are obtained with the following relations:
    .. math::
 
       \begin{gathered}
-              a_s j= \frac{I_0}{L_0} \hat{i_n} ;\qquad I_{app} = I_0 \hat{I}_{app} ; \qquad I_0 = \frac{Q}{A t_c}
+              a_\mathrm{s} j= \frac{I_0}{L_0} \hat{i_n} ;\qquad I_\mathrm{app} = I_0 \hat{I}_\mathrm{app} ; \qquad I_0 = \frac{Q}{A t_\mathrm{c}}
           \end{gathered}
 
 * Temperature:
@@ -64,15 +64,15 @@ The rescaled variables are obtained with the following relations:
    .. math::
 
       \begin{gathered}
-              T = T_0+\Delta T_{ref}\hat{T}  ; \qquad \Delta T_{ref} = \frac{I_0 t_c}{L_0 \rho^{ref} c_p^{ref} } \Phi_T
+              T = T_0+\Delta T_\mathrm{ref}\hat{T}  ; \qquad \Delta T_\mathrm{ref} = \frac{I_0 t_\mathrm{c}}{L_0 \rho^\mathrm{ref} c_p^\mathrm{ref} } \Phi_T
           \end{gathered}
 
-* SEI lenght and solvent concentration:
+* SEI thickness and solvent concentration:
 
    .. math::
 
       \begin{gathered}
-         \delta_{SEI} = \Delta \delta \hat{\delta} \qquad c_{EC}=c_{EC}^{ref} \hat{c}_{EC} 
+         \delta_\mathrm{\scriptscriptstyle SEI} = \delta_\mathrm{ref} \hat{\delta} \qquad c_\mathrm{\scriptscriptstyle EC}=c_\mathrm{\scriptscriptstyle EC}^\mathrm{ref} \hat{c}_\mathrm{\scriptscriptstyle EC} 
       \end{gathered}
 
 * Stresses:
@@ -91,107 +91,108 @@ implemented in the method
 :meth:`calc_dimensionless_parameters <cideMOD.models.base.base_nondimensional.BaseModel.calc_dimensionless_parameters>`
 of :class:`NondimensionalModel <cideMOD.models.nondimensional_model.NondimensionalModel>`:
 
-+---------------------------------+------------------------------------------------------------+----------------------------+----------------------------------------------------------------------------------+-------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
-| :math:`\tau_e`                  | :math:`\frac{D_{eff}^{ref} t_c}{L_0}`                      | :math:`\delta_K`           | :math:`\frac{L_0 I_0}{K_{eff}^{ref} \Phi_l}`                                     | :math:`\delta_{K_D}`                | :math:`\frac{\delta_K}{2\alpha (1-t_+^0)(1+\frac{\partial \ln f_{\pm}}{\partial \ln c_e})} \frac{\Phi_l}{\Phi_T} \frac{c_e^{ref}}{\Delta c_e^{ref}}` |
-+---------------------------------+------------------------------------------------------------+----------------------------+----------------------------------------------------------------------------------+-------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
-| :math:`\delta_{\sigma}`         | :math:`\frac{I_0 L_0}{\sigma_{ref} \Phi_s}`                | :math:`\tau_s`             | :math:`\frac{D_s^{ref} t_c}{R_s^2}`                                              | :math:`S`                           | :math:`\frac{R_s I_0}{a_s D_s^{ref} c_s^{max} F L_0}`                                                                                                |
-+---------------------------------+------------------------------------------------------------+----------------------------+----------------------------------------------------------------------------------+-------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
-| :math:`\hat{k}_0`               | :math:`\frac{F k_0 L_0 }{I_0} c_e^{ref} (c_s^{max})^2`     | :math:`\tau_q`             | :math:`\frac{t_c k_T^{ref} }{\rho^{ref} c_p^{ref} L_0^2}`                        | :math:`\delta_{\lambda}`            | :math:`\frac{L_0^2 \rho^{ref} c_p^{ref} }{t_c \lambda^{ref}}`                                                                                        |
-+---------------------------------+------------------------------------------------------------+----------------------------+----------------------------------------------------------------------------------+-------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
-| :math:`\Delta \delta`           | :math:`\frac{t_c I_0 M_{SEI}}{2 F \rho a_s L_0}`           | :math:`\tau_{\mathrm{LAM}}`| :math:`\beta t_c \left ( \frac{E_{\mathrm{ref}}}{\sigma_{\mathrm{cr}}}\right )^m`| :math:`\delta_{\sigma_{\mathrm{h}}}`| :math:`\frac{2\Omega}{9\left(1-\nu\right)}c_{\mathrm{s}}^{\mathrm{max}}`                                                                             |
-+---------------------------------+------------------------------------------------------------+----------------------------+----------------------------------------------------------------------------------+-------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
++-----------------------------+----------------------------------------------------------------------------------------------+------------------------------------------------+-----------------------------------------------------------------------------------------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| :math:`\tau_\mathrm{e}`     | :math:`\frac{D_\mathrm{e}^\mathrm{eff,ref} t_\mathrm{c}}{L_0}`                               | :math:`\delta_\kappa`                          | :math:`\frac{L_0 I_0}{\kappa_\mathrm{eff}^\mathrm{ref} \Phi_\mathrm{l}}`                | :math:`\delta_{\kappa_D}`            | :math:`\frac{\delta_\kappa}{2\alpha (1-t_+^0)(1+\frac{\partial \ln f_{\pm}}{\partial \ln c_\mathrm{e}})} \frac{\Phi_\mathrm{l}}{\Phi_T} \frac{c_\mathrm{e}^\mathrm{ref}}{\Delta c_\mathrm{e}^\mathrm{ref}}` |
++-----------------------------+----------------------------------------------------------------------------------------------+------------------------------------------------+-----------------------------------------------------------------------------------------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| :math:`\delta_{\sigma}`     | :math:`\frac{I_0 L_0}{\sigma_\mathrm{ref} \Phi_\mathrm{s}}`                                  | :math:`\tau_\mathrm{s}`                        | :math:`\frac{D_\mathrm{s}^\mathrm{ref} t_\mathrm{c}}{R_\mathrm{s}^2}`                   | :math:`S`                            | :math:`\frac{R_\mathrm{s} I_0}{a_\mathrm{s} D_\mathrm{s}^\mathrm{ref} c_\mathrm{s}^\mathrm{max} F L_0}`                                                                                                     |
++-----------------------------+----------------------------------------------------------------------------------------------+------------------------------------------------+-----------------------------------------------------------------------------------------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| :math:`\hat{k}_0`           | :math:`\frac{F k_0 L_0 }{I_0} c_\mathrm{e}^\mathrm{ref} (c_\mathrm{s}^\mathrm{max})^\alpha`  | :math:`\tau_q`                                 | :math:`\frac{t_\mathrm{c} k_T^\mathrm{ref} }{\rho^\mathrm{ref} c_p^\mathrm{ref} L_0^2}` | :math:`\delta_{\lambda}`             | :math:`\frac{L_0^2 \rho^\mathrm{ref} c_p^\mathrm{ref} }{t_\mathrm{c} \lambda^\mathrm{ref}}`                                                                                                                 |
++-----------------------------+----------------------------------------------------------------------------------------------+------------------------------------------------+-----------------------------------------------------------------------------------------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| :math:`\delta_\mathrm{ref}` | :math:`\frac{t_\mathrm{c} I_0 M_\mathrm{\scriptscriptstyle SEI}}{2 F \rho a_\mathrm{s} L_0}` | :math:`\tau_{\scriptscriptstyle \mathrm{LAM}}` | :math:`\beta t_c \left ( \frac{E_{\mathrm{ref}}}{\sigma_{\mathrm{cr}}}\right )^m`       | :math:`\delta_{\sigma_{\mathrm{h}}}` | :math:`\frac{2\Omega}{9\left(1-\nu\right)}c_{\mathrm{s}}^{\mathrm{max}}`                                                                                                                                    |
++-----------------------------+----------------------------------------------------------------------------------------------+------------------------------------------------+-----------------------------------------------------------------------------------------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
 
 
 With the specified scaling and dimensionless numbers, the models
-equation are reformulated.
+equation have been reformulated.
 
 .. rubric:: Electrochemical Model
 
 * Mass transport in the electrolyte:
-   The mass transport in the electrolyte is calculated in
+   The mass transport in the electrolyte is calculated in the
    :meth:`c_e_equation <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.c_e_equation>` 
    method.
 
    .. math::
 
       \begin{gathered}
-         \frac{\epsilon}{\tau_e}\frac{\partial\hat{c}_e}{\partial \hat{t}} =
-         \hat{\nabla} \left(\frac{D_{eff}}{D_{eff}^{ref}} \hat{\nabla} \hat{c}_e \right) + \sum_{i=0}^{n_{mat}} \hat{j}_{i}
+         \frac{\varepsilon_\mathrm{e}}{\tau_\mathrm{e}}\frac{\partial\hat{c}_\mathrm{e}}{\partial \hat{t}} =
+         \hat{\nabla}\cdot \left(\frac{D_\mathrm{e}^\mathrm{eff}}{D_\mathrm{e}^\mathrm{eff,ref}} \hat{\nabla} \hat{c}_\mathrm{e} \right) + \sum_{i=0}^{n_\mathrm{mat}} \hat{j}_{i}
       \end{gathered}
 
 * Charge transport in the electrolyte:
-   The charge transport in the electrolyte is calculated in
+   The charge transport in the electrolyte is calculated in the
    :meth:`phi_e_equation <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.phi_e_equation>`
    method.
 
    .. math::
 
       \begin{gathered}
-         - \hat{\nabla} \left( \frac{1}{\delta_K} \frac{K_{eff}}{K_{eff}^{ref}} \hat{\nabla}\hat{\varphi}_e - \frac{1}{\delta_{K_D}} \frac{K_{eff}}{K_{eff}^{ref}} \frac{1+\frac{\Delta T}{T_{ref}} \hat{T}}{1+\frac{\Delta c_e}{c_{e,ref}} \hat{c}_e} \hat{\nabla} \hat{c}_e   \right) = \sum_{i=0}^{n_{mat}} \hat{j}_i
+         - \hat{\nabla}\cdot \left( \frac{1}{\delta_K} \frac{\kappa_\mathrm{eff}}{\kappa_\mathrm{eff}^\mathrm{ref}} \hat{\nabla}\hat{\varphi}_\mathrm{e} - \frac{1}{\delta_{K_D}} \frac{\kappa_\mathrm{eff}}{\kappa_\mathrm{eff}^\mathrm{ref}} \frac{1+\frac{\Delta T}{T_\mathrm{ref}} \hat{T}}{1+\frac{\Delta c_\mathrm{e}}{c_\mathrm{e,ref}} \hat{c}_\mathrm{e}} \hat{\nabla} \hat{c}_\mathrm{e}   \right) = \sum_{i=0}^{n_\mathrm{mat}} \hat{j}_i
       \end{gathered}
 
 * Charge transport in the electrodes and current collectors:
-   The charge transport in the solid electron conductor materials is calculated in
+   The charge transport in the solid electron conductor materials is calculated in the
    :meth:`phi_s_equation <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.phi_s_equation>`
    method.
 
    .. math::
 
       \begin{gathered}
-         -\hat{\nabla} \left( \frac{1}{\delta_{\sigma}} \frac{\sigma_{eff}}{\sigma_{eff}^{ref}} \hat{\nabla} \hat{\varphi}_s \right) = -\sum_{i=0}^{n_{mat}} \hat{j}_i 
+         -\hat{\nabla}\cdot \left( \frac{1}{\delta_{\sigma}} \frac{\sigma_\mathrm{eff}}{\sigma_\mathrm{eff}^\mathrm{ref}} \hat{\nabla} \hat{\varphi}_\mathrm{s} \right) = -\sum_{i=0}^{n_\mathrm{mat}} \hat{j}_i 
          ;\quad  
-         \frac{1}{\delta_{\sigma}} \frac{\sigma_{eff}}{\sigma_{eff}^{ref}} \frac{\partial \hat{\varphi}_s}{\partial \vec{n}} \Bigg|_{tab} = \hat{I}_{app} 
+         \frac{1}{\delta_{\sigma}} \frac{\sigma_\mathrm{eff}}{\sigma_\mathrm{eff}^\mathrm{ref}} \frac{\partial \hat{\varphi}_\mathrm{s}}{\partial \mathbf{n}} \Bigg|_\mathrm{tab} = \hat{I}_\mathrm{app} 
       \end{gathered}
 
 * Mass transport in the active material (pseudodimension):
    The mass transport in the active material is calculated in the
-   :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_coupling.NondimensionalSpectralModel>`
+   :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_\mathrm{c}oupling.NondimensionalSpectralModel>`
    class using Legendre polynomials.
 
    .. math::
 
       \begin{gathered}
-         \frac{1}{\tau_s} \frac{\partial \hat{c}_s}{\partial \hat{t}} = \frac{1}{\hat{r}^2}\frac{\partial}{\partial \hat{r}} \left( \hat{r}^2 \frac{D_s}{D_{s}^{ref}} \frac{\partial \hat{c}_s}{\partial \hat{r}} \right) 
+         \frac{1}{\tau_\mathrm{s}} \frac{\partial \hat{c}_\mathrm{s}}{\partial \hat{t}} = \frac{1}{\hat{r}^2}\frac{\partial}{\partial \hat{r}} \left( \hat{r}^2 \frac{D_\mathrm{s}}{D_\mathrm{s}^\mathrm{ref}} \frac{\partial \hat{c}_\mathrm{s}}{\partial \hat{r}} \right) 
          ; \quad 
-         \frac{D_s}{D_{s}^{ref}} \frac{\partial \hat{c}_s}{\partial \hat{r}} \Bigg|_{\hat{r}=1} = S \hat{j}_i
+         \frac{D_\mathrm{s}}{D_\mathrm{s}^\mathrm{ref}} \frac{\partial \hat{c}_\mathrm{s}}{\partial \hat{r}} \Bigg|_{\hat{r}=1} = S \hat{j}_i
       \end{gathered}
 
 * Exchange between the electrolyte and the electrode by lithium intercalation:
    The intercalation exchange current between the electrolyte and the
-   active materials is calculated in
+   active materials is calculated in the
    :meth:`j_int <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.j_Li_equation>`
    method.
 
    .. math::
 
       \begin{gathered}
-         \hat{j}_i = \hat{k}_0 \left( \left( 1+\frac{\Delta c_e}{c_{e,ref}} \hat{c}_e \right) \hat{c}_s|_{\hat{r}=1} (1-\hat{c}_s|_{\hat{r}=1}) \right)^{0.5} 2 \sinh{\hat{\eta}}
+         \hat{j}_i = \hat{k}_0 \left( \left( 1+\frac{\Delta c_\mathrm{e}}{c_\mathrm{e,ref}} \hat{c}_\mathrm{e} \right) \hat{c}_\mathrm{s}|_{\hat{r}=1} (1-\hat{c}_\mathrm{s}|_{\hat{r}=1}) \right)^{0.5} 2 \sinh{\hat{\eta}}
       \end{gathered}
 
 * Overpotential
-   The overpotential at each part of the electrode is calculated in
+   The overpotential at each part of the electrode is calculated in the 
    :meth:`overpotential <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.overpotential>`
    method.
 
    .. math::
 
       \begin{gathered}
-         \hat{\eta} = \frac{\Phi_s}{\Phi_T} \hat{\varphi_s} - \frac{\Phi_l}{\Phi_T} \hat{\varphi_e} - \hat{U_{eq}}
+         \hat{\eta} = \frac{\Phi_\mathrm{s}}{\Phi_T} \hat{\varphi}_\mathrm{s} - \frac{\Phi_\mathrm{l}}{\Phi_T} \hat{\varphi}_\mathrm{e} - \hat{U}_\mathrm{eq}
       \end{gathered}
 
 .. rubric:: Thermal Model
 
 * Energy conservation:
-   The heat transfer across the cell is computed in
+   The heat transfer across the cell is computed in the
    :meth:`T_equation <cideMOD.models.thermal.nondimensional.ThermalModel.T_equation>`
    function.
    
    .. math::
 
       \begin{gathered}
-         \frac{\rho c_p}{\rho^{ref} c_p^{ref}} \frac{\partial \hat{T}}{\partial \hat{t}} = \frac{1}{\delta_{\lambda}}\hat{\nabla} \left( \frac{\lambda}{\lambda^{ref}} \hat{\nabla} \hat{T} \right) + \hat{q}  
+         \frac{\rho c_p}{\rho^\mathrm{ref} c_p^\mathrm{ref}} \frac{\partial \hat{T}}{\partial \hat{t}} = \frac{1}{\delta_{\lambda}}\hat{\nabla}\cdot \left( \frac{\lambda}{\lambda^\mathrm{ref}} \hat{\nabla} \hat{T} \right) + \hat{q}  
          \\
-         \frac{\lambda}{\lambda^{ref}} \frac{\partial \hat{T}}{\partial \vec{n}} \Bigg|_{\Gamma} = \frac{L_0 h}{\lambda^{ref} \Delta T_{ref}} \left(T_0-T_{ext} + \Delta T_{ref} \hat{T} \right)
+         \frac{\lambda}{\lambda^\mathrm{ref}} \frac{\partial \hat{T}}{\partial \mathbf{n}} \Bigg|_{\Gamma} = \frac{L_0 h}{\lambda^\mathrm{ref} \Delta T_\mathrm{ref}} \left(T_0-T_\mathrm{ext} + \Delta T_\mathrm{ref} \hat{T} \right)
       \end{gathered}
 
 
@@ -203,7 +204,7 @@ equation are reformulated.
    .. math::
 
       \begin{gathered}
-         \hat{q} = \hat{q}_{ohm} + \hat{q}_{rev} + \hat{q}_{irr}
+         \hat{q} = \hat{q}_\mathrm{ohm} + \hat{q}_\mathrm{rev} + \hat{q}_\mathrm{irr}
       \end{gathered}
 
    * Ohmic heat source
@@ -211,21 +212,21 @@ equation are reformulated.
    
       .. math::
 
-         \begin{gathered}
-            \hat{q}_{ohm} =  (1-\varepsilon) \hat{q}_{solid} + \varepsilon \hat{q}_{liquid} \\
-            \hat{q}_{solid} =  \frac{1}{\delta_{\sigma}} \frac{\sigma_{eff}}{\sigma_{eff}^{ref}} \frac{\Phi_s}{\Phi_T} \hat{\nabla} \hat{\varphi}_s \hat{\nabla} \hat{\varphi}_s \\
-            \hat{q}_{liquid} = \frac{\Phi_l}{\Phi_T} \frac{\kappa_{eff}}{\kappa_{eff}^{ref}} \left(\frac{1}{\delta_{\kappa}}  \hat{\nabla} \hat{\varphi}_e \hat{\nabla} \hat{\varphi}_e - \frac{1}{\delta_{\kappa_D}} \frac{1+\frac{\Delta T}{T_{ref}} \hat{T}}{1+\frac{\Delta c_e}{c_{e,ref}} \hat{c}_e} \hat{\nabla} \hat{c}_e \hat{\nabla} \hat{\varphi}_e \right)
-         \end{gathered}
+         \begin{align*}
+            \hat{q}_\mathrm{ohm} &=  \hat{q}_\mathrm{solid} + \hat{q}_\mathrm{liquid} \\
+            \hat{q}_\mathrm{solid} &=  \frac{1}{\delta_{\sigma}} \frac{\sigma_\mathrm{eff}}{\sigma_\mathrm{eff}^\mathrm{ref}} \frac{\Phi_\mathrm{s}}{\Phi_T} \hat{\nabla} \hat{\varphi}_\mathrm{s} \hat{\nabla} \hat{\varphi}_\mathrm{s} \\
+            \hat{q}_\mathrm{liquid} &= \frac{\Phi_\mathrm{l}}{\Phi_T} \frac{\kappa_\mathrm{eff}}{\kappa_\mathrm{eff}^\mathrm{ref}} \left(\frac{1}{\delta_{\kappa}}  \hat{\nabla} \hat{\varphi}_\mathrm{e} \hat{\nabla} \hat{\varphi}_\mathrm{e} - \frac{1}{\delta_{\kappa_D}} \frac{1+\frac{\Delta T}{T_\mathrm{ref}} \hat{T}}{1+\frac{\Delta c_\mathrm{e}}{c_\mathrm{e,ref}} \hat{c}_\mathrm{e}} \hat{\nabla} \hat{c}_\mathrm{e} \hat{\nabla} \hat{\varphi}_\mathrm{e} \right)
+         \end{align*}
    
    * Reversible reaction heat source
       The reversible heat caused by the reaction is proportional to the
       entropy change, that is approximated with the variation of Open
-      Circuit potential.
+      Circuit Potential.
 
       .. math::
 
          \begin{gathered}
-            \hat{q}_{rev} =  \sum_{i=0}^{n_{mat}} \hat{j}_{i} \frac{T}{\Phi_T} \frac{\partial U_i(c_s)}{\partial T}
+            \hat{q}_\mathrm{rev} =  \sum_{i=0}^{n_\mathrm{mat}} \hat{j}_{i} \frac{T}{\Phi_T} \frac{\partial U_i(c^\mathrm{surf}_\mathrm{s})}{\partial T}
          \end{gathered}
 
    * Irreversible polarization heat source
@@ -236,7 +237,7 @@ equation are reformulated.
       .. math::
 
          \begin{gathered}
-            \hat{q}_{irr} =  \sum_{i=0}^{n_{mat}} \hat{j}_{i} \hat{\eta}
+            \hat{q}_\mathrm{irr} =  \sum_{i=0}^{n_\mathrm{mat}} \hat{j}_{i} \hat{\eta}
          \end{gathered}
 
 .. rubric:: Degradation Models
@@ -245,31 +246,31 @@ equation are reformulated.
    This model is implemented inside the
    :class:`SolventLimitedSEIModel <cideMOD.models.degradation.nondimensional.SolventLimitedSEIModel>`
    class. The model considers that the SEI is originated by the
-   electrochemical reaction between EC solvent molecule, 2 lithium ions
-   and 2 electrons at the electrode surface:
+   electrochemical reaction between a EC solvent molecule, two lithium ions
+   and two electrons at the electrode surface:
 
    .. math::
 
       \begin{gathered}
-         EC + 2 Li^+ + 2 e^- \rightarrow V_{SEI}
+         \rm EC + 2 Li^+ + 2 e^- \rightarrow V_\mathrm{\scriptstyle SEI}
       \end{gathered}
    
-   Therefore the rection equation reads:
+   Therefore, the reaction equation reads:
 
    .. math::
 
       \begin{gathered}
-         \hat{j}_{SEI} = \frac{F L_0 k_{SEI}}{I_0} c_{EC}^{ref} c_s^{max} \hat{c}_{EC} \hat{c}_s e^{-\frac{\beta}{\alpha}(\hat{\eta} - (\hat{U}_{SEI} - \hat{U}_{eq}))}
+         \hat{j}_\mathrm{\scriptscriptstyle SEI} = \frac{F L_0 k_\mathrm{\scriptscriptstyle SEI}}{I_0} c_\mathrm{\scriptscriptstyle EC}^\mathrm{ref} \hat{c}_\mathrm{\scriptscriptstyle EC} e^{-\frac{\beta}{\alpha}(\hat{\eta} - (\hat{U}_\mathrm{\scriptscriptstyle SEI} - \hat{U}_\mathrm{eq}))}
       \end{gathered}
 
-   where the concentration of EC solvent at the SEI must be modelled
+   where the concentration of EC solvent in the SEI is modelled
    according to the transport equation:
 
    .. math::
 
       \begin{gathered}
-         \frac{\partial \hat{c}_{EC}}{\partial \hat{t}} - \frac{\hat{x}}{\hat{\delta}_{SEI}} \frac{\partial \hat{\delta}_{SEI}}{\partial \hat{t}} \hat{\nabla} \hat{c}_{EC} 
-         = \hat{\nabla} \left( \frac{t_c D_{EC} }{\Delta \delta^2} \frac{\hat{\nabla} \hat{c}_{EC}}{\hat{\delta}_{SEI}^2} - \frac{ \partial \hat{\delta}_{SEI}}{\partial \hat{t}} \hat{c}_{EC} \right)
+         \frac{\partial \hat{c}_\mathrm{\scriptscriptstyle EC}}{\partial \hat{t}} - \frac{\hat{x}}{\hat{\delta}_\mathrm{\scriptscriptstyle SEI}} \frac{\partial \hat{\delta}_\mathrm{\scriptscriptstyle SEI}}{\partial \hat{t}} \hat{\nabla} \hat{c}_\mathrm{\scriptscriptstyle EC} 
+         = \hat{\nabla}\cdot \left( \frac{t_\mathrm{c} D_\mathrm{\scriptscriptstyle EC} }{\delta_\mathrm{ref}^2} \frac{\hat{\nabla} \hat{c}_\mathrm{\scriptscriptstyle EC}}{\hat{\delta}_\mathrm{\scriptscriptstyle SEI}^2} - \frac{ \partial \hat{\delta}_\mathrm{\scriptscriptstyle SEI}}{\partial \hat{t}} \hat{c}_\mathrm{\scriptscriptstyle EC} \right)
       \end{gathered}
 
    with the following boundary conditions:
@@ -277,27 +278,27 @@ equation are reformulated.
    .. math::
 
       \begin{gathered}
-         \left( \frac{t_c D_{EC} }{\Delta \delta^2} \frac{\hat{\nabla} \hat{c}_{EC}}{\hat{\delta}_{SEI}^2} - \frac{ \partial \hat{\delta}_{SEI}}{\partial \hat{t}} \hat{c}_{EC} \right) \Bigg|_{\hat{x}=0} 
-         = \frac{2 \rho_{SEI}}{M_{SEI} c_{EC}^{ref}} \hat{j}_{SEI}
+         \left( \frac{t_\mathrm{c} D_\mathrm{\scriptscriptstyle EC} }{\delta_\mathrm{ref}^2} \frac{\hat{\nabla} \hat{c}_\mathrm{\scriptscriptstyle EC}}{\hat{\delta}_\mathrm{\scriptscriptstyle SEI}^2} - \frac{ \partial \hat{\delta}_\mathrm{\scriptscriptstyle SEI}}{\partial \hat{t}} \hat{c}_\mathrm{\scriptscriptstyle EC} \right) \Bigg|_{\hat{x}=0} 
+         = \frac{2 \rho_\mathrm{\scriptscriptstyle SEI}}{M_\mathrm{\scriptscriptstyle SEI} c_\mathrm{\scriptscriptstyle EC}^\mathrm{ref}} \hat{j}_\mathrm{\scriptscriptstyle SEI}
          \quad ; \quad
-         \hat{c}_{EC} \big|_{\hat{x}=1} = 1
+         \hat{c}_\mathrm{\scriptscriptstyle EC} \big|_{\hat{x}=1} = 1
       \end{gathered}
 
-   The SEI growth can be calculated from the reaction rate and SEI
-   components properties:
+   The SEI growth can be calculated from the reaction rate and the physical properties 
+   of the SEI layer:
 
    .. math::
 
       \begin{gathered}
-         \frac{\partial \hat{\delta}_{SEI}}{\partial \hat{t}} = - \hat{j}_{SEI}
+         \frac{\partial \hat{\delta}_\mathrm{\scriptscriptstyle SEI}}{\partial \hat{t}} = - \hat{j}_\mathrm{\scriptscriptstyle SEI}
       \end{gathered}
 
-   The total exchange current therefore has two components:
+   Thus, the total exchange current has two components:
 
    .. math::
 
       \begin{gathered}
-         \hat{j}_{tot} = \hat{j}_{int} + \hat{j}_{SEI}
+         \hat{j}_\mathrm{tot} = \hat{j}_\mathrm{int} + \hat{j}_\mathrm{\scriptscriptstyle SEI}
       \end{gathered}
 
    And the overpotential has now an additional component corresponding
@@ -306,13 +307,13 @@ equation are reformulated.
    .. math::
 
       \begin{gathered}
-         \hat{\eta} = \frac{\Phi_s}{\Phi_T} \hat{\varphi_s} - \frac{\Phi_l}{\Phi_T} \hat{\varphi_e} - \hat{U_{eq}} - \frac{\Delta \delta I_0}{\kappa_{SEI} L_0 a_s \Phi_T} \hat{\delta}_{SEI} \hat{j}_{tot} 
+         \hat{\eta} = \frac{\Phi_\mathrm{s}}{\Phi_T} \hat{\varphi}_\mathrm{s} - \frac{\Phi_\mathrm{l}}{\Phi_T} \hat{\varphi}_\mathrm{e} - \hat{U}_\mathrm{eq} - \frac{\delta_\mathrm{ref} I_0}{\kappa_\mathrm{\scriptscriptstyle SEI} L_0 a_\mathrm{s} \Phi_T} \hat{\delta}_\mathrm{\scriptscriptstyle SEI} \hat{j}_\mathrm{tot} 
       \end{gathered}
 
 * LAM model
     This model is implemented inside the
     :class:`SEI <cideMOD.models.degradation.nondimensional.LAM_model>` class.
-    The model computes the lost of active material due to particle
+    The model computes the loss of active material due to particle
     cracking driven by stresses. Therefore, the decrease of the volume
     fraction of active material is computed as
 
@@ -330,6 +331,6 @@ equation are reformulated.
 
         \begin{gathered}
             \frac{\partial \varepsilon_\mathrm{s}}{\partial \hat{t}}=
-            -\tau_{\mathrm{LAM}}\left(\hat\sigma_{\mathrm{h}}\right)^m
+            -\tau_{\mathrm{\scriptscriptstyle LAM}}\left(\hat\sigma_{\mathrm{h}}\right)^m
             \qquad \hat\sigma_{\mathrm{h}}>0
         \end{gathered}

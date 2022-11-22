@@ -18,7 +18,7 @@ If you use BibTeX format, cite it using the following:
         doi = {10.1149/1945-7111/ac91fb},
         url = {https://doi.org/10.1149/1945-7111/ac91fb},
         year = 2022,
-        month = {sep},
+        month = sep,
         publisher = {The Electrochemical Society},
         volume = {169},
         number = {9},

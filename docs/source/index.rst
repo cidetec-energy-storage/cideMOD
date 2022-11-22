@@ -7,7 +7,7 @@ Welcome to cideMOD's documentation!
 ====================================
 
 CIDETEC's open-source tool **cideMOD** is based on the Doyle-Fuller-
-Newman model:cite:p:`Doyle1993` in which the physicochemical equations
+Newman model :cite:p:`Doyle1993` in which the physicochemical equations
 are solved by Finite Element methods using the FEniCS :cite:p:`fenics`
 library.It enables doing physics-based battery cell (herein after
 cell) simulations with a wide variety of use cases, from different

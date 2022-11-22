@@ -2,7 +2,7 @@ Use cases
 ==========
 
 In the repository or docker image, several use cases are
-included. Additionally several literature datasets are included.
+included together with corresponding literature datasets used in the examples.
 
 .. _examples:
 
@@ -10,11 +10,11 @@ Datasets
 ---------
 
 - Chen_2020: Graphite-SiliconOxide vs NMC811 cell based on :cite:p:`Chen2020`
-    Contains electrochemical parameters
+    Electrochemical parameters
 - Ai_2020: Graphite vs LCO cell based on :cite:p:`Ai2020`
-    Contains electrochemical and thermal parameters
+    Electrochemical and thermal parameters
 - Safari_2009: Graphite vs LCO cell based on :cite:p:`Safari2009`
-    Contains electrochemical and SEI parameters
+    Electrochemical and SEI parameters
 
 Examples
 ---------
