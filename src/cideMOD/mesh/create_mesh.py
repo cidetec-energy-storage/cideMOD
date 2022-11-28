@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2021 CIDETEC Energy Storage.
+# Copyright (c) 2022 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #

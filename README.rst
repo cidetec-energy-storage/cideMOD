@@ -1,9 +1,8 @@
 cideMOD
 =======
-CIDETEC's open-source tool **cideMOD** is based on the Doyle--Fuller--Newman 
-model :cite:p:`Doyle1993` in which the physicochemical equations
-are solved by Finite Element methods using the `FEniCS`_
-:cite:p:`fenics` library. It enables doing physics-based battery cell
+CIDETEC's open-source tool **cideMOD** is based on the Doyle--Fuller--Newman
+model in which the physicochemical equations
+are solved by Finite Element methods using the FEniCS library. It enables doing physics-based battery cell
 (herein after cell) simulations with a wide variety of use cases, from
 different drive cycles to studies of the SEI growth under storage
 conditions.
@@ -34,7 +33,7 @@ The **cideMOD** model is based on the finite element platform FEniCS
 and the library multiphenics. From here we will assume that the
 user has a working environment with FEniCS and multiphenics.
 
-To use **cideMOD**, first install it using pip :
+To use **cideMOD**, first install it using pip:
 
 .. code-block:: console
 
@@ -76,7 +75,7 @@ Documentation
 -------------
 
 The documentation can be viewed at
-`ReadTheDocs <https://cidemod.readthedocs.io/en/latest/>`_ .
+`ReadTheDocs <https://cidemod.readthedocs.io/en/latest/>`_.
 
 You can also access the documentation on the docs folder
 building it (See the requirements.txt file for necessary packages):
@@ -86,10 +85,18 @@ building it (See the requirements.txt file for necessary packages):
    $ cd docs/
    $ make html
 
+License
+-------
+cideMOD is copyright (C) 2022 of CIDETEC Energy Storage and is
+distributed under the terms of the Affero GNU General Public License
+(GPL) version 3 or later.
 
-Authors
---------
-- Raul Ciria (rciria@cidetec.es)
-- Clara Ganuza (cganuza@cidetec.es)
-- Ruben Parra (rparra@cidetec.es)
-- Elixabete Ayerbe (eayerbe@cidetec.es)
+Contact
+-------
+For issues and bug reports visit:
+
+https://github.com/cidetec-energy-storage/cideMOD
+
+For other questions about cideMOD, you are welcome to contact us via email:
+
+cidemod@cidetec.es

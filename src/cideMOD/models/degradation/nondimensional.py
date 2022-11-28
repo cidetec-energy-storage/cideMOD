@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021 CIDETEC Energy Storage.
+# Copyright (c) 2022 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -32,9 +32,8 @@ class LAM_Model(BaseModel):
     r"""
     Loss of Active Material model from [1]_ and [2]_, compute the lost of active material due to particle cracking driven by stresses.
 
-    Notes
-    -----
-    ..note:: 
+    .. note::
+
         This model assumes that between cycles, the particle reach a steady state without stress. :math:`\sigma_{h,min} = 0`.
         It has been implemented only for explicit processing.
 

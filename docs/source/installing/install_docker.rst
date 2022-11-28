@@ -84,8 +84,9 @@ install the latest stable release of Docker on Linux.
     $ sudo apt install curl
 
 If the installation is successful, Multiphenics can be now installed,
-see the Multiphenics installation :ref:`section
-<install_multiphenics>`. On the other hand, if the script installation
+see the Multiphenics installation
+:doc:`section </installing/install_multiphenics>`.
+On the other hand, if the script installation
 fails, or a customized installation is prefered, another way to proceed
 is to install from the repository.
 

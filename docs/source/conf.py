@@ -19,10 +19,10 @@ sys.path.insert(0, pathlib.Path(__file__).parents[2].joinpath('src').resolve().a
 
 project = 'cideMOD'
 copyright = '2022, CIDETEC'
-author = 'Raul Ciria Aylagas, Clara Ganuza, Ruben Parra, Elixabete Ayerbe'
+author = 'CIDETEC'
 
 # The full version, including alpha/beta/rc tags
-release = 'v0.2'
+release = 'v1.0.0'
 
 
 # -- General configuration ---------------------------------------------------

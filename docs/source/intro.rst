@@ -32,9 +32,10 @@ information on how to use the library.
 
 .. rubric:: Authors
 
-- Raul Ciria (rciria@cidetec.es)
 - Clara Ganuza (cganuza@cidetec.es)
 - Ruben Parra (rparra@cidetec.es)
+- Diego del Olmo (ddelolmo@cidetec.es)
+- Raul Ciria (rciria@cidetec.es)
 - Elixabete Ayerbe (eayerbe@cidetec.es)
 
 .. rubric:: License

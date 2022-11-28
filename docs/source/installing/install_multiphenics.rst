@@ -38,7 +38,7 @@ the problem by means of a block structure.
 
    .. code-block:: console
 
-      $ docker run -ti –name fenics -v \
+      $ docker run -ti --name fenics -v \
         /home/{user_name}/{path_to}/fenics:/home/fenics/shared multiphenics/multiphenics
 
 The fenics container terminal should be opened.
