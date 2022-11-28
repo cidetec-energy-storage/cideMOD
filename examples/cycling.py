@@ -47,7 +47,7 @@ INPUT2 = {
 CYCLE_INPUT = {
     "name": "Cycling", 
     "type": "Cycle", 
-    "count": 1, # Number of cycles
+    "count": 10, # Number of cycles
     "steps": [INPUT1, INPUT2] # Steps to be repeated each cycle
 }
 

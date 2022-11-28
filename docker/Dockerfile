@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021 CIDETEC Energy Storage.
+# Copyright (c) 2022 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -18,7 +18,7 @@
 #
 
 FROM multiphenics/multiphenics
-MAINTAINER Raul Ciria <rciria@cidetec.es>
+LABEL maintainer = "CIDETEC <cidemod@cidetec.es>"
 
 USER fenics
 COPY --chown=fenics . /tmp/cideMOD

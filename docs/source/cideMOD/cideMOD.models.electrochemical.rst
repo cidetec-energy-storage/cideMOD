@@ -8,7 +8,6 @@ Submodules
    :maxdepth: 2
 
    cideMOD.models.electrochemical.equations
-   cideMOD.models.electrochemical.model
    cideMOD.models.electrochemical.nondimensional
 
 Module contents

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021 CIDETEC Energy Storage.
+# Copyright (c) 2022 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -53,7 +53,8 @@ class GmshConverter(BaseMesher):
     def prepare_parameters(self, mtype = None):
         parameters = {
             'mode': self.mode,
-            'structure': self.cell.structure 
+            'structure': self.cell.structure,
+            'x_nodes': self.options.N_x
         }
         if mtype:
             parameters['template'] = mtype
@@ -71,7 +72,6 @@ class GmshConverter(BaseMesher):
             parameters['positiveCC_lenght'] = self.cell.positive_curent_colector.thickness
         if 'ncc' in self.cell.structure:
             parameters['negativeCC_lenght'] = self.cell.negative_curent_colector.thickness
-            parameters['x_nodes'] = self.options.N_x
         if self.options.mode in ('P3D', 'P4D'):
             parameters['y_nodes'] = self.options.N_y
         if self.options.mode in ('P4D',):

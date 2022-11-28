@@ -15,7 +15,7 @@ Otherwise, follow the steps here:
 
 To install FEniCS on Ubuntu, run the following commands:
 
-.. code:: bash
+.. code-block:: console
     
     $ sudo apt-get update
     $ sudo apt-get install software-properties-common
@@ -23,9 +23,9 @@ To install FEniCS on Ubuntu, run the following commands:
     $ sudo apt-get update
     $ sudo apt-get install fenics
 
-CideMOD uses GMSH to create the 3D meshes necessary to run the P4D model. To run GMSH several libraries should be available in the machine:
+CideMOD uses Gmsh to create the 3D meshes necessary to run the P4D model. To run Gmsh several libraries should be available in the machine:
 
-.. code:: bash
+.. code-block:: console
     
     $ sudo apt-get -y install \
         libglu1 \
@@ -41,7 +41,7 @@ CideMOD uses GMSH to create the 3D meshes necessary to run the P4D model. To run
 
 If pip is not available in the system it should be installed using the package manager to install gsmh, multiphenics and cideMOD:
 
-.. code:: bash
+.. code-block:: console
     
     $ sudo apt-get install python3-pip
     $ python3 -m pip install gmsh
@@ -50,7 +50,7 @@ If pip is not available in the system it should be installed using the package m
 If the user wants to additionally download the cideMOD repository with the examples and the data it can be cloned in a local folder using git.
 To install git use:
 
-.. code:: bash
+.. code-block:: console
     
     $ sudo apt-get install git
 

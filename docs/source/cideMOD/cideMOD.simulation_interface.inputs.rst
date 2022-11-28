@@ -1,7 +1,7 @@
-cideMOD.models.electrochemical.model module
+cideMOD.simulation_interface.inputs module
 ===========================================
 
-.. automodule:: cideMOD.models.electrochemical.model
+.. automodule:: cideMOD.simulation_interface.inputs
    :members:
    :undoc-members:
    :show-inheritance:

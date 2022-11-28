@@ -1,7 +1,9 @@
 Dimensional model
 ==================
 
-The well-known P2D model described by :cite:t:`Doyle1993` is considered herein as a baseline. As each domain is normalized with its thickness, the gradients used are:
+The well-known P2D model described by :cite:t:`Doyle1993` is considered
+herein as a baseline. As each domain is normalized with its thickness,
+the gradients used are:
 
 .. math::
 
@@ -9,151 +11,187 @@ The well-known P2D model described by :cite:t:`Doyle1993` is considered herein a
         \nabla = \begin{pmatrix} \frac{\partial}{\partial x} \\ \frac{\partial}{\partial y} \\ \frac{\partial}{\partial z} \end{pmatrix} = \begin{pmatrix} \frac{1}{L_i} \frac{\partial}{\partial \hat{x}} \\ \frac{1}{H_i} \frac{\partial}{\partial \hat{y}} \\ \frac{1}{W_i} \frac{\partial}{\partial \hat{z}} \end{pmatrix}
     \end{gathered}
 
-Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height and width. However, in the case of the P2D model, only the first row of the vector is used.
+Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness,
+height and width. However, in the case of the P2D model, only the first
+row of the vector is used.
 
 .. rubric:: Electrochemical Model
 
 
 * Mass transport in the electrolyte
-    The mass transport in the electrolyte is calculated in :func:`c_e_equation <cideMOD.models.electrochemical.equations.c_e_equation>` function.
-    
+    The mass transport in the electrolyte is calculated in
+    :func:`c_e_equation <cideMOD.models.electrochemical.equations.c_e_equation>`
+    function.
+
     .. math::
 
         \begin{gathered}
-            \epsilon \frac{\partial c_e}{\partial t} =
-            \nabla \left( D_{eff} \nabla c_e \right) + \frac{1}{F}\sum_{i=0}^{n_{mat}} a_i j_{i}
+            \varepsilon_\mathrm{e} \frac{\partial c_\mathrm{e}}{\partial t} =
+            \nabla\cdot \left( D^\mathrm{eff}_\mathrm{e} \nabla c_\mathrm{e} \right) + \frac{1}{F}\sum_{i=0}^{n_\mathrm{mat}} a_i j_{i}
         \end{gathered}
 
 * Charge transport in the electrolyte
-    The charge transport in the electrolyte is calculated in :func:`phi_e_equation <cideMOD.models.electrochemical.equations.phi_e_equation>` function.
+    The charge transport in the electrolyte is calculated in
+    :func:`phi_e_equation <cideMOD.models.electrochemical.equations.phi_e_equation>`
+    function.
 
     .. math::
 
         \begin{gathered}
-            - \nabla \left( \kappa_{eff} \nabla \varphi_e  - 2 \kappa_{eff} \frac{RT}{F} (1-t_0) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \nabla \ln{c_e}  \right) = \sum_{i=0}^{n_{mat}} a_i j_{i}
+            - \nabla\cdot \left( \kappa_\mathrm{eff} \nabla \varphi_\mathrm{s} \right)  +  
+            \nabla\cdot \left( 2 \kappa_\mathrm{eff} \frac{RT}{F} (1-t_0) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_\mathrm{e}}}\right) \nabla \ln{c_\mathrm{e}}  \right) = \sum_{i=0}^{n_\mathrm{mat}} a_i j_{i}
         \end{gathered}
 
 * Charge transport in the electrode
-    The charge transport in the solid electron conductor materials is calculated in :func:`phi_s_equation <cideMOD.models.electrochemical.equations.phi_s_equation>` function.
+    The charge transport in the solid electron conductor materials is calculated in
+    :func:`phi_s_equation <cideMOD.models.electrochemical.equations.phi_s_equation>`
+    function.
 
     .. math::
 
         \begin{gathered}
-            - \nabla \left( \sigma_{eff} \nabla \varphi_s \right) = - \sum_{i=0}^{n_{mat}} a_i j_{i}
+            - \nabla\cdot \left( \sigma_\mathrm{eff} \nabla \varphi_\mathrm{s} \right) = - \sum_{i=0}^{n_\mathrm{mat}} a_i j_{i}
             \quad ; \quad
-            \sigma_{eff} \nabla \varphi_s \Big|_{tab} = I_{app}
+            \sigma_\mathrm{eff} \nabla \varphi_\mathrm{s} \Big|_\mathrm{tab} = I_\mathrm{app}
         \end{gathered}
 
-    In the current colectors, a similar equation is used, but in this case, there is no exchage with the electrolyte, therefore the right hand side term equals zero.
+    In the current colectors, a similar equation is used, but in this
+    case, there is no exchage with the electrolyte, therefore the right
+    hand side term equals zero.
 
 * Mass transport in the active material (pseudodimension)
-    The mass transport in the active material is calculated in the :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_coupling.SpectralLegendreModel>` class using Legendre polynomials.
+    The mass transport in the active material is calculated in the
+    :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_coupling.SpectralLegendreModel>`
+    class using Legendre polynomials.
 
     .. math::
 
         \begin{gathered}
-            \frac{\partial c_s}{\partial t} =
-            \nabla \left( D_s^{eff} \nabla c_s \right)
+            \frac{\partial c_\mathrm{s}}{\partial t} =
+            \nabla\cdot \left( D_\mathrm{s}^\mathrm{eff} \nabla c_\mathrm{s} \right)
             \quad ; \quad
-            - D_s^{eff} \nabla c_s \Bigg|_{r=R_p} = \frac{j_{i}}{F}
+            - D_\mathrm{s}^\mathrm{eff} \nabla c_\mathrm{s} \Bigg|_{r=R_p} = \frac{j_{i}}{F}
         \end{gathered}
 
-* Exchange between the electrolyte and the electrode by lithium intercalation
-    The intercalation exchange current between the electrolyte and the active materials is calculated in :func:`j_int <cideMOD.models.electrochemical.equations.j_Li_equation>` function.
+* Exchange current between the electrolyte and the electrode by lithium
+  intercalation. The intercalation exchange current between the
+  electrolyte and the active materials is calculated in
+  :func:`j_int <cideMOD.models.electrochemical.equations.j_Li_equation>`
+  function.
 
     .. math::
 
         \begin{gathered}
-            j_i = F k_0 c_e^\alpha c_s^{1-\alpha} (1-c_s)^\alpha \left(e^{\frac{-\alpha F}{RT} \eta }-e^{\frac{(1-\alpha) F}{RT} \eta} \right)
+            j_i = F k_0 c_\mathrm{e}^\alpha (c_\mathrm{s}^\mathrm{surf})^{1-\alpha} (c_\mathrm{s}^\mathrm{max}-c_\mathrm{s}^\mathrm{surf})^\alpha \left(e^{\frac{-\alpha F}{RT} \eta }-e^{\frac{(1-\alpha) F}{RT} \eta} \right)
         \end{gathered}
 
 * Overpotential
-    The overpotential at each part of the electrode is calculated in :func:`overpotential <cideMOD.models.electrochemical.equations.overpotential>` function
+    The overpotential at each part of the electrode is calculated in the
+    :func:`overpotential <cideMOD.models.electrochemical.equations.overpotential>`
+    function.
 
     .. math::
 
         \begin{gathered}
-            \eta = \varphi_s - \varphi_e - U_{eq}(c_s^{surf})
+            \eta = \varphi_\mathrm{s} - \varphi_\mathrm{e} - U_\mathrm{eq}(c_\mathrm{s}^\mathrm{surf})
         \end{gathered}
 
 .. rubric:: Thermal Model
 
 * Energy conservation:
-    The heat transfer across the cell is computed in :func:`T_equation <cideMOD.models.thermal.equations.T_equation>` function.
+    The heat transfer across the cell is computed in the
+    :func:`T_equation <cideMOD.models.thermal.equations.T_equation>`
+    function.
 
     .. math::
 
         \begin{gathered}
             \rho c_p \frac{\partial T}{\partial t} =
-            \nabla \left( \lambda_{eff} \nabla T \right) + q
+            \nabla\cdot \left( \lambda_\mathrm{eff} \nabla T \right) + q
             \quad ; \quad
-            - \lambda_{eff} \nabla T \Bigg|_{\Gamma}= h (T-T_{ext})
+            \mathbf{n} \cdot \left(-\lambda_\mathrm{eff} \nabla T \right) \Bigg|_{\Gamma}= h (T-T_\mathrm{ext})
         \end{gathered}
 
 * Heat generation:
-    Several heat sources have been considered. The formulation of this heat sources is based on :cite:t:`Chiew2019`
+    Several heat sources have been considered using formulations 
+    based on :cite:t:`Chiew2019`
     
     .. math::
 
         \begin{gathered}
-            q = q_{ohm}+q_{rev}+q_{irr}
+            q = q_\mathrm{ohm}+q_\mathrm{rev}+q_\mathrm{irr}
         \end{gathered}
     
     * Ohmic heat source
-        This corresponds to the heat generated by the transport of charge within the cell. It is calculated in :func:`solid_ohmic_heat_equation <cideMOD.models.thermal.equations.solid_ohmic_heat_equation>` function:
+        This corresponds to the heat generated by the transport of
+        charge within the cell. It is calculated in the
+        :func:`solid_ohmic_heat_equation <cideMOD.models.thermal.equations.solid_ohmic_heat_equation>`
+        function:
 
         .. math::
 
-            \begin{gathered}
-                q_{ohm} =  (1-\varepsilon) q_{solid} + \varepsilon q_{liquid} \\
-                q_{solid} =  \sigma_{eff} \nabla \varphi_s \nabla \varphi_e \\
-                q_{liquid} = \kappa_{eff} \nabla \varphi_e \nabla \varphi_e - 2 \kappa_{eff} \frac{RT}{F} (1-t_0^+) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_e}}\right) \frac{\nabla c_e}{c_e} \nabla \varphi_e
-            \end{gathered}
+            \begin{align*}
+                q_\mathrm{ohm} &=  q_\mathrm{solid} + q_\mathrm{liquid}, \\
+                q_\mathrm{solid} &=  \sigma_\mathrm{eff} \nabla \varphi_\mathrm{s} \nabla \varphi_\mathrm{s}, \\
+                q_\mathrm{liquid} &= \kappa_\mathrm{eff} \nabla \varphi_\mathrm{e} \nabla \varphi_\mathrm{e} - 2 \kappa_\mathrm{eff} \frac{RT}{F} (1-t_0^+) \left(1+\frac{\partial \ln{f_{\pm}}}{\partial \ln{c_\mathrm{e}}}\right) \frac{\nabla c_\mathrm{e}}{c_\mathrm{e}} \nabla \varphi_\mathrm{s}.
+            \end{align*}
 
     * Reversible reaction heat source
-        The reversible heat caused by the reaction is proportional to the entropy change, that is approximated with the variation of Open Circuit potential. It is calculated in :func:`reaction_reversible_heat <cideMOD.models.thermal.equations.reaction_reversible_heat>` function
+        The reversible heat caused by the reaction is proportional to
+        the entropy change, that is approximated with the variation of
+        Open Circuit Potential. It is calculated in the
+        :func:`reaction_reversible_heat <cideMOD.models.thermal.equations.reaction_reversible_heat>`
+        function.
 
         .. math::
 
             \begin{gathered}
-                q_{rev} =  \sum_{i=0}^{n_{mat}} a_i j_{i} T \frac{\partial U_i(c_s)}{\partial T}
+                q_\mathrm{rev} =  \sum_{i=0}^{n_\mathrm{mat}} a_i j_{i} T \frac{\partial U_i(c^\mathrm{surf}_\mathrm{s})}{\partial T}
             \end{gathered}
 
     * Irreversible polarization heat source
-        This represents the irreversible heating due to the polarization heat generated by the exchange current at the electrolyte-electrode interface. It is calculated in :func:`reaction_irreversible_heat <cideMOD.models.thermal.equations.reaction_irreversible_heat>` function
+        This represents the irreversible heating due to the
+        polarization heat generated by the exchange current at the
+        electrolyte-electrode interface. It is calculated in the
+        :func:`reaction_irreversible_heat <cideMOD.models.thermal.equations.reaction_irreversible_heat>`
+        function.
 
         .. math::
 
             \begin{gathered}
-                q_{rev} =  \sum_{i=0}^{n_{mat}} a_i j_{i} \eta
+                q_\mathrm{rev} =  \sum_{i=0}^{n_\mathrm{mat}} a_i j_{i} \eta_{i}
             \end{gathered}
 
 .. rubric:: Degradation Models
 
 * SEI formation side reaction
-    This model is implemented inside the :class:`SEI <cideMOD.models.degradation.equations.SEI>` class.
-    The model considers that the SEI is originated by the electrochemical reaction between EC solvent molecule, 2 lithium ions and 2 electrons at the electrode surface:
+    This model is implemented inside the
+    :class:`SEI <cideMOD.models.degradation.equations.SEI>` class.
+    The model considers that the SEI is originated by the
+    electrochemical reaction between a EC solvent molecule, two lithium ions
+    and two electrons at the electrode surface:
 
     .. math::
 
             \begin{gathered}
-                EC + 2 Li^+ + 2 e^- \rightarrow V_{SEI}
+                \rm EC + 2 Li^+ + 2 e^- \rightarrow V_\mathrm{\scriptstyle SEI}.
             \end{gathered}
     
-    Therefore the rection equation reads:
+    Therefore, the reaction equation reads:
 
     .. math::
 
             \begin{gathered}
-                j_{SEI} = F k_{SEI} c_{EC} c_s e^{\frac{-\beta F}{RT}(\eta - (U_{SEI} - U_{eq}))}
+                j_\mathrm{\scriptscriptstyle SEI} = F k_\mathrm{\scriptscriptstyle SEI} c_\mathrm{\scriptscriptstyle EC}\big|_{r=R_\mathrm{s}} \exp{\left(\frac{-\beta F}{RT}\left(\eta + U_\mathrm{eq}-U_\mathrm{eq,\scriptscriptstyle SEI}\right)\right)},
             \end{gathered}
 
-    where the concentration of EC solvent at the SEI must be modelled according to the transport equation:
+    where the concentration of EC solvent at the SEI is modelled
+    according to the transport equation:
 
     .. math::
 
             \begin{gathered}
-                \frac{\partial c_{EC}}{\partial t} = \nabla \left( D_{EC} \nabla c_{EC} - \frac{ \partial \delta_{SEI}}{\partial t} c_{EC} \right)
+                \frac{\partial c_\mathrm{\scriptscriptstyle EC}}{\partial t} = \nabla\cdot \left( D_\mathrm{\scriptscriptstyle EC} \nabla c_\mathrm{\scriptscriptstyle EC} - \frac{ \partial \delta_\mathrm{\scriptscriptstyle SEI}}{\partial t} c_\mathrm{\scriptscriptstyle EC} \right),
             \end{gathered}
 
     with the following boundary conditions:
@@ -161,33 +199,66 @@ Where :math:`L_i`, :math:`H_i` and :math:`W_i` are the domain thickness, height 
     .. math::
 
             \begin{gathered}
-                \left( D_{EC} \nabla c_{EC} - \frac{ \partial \delta_{SEI}}{\partial t} c_{EC} \right) \Bigg|_{r_{SEI}=R_s} = \frac{j_{SEI}}{F}
+                \left( D_\mathrm{\scriptscriptstyle EC} \nabla c_\mathrm{\scriptscriptstyle EC} - \frac{ \partial \delta_\mathrm{\scriptscriptstyle SEI}}{\partial t} c_\mathrm{\scriptscriptstyle EC} \right) \Bigg|_{r=R_\mathrm{s}} = \frac{j_\mathrm{\scriptscriptstyle SEI}}{F}
                 \quad ; \quad
-                c_{EC} \big|_{r_{SEI}=R_s+\delta_{SEI}} = c_{EC}^0
+                c_\mathrm{\scriptscriptstyle EC} \big|_{r=R_\mathrm{s}+\delta_\mathrm{\scriptscriptstyle SEI}} = \epsilon_\mathrm{\scriptscriptstyle SEI} c_\mathrm{\scriptscriptstyle{EC},\scriptstyle{sln}}.
             \end{gathered}
 
-    The SEI growth can be calculated from the reaction rate and SEI components properties:
+    The SEI growth can be calculated from the reaction rate and SEI
+    components properties:
 
     .. math::
 
             \begin{gathered}
-                \frac{\partial \delta_{SEI}}{\partial t} = - \frac{M_{SEI}}{2 F \rho_{SEI}} j_{SEI}
+                \frac{\partial \delta_\mathrm{\scriptscriptstyle SEI}}{\partial t} = - \frac{M_\mathrm{\scriptscriptstyle SEI}}{2 F \rho_\mathrm{\scriptscriptstyle SEI}} j_\mathrm{\scriptscriptstyle SEI}.
             \end{gathered}
 
-    The total exchange current therefore has two components:
+    Thus, the total exchange current has two components:
 
     .. math::
 
             \begin{gathered}
-                j_{tot} = j_{int} + j_{SEI}
+                j_\mathrm{tot} = j_\mathrm{int} + j_\mathrm{\scriptscriptstyle SEI}.
             \end{gathered}
 
-    And the overpotential has now an additional component corresponding to the voltage drop caused by SEI resistance:
+    And the overpotential has now an additional component corresponding
+    to the voltage drop caused by SEI resistance:
 
     .. math::
 
             \begin{gathered}
-                \eta = \varphi_s - \varphi_e - U_{eq}(c_s) - \frac{\delta_{SEI}}{\kappa_{SEI}} j_{tot} 
+                \eta = \varphi_\mathrm{s} - \varphi_\mathrm{e} - U_\mathrm{eq} - G_\mathrm{\scriptscriptstyle SEI} j_\mathrm{tot},
             \end{gathered}
-
     
+    where the resistance of the SEI is calculated as:
+
+    .. math::
+            \begin{gathered}
+                G_\mathrm{\scriptscriptstyle SEI} = R_{0,\mathrm{\scriptscriptstyle SEI}} + \frac{\delta_\mathrm{\scriptscriptstyle SEI}}{\kappa_\mathrm{\scriptscriptstyle SEI}}.
+            \end{gathered}
+
+* LAM model
+    This model is implemented inside the
+    :class:`SEI <cideMOD.models.degradation.equations.SEI>` class.
+    The model computes the lost of active material due to particle
+    cracking driven by stresses. Therefore, the decrease of the volume
+    fraction of active material is computed as
+
+    .. math::
+
+        \begin{gathered}
+            \sigma_\mathrm{h}=\frac{\sigma_\mathrm{r}+2\sigma_\mathrm{t}
+            }{3}=\frac{2\Omega E}{9\left ( 1-\nu \right )}\left ( 
+            3\int_{0}^{R}\tilde{c}r^2dr-\tilde{c} \right ).
+        \end{gathered}
+
+    And the hydrostatic stress is computed from the equilibrium of
+    stresses of a spherical electrode particle
+
+    .. math::
+
+        \begin{gathered}
+            \frac{\partial \varepsilon_\mathrm{s}}{\partial t}=-\beta
+            \left ( \frac{\sigma_\mathrm{h}}{\sigma_\mathrm{cr}} 
+            \right )^m \qquad \sigma_\mathrm{h}>0
+        \end{gathered}
