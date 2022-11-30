@@ -611,10 +611,10 @@ class Problem:
         """This method define functions for explicit processing"""
         elements, functions = [], []
         if self.model_options.solve_LAM:
-            if self.cell.positive_electrode.LAM:
+            if self.cell.negative_electrode.LAM:
                 elements += [ f'eps_s_a{i}' for i in range(self.number_of_anode_materials)]
                 functions += [ Function(self.V) for i in range(self.number_of_anode_materials)]
-            if self.cell.negative_electrode.LAM:
+            if self.cell.positive_electrode.LAM:
                 elements += [ f'eps_s_c{i}' for i in range(self.number_of_cathode_materials)]
                 functions += [ Function(self.V) for i in range(self.number_of_cathode_materials)]
 
