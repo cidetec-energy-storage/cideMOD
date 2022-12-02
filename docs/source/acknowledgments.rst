@@ -8,6 +8,6 @@ Acknowledgments
 
 |
 
-This software code cideMOD v0.2.0 has been developed within the framework
+This software code cideMOD v1.0.0 has been developed within the framework
 of the project **DEFACTO** funded by the European Union's Horizon 2020
 research and innovation programme, grant agreement no. 875247. 
