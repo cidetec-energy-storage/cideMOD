@@ -248,13 +248,13 @@ def plot_list_variable(x, y, name, direc, show=False, hide_ax_tick_labels=False,
             except:
                 pass
 
-    if ymin == None:
+    if ymin is None:
         ymin = min(y)
-    if ymax == None:
+    if ymax is None:
         ymax = max(y)
-    if xmin == None:
+    if xmin is None:
         xmin = min(x)
-    if xmax == None:
+    if xmax is None:
         xmax = max(x)
 
     Dy = (ymax - ymin) * 0.05
