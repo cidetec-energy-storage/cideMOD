@@ -1678,7 +1678,7 @@ class Problem:
 
         self.beta.assign(1)
 
-        if v == None:
+        if v is None:
             self.v_app.assign(self.get_voltage(self.f_0))
         else:
             self.v_app.assign(v)
@@ -1695,7 +1695,7 @@ class Problem:
 
         self.beta.assign(0)
 
-        if i == None:
+        if i is None:
             self.i_app.assign(self.get_current(self.f_0)/self.Q)
         else:
            self.i_app.assign(i/self.Q)

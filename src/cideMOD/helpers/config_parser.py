@@ -406,9 +406,10 @@ class CellParser:
 
         self.capacity = min(self.negative_electrode.capacity() or 9e99, self.positive_electrode.capacity() or 9e99)
         if self.log:
-            _print(f'Negative electrode capacity: {self.negative_electrode.capacity():.6f}')
-            _print(f'Positive electrode capacity: {self.positive_electrode.capacity():.6f}')
-            _print(f'Cell capacity: {self.capacity:.6f}')
+            _print(f"Negative electrode capacity: {self.negative_electrode.capacity():.6f}")
+            _print(f"Positive electrode capacity: {self.positive_electrode.capacity():.6f}")
+            _print("-"*20)
+            _print(f"Cell capacity: {self.capacity:.6f}\n")
 
         self.area = min(self.negative_electrode.area or 9e99, self.positive_electrode.area or 9e99)
 
