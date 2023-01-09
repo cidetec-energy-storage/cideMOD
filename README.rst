@@ -1,6 +1,59 @@
-cideMOD
-=======
-CIDETEC's open-source tool **cideMOD** is based on the Doyle--Fuller--Newman
+.. |cideMOD_logo| image:: ./docs/source/Images/logo_final_cidemod_hor.png
+  :alt: cideMOD_logo
+
+.. |docs| image:: https://readthedocs.org/projects/cidemod/badge/?version=latest
+    :alt: Documentation Status
+    :scale: 100%
+    :target: https://cidemod.readthedocs.io/en/latest/
+
+.. |doi| image:: https://img.shields.io/badge/DOI-10.1149%2F1945--7111%2Fac91fb-informational
+    :alt: Reference
+    :scale: 100%
+    :target: https://doi.org/10.1149/1945-7111/ac91fb
+
+.. |release| image:: https://img.shields.io/github/v/release/cidetec-energy-storage/cideMOD?color=yellow
+    :alt: Release
+    :scale: 100%
+    :target: https://github.com/cidetec-energy-storage/cideMOD/releases
+   
+.. |contributors| image:: https://img.shields.io/github/contributors/cidetec-energy-storage/cideMOD
+    :alt: Contributors
+    :scale: 100%
+    :target: https://github.com/cidetec-energy-storage/cideMOD/graphs/contributors
+
+.. |black_code| image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :alt: Black
+    :scale: 100%
+    :target: https://github.com/ambv/black
+
+.. |license| image:: https://img.shields.io/github/license/cidetec-energy-storage/cideMOD
+   :alt: License
+   :scale: 100%
+   :target: https://github.com/cidetec-energy-storage/cideMOD/blob/main/LICENSE
+
+.. |forks| image:: https://img.shields.io/github/forks/cidetec-energy-storage/cideMOD?style=social
+   :alt: Forks
+   :scale: 100%
+   :target: https://github.com/cidetec-energy-storage/cideMOD/network/members
+
+.. |twitter| image:: https://img.shields.io/twitter/follow/CIDETEC_?style=social
+   :alt: Twitter
+   :scale: 100%
+   :target: https://twitter.com/CIDETEC_?ref_src=twsrc%5Egoogle%7Ctwcamp%5Eserp%7Ctwgr%5Eauthor
+
+.. |docker| image:: https://img.shields.io/docker/v/cidetec/cidemod?label=Docker
+   :alt: Docker image
+   :scale: 100%
+   :target: https://hub.docker.com/r/cidetec/cidemod
+
+|cideMOD_logo|
+
+|docs| |doi| |license| |docker|
+
+|twitter|
+
+
+CIDETEC's open-source tool **cideMOD** is based on the Doyle-Fuller-Newman
 model in which the physicochemical equations
 are solved by Finite Element methods using the FEniCS library. It enables doing physics-based battery cell
 (herein after cell) simulations with a wide variety of use cases, from
@@ -95,7 +148,7 @@ Contact
 -------
 For issues and bug reports visit:
 
-https://github.com/cidetec-energy-storage/cideMOD
+https://github.com/cidetec-energy-storage/cideMOD/issues
 
 For other questions about cideMOD, you are welcome to contact us via email:
 

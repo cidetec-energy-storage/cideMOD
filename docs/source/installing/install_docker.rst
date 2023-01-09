@@ -142,7 +142,7 @@ Install Docker Engine
 
    .. code-block:: console
 
-    $ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin$
+    $ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
 3. Verify that the Docker Engine installation is successful by running
    the `hello-world` image.

@@ -5,7 +5,7 @@ Introduction
 .. _multiphenics: https://github.com/multiphenics/multiphenics
 .. _gmsh: https://gmsh.info/
 
-CIDETEC's open-source tool **cideMOD** is based on the Doyle--Fuller--Newman 
+CIDETEC's open-source tool **cideMOD** is based on the Doyle-Fuller-Newman 
 model :cite:p:`Doyle1993` in which the physicochemical equations
 are solved by Finite Element methods using the `FEniCS`_
 :cite:p:`fenics` library. It enables doing physics-based battery cell
