@@ -259,11 +259,13 @@ class Problem:
 
     def _build_extra_models(self):
         # SEI models
-        self.SEI_model_a = SEI('anode')
-        self.SEI_model_c = SEI('cathode')
+        if self.model_options.solve_SEI:
+            self.SEI_model_a = SEI('anode')
+            self.SEI_model_c = SEI('cathode')
         # LAM models
-        self.LAM_model_a = LAM('anode')
-        self.LAM_model_c = LAM('cathode')
+        if self.model_options.solve_LAM:
+            self.LAM_model_a = LAM('anode')
+            self.LAM_model_c = LAM('cathode')
         # Mechanical model
         self.mechanics = mechanical_model(self.cell)
 
@@ -440,6 +442,7 @@ class Problem:
             #     'fnc': self.calculate_thickness_change,
             #     'header': "Thickness change [m]"
             # }
+            
         if self.model_options.solve_SEI:
             if self.SEI_model_a or self.SEI_model_c:
                 self.post_processing_functions['globals'].append(self.calc_SEI_average_variables)
@@ -469,11 +472,11 @@ class Problem:
                     continue
                 for i in range(len(LAM_model.electrode.active_material)):
                     self.global_storage_order[f'eps_s_{domain}{i}_avg'] = {
-                        'fnc': functools.partial(self.get_eps_s_avg,electrode,index=i),
+                        'fnc': functools.partial(self.get_eps_s_avg, electrode, index=i),
                         'header': f'eps_s_{domain}{i} [%]'
                     }
                     self.global_storage_order[f'sigma_h_{domain}{i}_avg'] = {
-                        'fnc': functools.partial(self.get_hydrostatic_stress,electrode,index=i),
+                        'fnc': functools.partial(self.get_hydrostatic_stress, electrode, index=i),
                         'header': f'sigma_h_{domain}{i} [Pa]'
                     }
 
@@ -1754,7 +1757,7 @@ class NDProblem(Problem):
             assert all(k in new_state.keys() for k in ['cSEI', 'deltaSEI', 'jSEI'])
         _print('\r - Initializing state ... ', end='\r')
       
-        varnames = {'ce':'c_e', 'phie':'phi_e', 'phis':'phi_s', 'jLi':'j_Li', 'cs': 'cs'}
+        varnames = {'ce':'c_e', 'phie':'phi_e', 'phis':'phi_s', 'jLi':'j_Li', 'cs':'cs'}
         if self.model_options.solve_thermal:
             varnames['T'] = 'temp'
         if self.model_options.solve_SEI:
@@ -1874,11 +1877,13 @@ class NDProblem(Problem):
 
     def _build_extra_models(self):
         # SEI Models
-        self.SEI_model_a = self.nd_model.SEI(self.nd_model, 'anode')
-        self.SEI_model_c = self.nd_model.SEI(self.nd_model, 'cathode')
+        if self.model_options.solve_SEI:
+            self.SEI_model_a = self.nd_model.SEI(self.nd_model, 'anode')
+            self.SEI_model_c = self.nd_model.SEI(self.nd_model, 'cathode')
         # LAM Models
-        self.LAM_model_a = self.nd_model.LAM('anode')
-        self.LAM_model_c = self.nd_model.LAM('cathode')
+        if self.model_options.solve_LAM:
+            self.LAM_model_a = self.nd_model.LAM('anode')
+            self.LAM_model_c = self.nd_model.LAM('cathode')
         # Mechanical Models
         self.mechanics = mechanical_model(self.cell)
         # if self.cell.electrolyte.type != 'liquid' and self.model_options.solve_mechanic:
@@ -1888,8 +1893,13 @@ class NDProblem(Problem):
         # Thermal Model
         self._setup_thermal_boundary_conditions()
         # SEI Model
-        self.SEI_model_a.setup(self)
-        self.SEI_model_c.setup(self)
+        if self.model_options.solve_SEI:
+            self.SEI_model_a.setup(self)
+            self.SEI_model_c.setup(self)
+        if self.model_options.solve_LAM:
+            self.LAM_model_a.setup(self)
+            self.LAM_model_c.setup(self)
+        
 
     def mesh(self, mesh_engine=GmshMesher, copy=False):
         if mesh_engine is None:

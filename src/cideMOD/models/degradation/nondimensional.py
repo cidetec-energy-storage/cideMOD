@@ -62,7 +62,7 @@ class LAM_Model(BaseModel):
         c_s_max = material.maximumConcentration if isinstance(material, electrode.active_material) else material.c_s_max
         if LAM.model == "stress":
             delta_stress_h = 2/9*material.omega*c_s_max/(1-material.poisson)
-            params['tau_lam'] = LAM.beta*self.t_c*(delta_stress_h*material.young/material.critical_stress)**LAM.m
+            params['tau_lam'] = LAM.beta*self.t_c*(material.young/material.critical_stress)**LAM.m
             if not self.solve_mechanic:
                 params['delta_stress_h'] = delta_stress_h
         return params
