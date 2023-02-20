@@ -220,7 +220,7 @@ class Warehouse:
                     self._save_txt_file(fname, data, fmt, headers, clean)
 
                 # Write condensated
-                self._write_compiled_output()
+                self._write_compiled_output(clean)
                 # Write timings table
                 timing_table = timings(TimingClear.keep, [TimingType.wall, TimingType.user, TimingType.system])
                 with open(os.path.join(self.save_path,'timings.log'), 'w') as out:
@@ -238,7 +238,7 @@ class Warehouse:
         else:
             savetxt(fname=fname, X=data, header=headers, fmt=fmt)
 
-    def _write_compiled_output(self):
+    def _write_compiled_output(self, clean=True):
         fname = os.path.join(self.save_path,'{}.txt'.format('condensated'))
         data = []
         for var in self.global_var_arrays:
@@ -254,7 +254,7 @@ class Warehouse:
             n_total = data.shape[1]-1
             data_format = ("%2.2f"+ "\t%1.8e"*n_total)
             headers = '\t'.join( ['Time [s]']+[val['header'] for key, val in self.global_vars.items()] )
-            self._save_txt_file(fname, data, data_format, headers)
+            self._save_txt_file(fname, data, data_format, headers, clean)
         
     def clean(self):
         # Close files

@@ -26,8 +26,6 @@ class ModelOptions(BaseModel):
     :type mode: str
     :param solve_thermal: Whether to solve thermal problem or not, default False 
     :type solve_thermal: bool
-    :param solve_mechanic: Whether to solve mechanic problem or not, default False 
-    :type solve_mechanic: bool
     :param solve_SEI: Whether to solve SEI problem or not, default False 
     :type solve_SEI: bool
     :param solve_LAM: Whether to solve LAM problem or not, default False 
@@ -55,7 +53,6 @@ class ModelOptions(BaseModel):
     """
     mode: str = "P2D"
     solve_thermal: bool = False
-    solve_mechanic: bool = False
     solve_SEI: bool = False
     solve_LAM: bool = False
     N_x: int = 30
@@ -70,14 +67,13 @@ class ModelOptions(BaseModel):
 
     @validator("mode")
     def validate_mode(cls, v):
-        assert v in ("P2D", "P3D", "P4D"), "mode keyword must be one of P2D, P3D or P4D"
+        if v not in ("P2D", "P3D", "P4D"):
+            raise ValueError("Mode keyword must be one of: P2D, P3D or P4D")
         return v
 
     @validator("particle_coupling")
     def validate_coupling(cls, v):
-        assert v in (
-            "implicit",
-            "explicit",
-        ), "particle_coupling must be implicit or explicit"
+        if v not in ("implicit", "explicit",):
+            raise ValueError("Particle_coupling must be implicit or explicit")
         return v
 

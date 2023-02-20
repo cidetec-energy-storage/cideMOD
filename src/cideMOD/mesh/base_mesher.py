@@ -266,8 +266,11 @@ class DolfinMesher(BaseMesher):
         L, _, _ = self.get_dims()
         self.scale = L
         timer = Timer('Building mesh')
-        nodes = n*N_x if self.mode == "P2D" else (n*N_x*(N_y or N_x) if self.mode == "P3D" else n*N_x*(N_y or N_x)*(N_z or N_x))
-        print('Building mesh for {} problem with {} components and {} nodes.'.format(self.mode, n, nodes))
+        if isinstance(N_x, int):
+            nodes = n*N_x if self.mode == "P2D" else (n*N_x*(N_y or N_x) if self.mode == "P3D" else n*N_x*(N_y or N_x)*(N_z or N_x))
+        elif isinstance(N_x, list):
+            raise ValueError("Separated discretization not implemented.")
+        print(f"Building mesh for {self.mode} problem with {n} components and {nodes} nodes.")
 
         if self.mode == "P4D":
             p1 = Point(0,0,0)
@@ -277,7 +280,6 @@ class DolfinMesher(BaseMesher):
             p1 = Point(0,0,0)
             p2 = Point(n,1,0)
             self.mesh = RectangleMesh(p1,p2, N_x*n, N_y or N_x)
-
         elif self.mode == "P2D":
             self.mesh = IntervalMesh(N_x*n, 0, n)
 

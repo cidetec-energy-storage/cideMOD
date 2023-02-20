@@ -22,6 +22,7 @@ import gmsh
 import meshio
 import numpy as np
 import pygmsh
+from copy import deepcopy
 
 
 class GmshGenerator:
@@ -332,8 +333,11 @@ class GmshGenerator:
             [ [ [0 for k in range(n_elements)] for j in range(5)] for i in range(6) ],  # Up-Down (H+, H-)
             [ [ [0 for k in range(n_elements)] for j in range(6)] for i in range(5) ]  # Sides (Z+, Z-)
         ]
-        surfaces = curve_loops.copy()
-
+        surfaces = [
+            [ [ [0 for k in range(n_elements+1)] for j in range(5)] for i in range(5) ],  # In-plane (Front-back)
+            [ [ [0 for k in range(n_elements)] for j in range(5)] for i in range(6) ],  # Up-Down (H+, H-)
+            [ [ [0 for k in range(n_elements)] for j in range(6)] for i in range(5) ]  # Sides (Z+, Z-)
+        ]
         for i in range(5):
             for j in range(5):
                 for k in range(n_elements+1):
@@ -353,7 +357,7 @@ class GmshGenerator:
         # - Tab curve loops & surfaces
         if 'pcc' in structure or 'ncc' in structure:
             tab_curve_loops = [[0 for i in range(5)] for ind in tab_indexes]
-            tab_surfaces = tab_curve_loops.copy()
+            tab_surfaces = [[0 for i in range(5)] for ind in tab_indexes]
             for i, tab in enumerate(tab_indexes):
                 if tab[0] in [0,7]:
                     h = max(tab[0]-2,0)
@@ -369,17 +373,18 @@ class GmshGenerator:
 
         # Surface Loops & Volumes
         surface_loops = [ [[0 for k in range(n_elements)] for j in range(5)] for i in range(5)]
-        volumes = surface_loops.copy()
+        volumes = [ [[0 for k in range(n_elements)] for j in range(5)] for i in range(5)]
         for i in range(5):
             for j in range(5):
                 for k in range(n_elements):
                     surface_loops[i][j][k] = self.geom.add_surface_loop([ surfaces[0][i][j][k], surfaces[1][i][j][k], surfaces[2][i][j][k], surfaces[0][i][j][k+1], surfaces[1][i+1][j][k], surfaces[2][i][j+1][k] ])
                     volumes[i][j][k] = self.geom.add_volume(surface_loops[i][j][k])
+                    print(surface_loops[i][j][k], volumes[i][j][k])
 
         # - Tab surface loops & volumes
         if 'pcc' in structure or 'ncc' in structure:
             tab_surface_loops = [0 for ind in tab_indexes]
-            tab_volumes = tab_surface_loops.copy()
+            tab_volumes = [0 for ind in tab_indexes]
             for i, tab in enumerate(tab_indexes):
                 tab_surface_loops[i] = self.geom.add_surface_loop([tab_surfaces[i][j] for j in range(5)] + [surfaces[1][max(tab[0]-2,0)][tab[1]-1][tab[2]]])
                 tab_volumes[i] = self.geom.add_volume(tab_surface_loops[i])

@@ -436,12 +436,6 @@ class Problem:
                 'fnc': self.get_temperature,
                 'header': 'Temperature [K]'
             }
-        if self.model_options.solve_mechanic:
-            self.internal_storage_order.extend(self.mechanics.storage_order())
-            # self.global_storage_order['thickness'] = {
-            #     'fnc': self.calculate_thickness_change,
-            #     'header': "Thickness change [m]"
-            # }
             
         if self.model_options.solve_SEI:
             if self.SEI_model_a or self.SEI_model_c:
@@ -516,9 +510,6 @@ class Problem:
             elements += self.SGM.fields(self.number_of_cathode_materials, 'cathode')
         # Add Thermal model elements
         elements += ['temp']
-        # Add Mechanical model elements
-        if self.model_options.solve_mechanic:
-            elements += self.mechanics.fields()
         
         self.FE = namedtuple('Finite_Element_Function',' '.join(elements))
 
@@ -564,8 +555,6 @@ class Problem:
 
         # Define Mechanics function spaces
         E_mechanics = []
-        if self.model_options.solve_mechanic:
-            E_mechanics = self.mechanics.shape_functions(self.mesher.mesh)
 
         FS_total = E_electrochemical + E_sei + E_c_s + E_thermal + E_mechanics
 
@@ -630,10 +619,7 @@ class Problem:
     def build_implicit_sgm(self):
         # Build SGM with Implicit Coupling
         if self.c_s_implicit_coupling:
-            if self.model_options.solve_mechanic:
-                self.SGM = StressEnhancedSpectralModel(self.model_options.particle_order)
-            else:
-                self.SGM = SpectralLegendreModel(self.model_options.particle_order)
+            self.SGM = SpectralLegendreModel(self.model_options.particle_order)
         else:
             self.SGM = StrongCoupledPM()
 
@@ -641,16 +627,14 @@ class Problem:
         # Build SGM with Explicit Coupling
         timer = Timer('Build SGM')
         self.build_electrode_dof_mask()
-        if self.model_options.solve_mechanic:
-            self.anode_particle_model = StressEnhancedIntercalation(
-                active_material=self.anode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
-            self.cathode_particle_model = StressEnhancedIntercalation(
-                active_material=self.cathode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
-        else:
-            self.anode_particle_model = StandardParticleIntercalation(
-                active_material=self.anode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
-            self.cathode_particle_model = StandardParticleIntercalation(
-                active_material=self.cathode.active_material, F=self.F, alpha=self.alpha, R=self.R, N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
+        self.anode_particle_model = StandardParticleIntercalation(
+            active_material=self.anode.active_material, 
+            F=self.F, alpha=self.alpha, R=self.R, 
+            N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.anode_dofs))
+        self.cathode_particle_model = StandardParticleIntercalation(
+            active_material=self.cathode.active_material, 
+            F=self.F, alpha=self.alpha, R=self.R, 
+            N_s=self.model_options.N_p, DT=self.DT, nodes=len(self.cathode_dofs))
         timer.stop()
 
     def build_electrode_dof_mask(self):
@@ -671,24 +655,12 @@ class Problem:
             T=c_e[:].copy()
             T[:] = temp
 
-        if self.model_options.solve_mechanic:
-            if 'a' in self.cell.structure:
-                P_s_a = self.mechanics.inclusion_surface_pressure(self.f_1, self.anode.grad, self.c_e_ini, self.anode, self.eigenstrain)
-                P_surf_a = project(P_s_a, self.V).vector()
-                self.anode_particle_model.microscale_update(
-                    c_e[self.anode_dofs], phi[self.anode_dofs], T[self.anode_dofs], P_surf_a[self.anode_dofs])
-            if 'c' in self.cell.structure:
-                P_s_c = self.mechanics.inclusion_surface_pressure(self.f_1, self.cathode.grad, self.c_e_ini, self.cathode, self.eigenstrain)
-                P_surf_c = project(P_s_c, self.V).vector()
-                self.cathode_particle_model.microscale_update(
-                    c_e[self.cathode_dofs], phi[self.cathode_dofs], T[self.cathode_dofs], P_surf_c[self.cathode_dofs])
-        else:
-            if 'a' in self.cell.structure:
-                self.anode_particle_model.microscale_update(
-                    c_e[self.anode_dofs], phi[self.anode_dofs], T[self.anode_dofs])
-            if 'c' in self.cell.structure:
-                self.cathode_particle_model.microscale_update(
-                    c_e[self.cathode_dofs], phi[self.cathode_dofs], T[self.cathode_dofs])
+        if 'a' in self.cell.structure:
+            self.anode_particle_model.microscale_update(
+                c_e[self.anode_dofs], phi[self.anode_dofs], T[self.anode_dofs])
+        if 'c' in self.cell.structure:
+            self.cathode_particle_model.microscale_update(
+                c_e[self.cathode_dofs], phi[self.cathode_dofs], T[self.cathode_dofs])
 
         timer.stop()
 
@@ -701,12 +673,8 @@ class Problem:
         timer = Timer('Update C_s_surf')
         for i in range(self.number_of_anode_materials):
             self.c_s_surf_1_anode[i].vector()[self.anode_dofs] = self.anode_particle_model.c_s_surf()[:, i].flatten()
-            if self.model_options.solve_mechanic:
-                self.eigenstrain.vector()[self.anode_dofs] = self.anode_particle_model.eigenstrain()[:,i].flatten()
         for j in range(self.number_of_cathode_materials):
             self.c_s_surf_1_cathode[j].vector()[self.cathode_dofs] = self.cathode_particle_model.c_s_surf()[:, j].flatten()
-            if self.model_options.solve_mechanic:
-                self.eigenstrain.vector()[self.cathode_dofs] = self.cathode_particle_model.eigenstrain()[:,j].flatten()
         timer.stop()
 
     def initial_guess(self):
@@ -1227,37 +1195,7 @@ class Problem:
             ]
 
         # Mechanics
-        if self.model_options.solve_mechanic:
-            F_disp = 0
-            if 'ncc' in self.cell.structure:
-                F_disp += self.mechanics.displacement_wf(self.f_1, self.test, d.x_ncc, self.negativeCC, grad=grad)
-            if 'a' in self.cell.structure:
-                F_disp += self.mechanics.displacement_wf(self.f_1, self.test, d.x_a, self.anode, self.c_e_ini, self.eigenstrain, grad=grad)
-            F_disp += self.mechanics.displacement_wf(self.f_1, self.test, d.x_s, self.separator, self.c_e_ini, grad=grad)
-            if 'c' in self.cell.structure:
-                F_disp += self.mechanics.displacement_wf(self.f_1, self.test, d.x_c, self.cathode, self.c_e_ini, self.eigenstrain, grad=grad)
-            if 'pcc' in self.cell.structure:
-                F_disp += self.mechanics.displacement_wf(self.f_1, self.test, d.x_pcc, self.positiveCC, grad=grad)
-            
-            F_hydr_stress = 0
-            if 'ncc' in self.cell.structure:
-                F_hydr_stress += self.mechanics.hydrostatic_stress_wf(self.f_1, self.test, d.x_ncc, self.negativeCC, grad=grad)
-            if 'a' in self.cell.structure:
-                F_hydr_stress += self.mechanics.hydrostatic_stress_wf(self.f_1, self.test, d.x_a, self.anode, self.c_e_ini, self.eigenstrain, grad=grad)
-            F_hydr_stress += self.mechanics.hydrostatic_stress_wf(self.f_1, self.test, d.x_s, self.separator, self.c_e_ini, grad=grad)
-            if 'c' in self.cell.structure:
-                F_hydr_stress += self.mechanics.hydrostatic_stress_wf(self.f_1, self.test, d.x_c, self.cathode, self.c_e_ini, self.eigenstrain, grad = grad)
-            if 'pcc' in self.cell.structure:
-                F_hydr_stress += self.mechanics.hydrostatic_stress_wf(self.f_1, self.test, d.x_pcc, self.positiveCC, grad=grad)
-            
-            fixed_bc = self.mechanics.fixed_bc(self.W,self.f_1, [(0,)])
-            slip_bc = self.mechanics.slip_bc(self.W, self.f_1, [(None,0), (None,1), (None,None,0), (None,None,1)])
-            stress_bc = self.mechanics.pressure_bc(10, self.test, d.s_a, self.mesher.mesh) + self.mechanics.pressure_bc(10, self.test, d.s_c, self.mesher.mesh)
-
-            bcs += fixed_bc
-            self.F_mechanics = [F_disp, F_hydr_stress]
-        else:
-            self.F_mechanics = []
+        self.F_mechanics = []
 
         # Build Residual Form and Jacobian
         F_var_0 = F_c_e_0 \
@@ -1884,10 +1822,6 @@ class NDProblem(Problem):
         if self.model_options.solve_LAM:
             self.LAM_model_a = self.nd_model.LAM('anode')
             self.LAM_model_c = self.nd_model.LAM('cathode')
-        # Mechanical Models
-        self.mechanics = mechanical_model(self.cell)
-        # if self.cell.electrolyte.type != 'liquid' and self.model_options.solve_mechanic:
-        #     self.c_s_implicit_coupling = False
 
     def _setup_extra_models(self):
         # Thermal Model
