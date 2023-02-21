@@ -237,7 +237,7 @@ class StandardParticleIntercalation(WeakCoupledPM):
         Args:
             c_s (Function or TrialFunction): Lithium concentration in the particle
             c_e (Expression): lithium concentration in the electrolyte surrounding the particle
-            E_a (Expression): Buttler-Volmer reaction rate multiplied by k_0
+            E_a (Expression): Butler-Volmer reaction rate multiplied by k_0
             a_s (Constant): Active area of the electrode particle
             alpha (Constant): alpha
             F (Constant): Faraday's constant
@@ -265,67 +265,3 @@ class StandardParticleIntercalation(WeakCoupledPM):
             if increment:
                 c_avg[:,i] -= material.c_s_ini
         return c_avg
-
-
-class StressEnhancedIntercalation(StandardParticleIntercalation):
-    def theta(self, material, R):
-        if material.omega is not None and material.young is not None and material.poisson is not None:
-            return Constant((material.omega*2*material.young*material.omega)/(R*9*(1-material.poisson)))/self.T
-        else:
-            raise Exception('Material {} does not have mechanical properties'.format(material.index))
-    def c_s_equation(self, material):
-        c_s, lm = split(self.u_1[material.index])
-        c_s_0, _ = split(self.u_0[material.index])
-        
-        j_Li = self._j_li(c_s, self.c_e, self.phi, self.T, material.k_0, material.k_0_Ea, material.k_0_Tref,
-                          self.alpha, self.F, self.R, material.U, material.c_s_max)
-        if not isinstance(material.D_s,str):
-            D_s_eff = material.D_s
-        else:
-            D_s_eff = self.D_s_exp(material.D_s, lm)
-        D_s_eff = D_s_eff * exp(material.D_s_Ea/self.R * (1/material.D_s_Tref - 1/self.T))
-        theta = self.theta(material, self.R)
-        return self._c_s_equation(c_s, c_s_0, material.c_s_ini, self.r2, self.v_0,
-                                  self.dx, D_s_eff, material.R_s, j_Li, self.ds, theta)
-
-    def _c_s_equation(self, c_s, c_s_0, c_ini, r2, test, dx, D_s, R_s, j_Li, ds, thetha):
-        """Particle intercalarion equation for c_s according with Fick's Diffusion law with stress contribution.
-        The domain is normalized to [0,1] being the normalized radius r=real_r/R_s.
-        Euler implicit method is used to discretize time.
-
-        Args:
-            c_s (Function or TrialFunction): Lithium concentration in the particle
-            c_s_0 (Function): c_s at prior timestep
-            c_ini (Constant): reference c_s at initial time (where mechanical parameters are given)
-            dt (Expression): Time step in seconds
-            r2 (Expression): particle radius coordinate squared
-            test (TestFunction): TestFunction for c_s equation
-            dx (Measure): Domain Integral Measure
-            D_s (Constant or Expression or Form): Diffusivity of lithium in the particles of the electrode
-            R_s (Constant or Expression): Radius of the particles
-            j_Li (Function or Form): Lithium intercalation Flux
-            a_s (Constant or Expression or Form): Active area of electrode. Equals 3*eps_s/R_s
-            F (Constant): Faraday's constant
-            ds (Measure): Boundaries Integral Measure
-            thetha (Constant or Expression or Form): Mechanical effect coefficient equals to (2*E*omega^2) / (9*R*T*(1-nu)) with E=Young's Modulus, nu=Poisson's ratio and omega=Partial molar volume
-
-        Returns:
-            Form: weak form of c_s equation
-        """
-        return r2*self.DT.dt(c_s_0, c_s)*test*dx + r2*(D_s / R_s**2) * inner(grad(c_s), grad(test))*dx + \
-                thetha*(D_s / R_s**2) * r2 * inner(grad(c_s), grad(test))*(c_s-c_ini)*dx + (r2/(R_s))*j_Li*test*ds(2)
-
-    def get_average_c_s(self, increment=False):
-        """Calculates average concentration in the solid particle, useful for thickness change calculations
-
-        :param c_s_ref: Reference concentration to substract if necessary, defaults to None
-        :type c_s_ref: Constant or float, optional
-        """
-        shape = self.c_s_1_db.shape # cell_dof, material, c_s_vector
-        c_avg = numpy.empty(shape[:-1])
-        for i, material in enumerate(self.particles):
-            c_avg[:,i] = numpy.array([c.sum()/c.size for c in self.c_s_1_db[:,i,:]])
-            if increment:
-                c_avg[:,i] -= material.c_s_ini
-        return c_avg
-

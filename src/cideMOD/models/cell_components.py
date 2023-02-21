@@ -241,12 +241,6 @@ class Electrode(PorousComponent):
             self.young = self.config.young
             self.poisson = self.config.poisson
             self.critical_stress = self.config.critical_stress
-            if self.young and self.poisson is not None and problem.mechanics is not None:
-                self.C_mat = problem.mechanics.elasticity_tensor(self.young, self.poisson)
-                self.elsheby_tensor = problem.mechanics.elsheby_tensor(self.poisson)
-            else:
-                self.C_mat = None
-                self.elsheby_tensor = None
             
             if type(self.config.diffusionConstant) == int or type(self.config.diffusionConstant) == float:
                 self.D_s = Constant(self.config.diffusionConstant, name='D_s')

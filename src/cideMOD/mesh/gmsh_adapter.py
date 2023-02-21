@@ -303,12 +303,13 @@ class GmshMesher(GmshConverter):
         H = [h for h in H if h]
         W = [w for w in W if w]
         if self.mode == 'P2D':
-            gm.create_1D_mesh(filename=filename,structure=self.structure, L = L)
+            gm.create_1D_mesh(filename=filename, structure=self.structure, L=L)
         elif self.mode == 'P3D':
             H=min(H)
-            gm.create_2D_mesh(filename=filename,structure=self.structure, H=H,nH = N_y, L=L)
+            gm.create_2D_mesh(filename=filename, structure=self.structure, H=H, nH=N_y, L=L)
         elif self.mode == 'P4D':
             H=min(H)
             W=min(W)
-            gm.create_3D_mesh_with_tabs(filename=filename,structure=self.structure, H=H, Z=W, nH = N_y, nZ=N_z, L=L)
+            gm.create_3D_mesh_with_tabs(filename=filename, structure=self.structure, 
+                                        H=H, Z=W, nH=N_y, nZ=N_z, L=L)
         

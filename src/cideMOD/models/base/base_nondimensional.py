@@ -23,7 +23,6 @@ class BaseModel:
     def __init__(self, cell, model_options: ModelOptions):
         self.cell = cell
         self.solve_thermal = model_options.solve_thermal
-        self.solve_mechanic = model_options.solve_mechanic
         self.solve_sei = model_options.solve_SEI
         self.solve_lam = model_options.solve_LAM
         self.calc_dimensionless_parameters()
@@ -41,9 +40,6 @@ class BaseModel:
         if self.solve_thermal:
             scaled_dict_th = self._scale_thermal_variables(variables_dict)
             scaled_dict = {**scaled_dict, **scaled_dict_th}
-        if self.solve_mechanic:
-            scaled_dict_mec = self._scale_mechanical_variables(variables_dict)
-            scaled_dict = {**scaled_dict, **scaled_dict_mec}
         if self.solve_sei:
             scaled_dict_sei = self._scale_sei_variables(variables_dict)
             scaled_dict = {**scaled_dict, **scaled_dict_sei}
@@ -57,9 +53,6 @@ class BaseModel:
         if self.solve_thermal:
             unscaled_dict_th = self._unscale_thermal_variables(variables_dict)
             unscaled_dict = {**unscaled_dict, **unscaled_dict_th}
-        if self.solve_mechanic:
-            unscaled_dict_mec = self._unscale_mechanical_variables(variables_dict)
-            unscaled_dict = {**unscaled_dict, **unscaled_dict_mec}
         if self.solve_sei:
             unscaled_dict_sei = self._unscale_sei_variables(variables_dict)
             unscaled_dict = {**unscaled_dict, **unscaled_dict_sei}
@@ -79,8 +72,6 @@ class BaseModel:
         self._calc_electrochemical_dimensionless_parameters()
         if self.solve_thermal:
             self._calc_thermal_dimensionless_parameters()
-        if self.solve_mechanic:
-            self._calc_mechanic_dimensionless_parameters()
         if self.solve_sei:
             self._calc_sei_dimensionless_parameters()
         if self.solve_lam:
@@ -91,9 +82,6 @@ class BaseModel:
         if self.solve_thermal:
             therm = self._material_thermal_parameters(material)
             pars = {**pars, **therm}
-        if self.solve_mechanic:
-            mech = self._material_mechanic_parameters(material)
-            pars = {**pars, **mech}
         if self.solve_sei:
             sei = self._material_sei_parameters(material)
             pars = {**pars, **sei}

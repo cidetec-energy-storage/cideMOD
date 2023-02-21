@@ -52,9 +52,8 @@ class LAM_Model(BaseModel):
         return {}
     
     def _calc_lam_dimensionless_parameters(self):
-        if not self.solve_mechanic:
-            self.E_a_ref = [am.young for am in self.cell.negative_electrode.active_materials]
-            self.E_c_ref = [am.young for am in self.cell.positive_electrode.active_materials]
+        self.E_a_ref = [am.young for am in self.cell.negative_electrode.active_materials]
+        self.E_c_ref = [am.young for am in self.cell.positive_electrode.active_materials]
 
     def _material_lam_parameters(self, material):
         LAM = material.electrode.LAM
@@ -62,9 +61,8 @@ class LAM_Model(BaseModel):
         c_s_max = material.maximumConcentration if isinstance(material, electrode.active_material) else material.c_s_max
         if LAM.model == "stress":
             delta_stress_h = 2/9*material.omega*c_s_max/(1-material.poisson)
-            params['tau_lam'] = LAM.beta*self.t_c*(delta_stress_h*material.young/material.critical_stress)**LAM.m
-            if not self.solve_mechanic:
-                params['delta_stress_h'] = delta_stress_h
+            params['tau_lam'] = LAM.beta*self.t_c*(material.young/material.critical_stress)**LAM.m
+            params['delta_stress_h'] = delta_stress_h
         return params
 
     class LAM(LAM_dim):
