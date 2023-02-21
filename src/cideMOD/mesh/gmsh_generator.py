@@ -22,7 +22,6 @@ import gmsh
 import meshio
 import numpy as np
 import pygmsh
-from copy import deepcopy
 
 
 class GmshGenerator:
@@ -379,7 +378,6 @@ class GmshGenerator:
                 for k in range(n_elements):
                     surface_loops[i][j][k] = self.geom.add_surface_loop([ surfaces[0][i][j][k], surfaces[1][i][j][k], surfaces[2][i][j][k], surfaces[0][i][j][k+1], surfaces[1][i+1][j][k], surfaces[2][i][j+1][k] ])
                     volumes[i][j][k] = self.geom.add_volume(surface_loops[i][j][k])
-                    print(surface_loops[i][j][k], volumes[i][j][k])
 
         # - Tab surface loops & volumes
         if 'pcc' in structure or 'ncc' in structure:

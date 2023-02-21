@@ -269,7 +269,7 @@ class DolfinMesher(BaseMesher):
         if isinstance(N_x, int):
             nodes = n*N_x if self.mode == "P2D" else (n*N_x*(N_y or N_x) if self.mode == "P3D" else n*N_x*(N_y or N_x)*(N_z or N_x))
         elif isinstance(N_x, list):
-            raise ValueError("Separated discretization not implemented.")
+            raise NotImplementedError("Separated discretization is not implemented.")
         print(f"Building mesh for {self.mode} problem with {n} components and {nodes} nodes.")
 
         if self.mode == "P4D":

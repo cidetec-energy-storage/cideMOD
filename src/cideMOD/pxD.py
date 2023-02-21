@@ -266,8 +266,6 @@ class Problem:
         if self.model_options.solve_LAM:
             self.LAM_model_a = LAM('anode')
             self.LAM_model_c = LAM('cathode')
-        # Mechanical model
-        self.mechanics = mechanical_model(self.cell)
 
     def _setup_extra_models(self):
         # SEI models
@@ -553,10 +551,7 @@ class Problem:
             E_T = (LM, None)
         E_thermal = [E_T]
 
-        # Define Mechanics function spaces
-        E_mechanics = []
-
-        FS_total = E_electrochemical + E_sei + E_c_s + E_thermal + E_mechanics
+        FS_total = E_electrochemical + E_sei + E_c_s + E_thermal
 
         self.W = BlockFunctionSpace([FS[0] for FS in FS_total], restrict=[FS[1] for FS in FS_total])
         self.V = FunctionSpace(self.mesher.mesh, 'CG', 1)
@@ -1194,9 +1189,6 @@ class Problem:
             self.beta * (phi_s - self.v_app) * self.test.lm_app * d.s_c
             ]
 
-        # Mechanics
-        self.F_mechanics = []
-
         # Build Residual Form and Jacobian
         F_var_0 = F_c_e_0 \
             + self.F_phi_e \
@@ -1204,8 +1196,7 @@ class Problem:
             + F_j_Li  \
             + F_sei_0 \
             + F_c_s_0\
-            + F_T_0 \
-            + self.F_mechanics
+            + F_T_0 
 
         J_var_0 = block_derivative(F_var_0, self.u_2, self.du)
         self.F_var_0 = BlockForm(F_var_0)
@@ -1358,8 +1349,7 @@ class Problem:
             + F_j_Li \
             + self.F_sei \
             + F_c_s \
-            + self.F_T \
-            + self.F_mechanics
+            + self.F_T 
 
         J_var_implicit = block_derivative(F_var_implicit, self.u_2, self.du)
         self.F_var_implicit = BlockForm(F_var_implicit)
@@ -1397,8 +1387,7 @@ class Problem:
             + self.F_phi_e \
             + self.F_phi_s + self.F_lm_app \
             + F_j_Li \
-            + self.F_T \
-            + self.F_mechanics
+            + self.F_T 
 
         J_var_explicit = block_derivative(F_var_explicit, self.u_2, self.du)
         self.F_var_explicit = BlockForm(F_var_explicit)

@@ -256,7 +256,3 @@ class NondimensionalSpectralModel(SpectralLegendreModel):
             return value(x)
         else:
             raise Exception('Unknown type of parameter')
-
-
-class StressEnhancedSpectralModel(SpectralLegendreModel):
-    pass

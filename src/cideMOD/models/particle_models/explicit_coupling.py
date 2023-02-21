@@ -237,7 +237,7 @@ class StandardParticleIntercalation(WeakCoupledPM):
         Args:
             c_s (Function or TrialFunction): Lithium concentration in the particle
             c_e (Expression): lithium concentration in the electrolyte surrounding the particle
-            E_a (Expression): Buttler-Volmer reaction rate multiplied by k_0
+            E_a (Expression): Butler-Volmer reaction rate multiplied by k_0
             a_s (Constant): Active area of the electrode particle
             alpha (Constant): alpha
             F (Constant): Faraday's constant
@@ -265,6 +265,3 @@ class StandardParticleIntercalation(WeakCoupledPM):
             if increment:
                 c_avg[:,i] -= material.c_s_ini
         return c_avg
-
-class StressEnhancedIntercalation(StandardParticleIntercalation):
-    pass

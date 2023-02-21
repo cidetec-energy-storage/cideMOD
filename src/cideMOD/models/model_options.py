@@ -30,11 +30,11 @@ class ModelOptions(BaseModel):
     :type solve_SEI: bool
     :param solve_LAM: Whether to solve LAM problem or not, default False 
     :type solve_LAM: bool
-    :param N_x: Discretization in x direciton, default 30 
+    :param N_x: Discretization in x direction, default 30 
     :type N_x: int
-    :param N_y: Discretization in y direciton, default 10 
+    :param N_y: Discretization in y direction, default 10 
     :type N_y: int
-    :param N_z: Discretization in z direciton, default 10 
+    :param N_z: Discretization in z direction, default 10 
     :type N_z: int
     :param FEM_order: Order of interpolating finite elements, default 1 
     :type FEM_order: int
@@ -68,12 +68,12 @@ class ModelOptions(BaseModel):
     @validator("mode")
     def validate_mode(cls, v):
         if v not in ("P2D", "P3D", "P4D"):
-            raise ValueError("Mode keyword must be one of: P2D, P3D or P4D")
+            raise ValueError("'mode' keyword must be one of: 'P2D', 'P3D' or 'P4D'")
         return v
 
     @validator("particle_coupling")
     def validate_coupling(cls, v):
         if v not in ("implicit", "explicit",):
-            raise ValueError("Particle_coupling must be implicit or explicit")
+            raise ValueError("'particle_coupling' must be 'implicit' or 'explicit'")
         return v
 

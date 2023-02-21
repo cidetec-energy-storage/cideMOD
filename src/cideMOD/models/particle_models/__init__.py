@@ -17,14 +17,12 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 from cideMOD.models.base.base_particle_models import StrongCoupledPM, WeakCoupledPM
-from cideMOD.models.particle_models.implicit_coupling import SpectralLegendreModel, StressEnhancedSpectralModel, NondimensionalSpectralModel
-from cideMOD.models.particle_models.explicit_coupling import StandardParticleIntercalation, StressEnhancedIntercalation
+from cideMOD.models.particle_models.implicit_coupling import SpectralLegendreModel, NondimensionalSpectralModel
+from cideMOD.models.particle_models.explicit_coupling import StandardParticleIntercalation
 
 __all__ = [
     'StrongCoupledPM',
     'StandardParticleIntercalation',
-    'StressEnhancedIntercalation',
     'SpectralLegendreModel',
-    'StressEnhancedSpectralModel',
     'NondimensionalSpectralModel',
 ]
