@@ -16,13 +16,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from cideMOD.simulation_interface.triggers import SolverCrashed, Trigger, TriggerDetected
+from cideMOD.simulation_interface.triggers import SolverCrashed, Trigger, TriggerDetected, TriggerSurpassed
 from cideMOD.helpers.miscellaneous import format_time
 
 
 def execute_step(step, problem):
     status = step.execute(problem)
-    if isinstance( status, TriggerDetected ):
+    if isinstance(status, (TriggerDetected, TriggerSurpassed)):
         if status.action() == 'Next':
             return 0
         elif status.action() == 'CV':

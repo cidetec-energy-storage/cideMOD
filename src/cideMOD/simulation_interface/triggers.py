@@ -95,8 +95,8 @@ class Trigger:
             elif self._check_surpass(new_value):
                 # Trigger surpassed
                 raise TriggerSurpassed(
-                    time_slope=(self.trigger_value - self.old_value)
-                    / (new_value - self.old_value)
+                    time_slope=(self.trigger_value-self.old_value) / (new_value-self.old_value),
+                    trigger=self
                 )
             else:
                 # Trigger not reached
@@ -130,7 +130,7 @@ class TriggerDetected(Exception):
 
 
 class TriggerSurpassed(Exception):
-    def __init__(self, time_slope, trigger = None):
+    def __init__(self, time_slope, trigger):
         self.time_slope = time_slope
         self.trigger = trigger
 

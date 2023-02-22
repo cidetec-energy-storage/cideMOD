@@ -863,12 +863,12 @@ class Problem:
         error = self.get_time_filter_error()
         self.tau = self.DT.update_time_step(max(error), h, tol = 1e-2, max_step = max_step, min_step = min_step)
         self.nu = self.tau*(1+self.tau)/(1+2*self.tau)
-        if self.tau < 1:
+        if self.tau < 1-3e-16:
             # This means the result is not accurate, need to recompute
             timer.stop()
             errorcode = self.adaptive_timestep(i_app, v_app, max_step, min_step, t_max, triggers=triggers)
             return errorcode
-        elif self.tau >= 1:
+        else: # self.tau >= 1:
             # This means the result is acepted, advance
             errorcode = self.accept_timestep(i_app, v_app, h, triggers, timer, errorcode, False)
             return errorcode
@@ -881,8 +881,12 @@ class Problem:
         except TriggerSurpassed as e:
             timer.stop()
             new_tstep = e.new_tstep(self.get_timestep())
-            block_assign(self.u_2, self.u_1) # Reset solution to avoid possible Nan values
-            errorcode = self.constant_timestep(i_app, v_app, new_tstep, triggers=triggers, store_fom=store_fom)
+            if new_tstep > 3e-16:
+                block_assign(self.u_2, self.u_1) # Reset solution to avoid possible NaN values
+                errorcode = self.constant_timestep(i_app, v_app, new_tstep, triggers=triggers, store_fom=store_fom)
+            else:
+                errorcode = e
+                print(f"{str(e)} at {self.state['t']:.2f} s \033[K\n")
             return errorcode
         except TriggerDetected as e:
             errorcode = e
