@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -18,21 +18,30 @@
 #
 r"""The cideMOD library contains a suite of modules needed to simulate a battery"""
 
-from cideMOD.simulation_interface import CSI, DEFAULTS, SolverCrashed, Trigger, TriggerDetected
-from cideMOD.helpers import CellParser, ErrorCheck, init_results_folder
-from cideMOD.pxD import NDProblem, Problem
-from cideMOD.models.model_options import ModelOptions
+from cideMOD.helpers import (VerbosityLevel, LogLevel, PlotView,
+                             init_results_folder, plot_list_variable)
+from cideMOD.numerics import SolverCrashed, Trigger, TriggerDetected
+from cideMOD.cell import CellParser
+from cideMOD.models import get_model_options, models_info
+from cideMOD.main import Problem
+from cideMOD.simulation_interface import CSI, DEFAULTS, ErrorCheck, run_case
+
 
 __all__ = [
     "CSI",
     "DEFAULTS",
+    "run_case",
     "SolverCrashed",
     "Trigger",
     "TriggerDetected",
     "Problem",
-    "NDProblem",
     "CellParser",
     "ErrorCheck",
-    "ModelOptions",
+    "get_model_options",
+    "models_info",
+    "VerbosityLevel",
+    "LogLevel",
     "init_results_folder",
+    "plot_list_variable",
+    "PlotView"
 ]

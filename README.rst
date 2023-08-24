@@ -52,15 +52,15 @@
 
 |twitter|
 
-
-CIDETEC's open-source tool **cideMOD** is based on the Doyle-Fuller-Newman
-model in which the physicochemical equations
-are solved by Finite Element methods using the FEniCS library. It enables doing physics-based battery cell
-(herein after cell) simulations with a wide variety of use cases, from
-different drive cycles to studies of the SEI growth under storage
+CIDETEC's proprietary software **cideMOD** is based on the 
+Doyle-Fuller-Newman model in which the physicochemical equations
+are solved by Finite Element methods using the FEniCSx library. It 
+enables doing physics-based battery cell (herein after cell) simulations
+with a wide variety of use cases, from different drive cycles to studies
+of the SEI growth under storage
 conditions.
 
-**cideMOD** is a pseudo X-dimensional (pXD) model that extends the
+**cideMOD** is a pseudo X-dimensional (PXD) model that extends the
 original pseudo 2-dimensional (P2D) model, proposed by Newman and
 co-workers, from 1D to 2D and 3D cell geometries. Therefore, charge
 balance, mass balance and reaction kinetics, as well as energy balance,
@@ -140,7 +140,7 @@ building it (See the requirements.txt file for necessary packages):
 
 License
 -------
-cideMOD is copyright (C) 2022 of CIDETEC Energy Storage and is
+cideMOD is copyright (C) 2023 of CIDETEC Energy Storage and is
 distributed under the terms of the Affero GNU General Public License
 (GPL) version 3 or later.
 
@@ -148,7 +148,7 @@ Contact
 -------
 For issues and bug reports visit:
 
-https://github.com/cidetec-energy-storage/cideMOD/issues
+https://github.com/cidetec-energy-storage/cideMOD
 
 For other questions about cideMOD, you are welcome to contact us via email:
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -23,18 +23,33 @@ import meshio
 import numpy as np
 import pygmsh
 
+from mpi4py import MPI
+from dolfinx.io.gmshio import model_to_mesh
+import dolfinx as dfx
+
+from cideMOD.helpers.logging import VerbosityLevel, _print
+
 
 class GmshGenerator:
-    def __init__(self):
+    def __init__(self, comm: MPI.Intracomm = MPI.COMM_SELF, verbose: bool = False):
+        if comm.size > 1:
+            raise RuntimeError("Mesh cannot be generated in parallel")
+        self._comm = comm
+        self.verbose = (verbose >= VerbosityLevel.BASIC_PROBLEM_INFO
+                        and (comm is None or comm.rank == 0))
         self.geom = pygmsh.geo.Geometry()
         self.labels = {
             'a': 'anode',
             's': 'separator',
             'c': 'cathode',
             'ncc': 'negativeCC',
-            'pcc': 'positiveCC'
+            'pcc': 'positiveCC',
+            'a-s': 'anode-separator',
+            'c-s': 'cathode-separator',
+            'a-ncc': 'anode-CC',
+            'c-pcc': 'cathode-CC',
         }
-        
+
         self.discretization = {
             'a': {'n': 1, 'type': 'Progression', 'par': 1},
             's': {'n': 0.33, 'type': 'Progression', 'par': 1},
@@ -73,10 +88,17 @@ class GmshGenerator:
         def gmshDecorator(func):
             def decorated_method(self, *args, **kwargs):
                 self.geom.__enter__()
-                gmsh.option.setNumber("General.ExpertMode", 1)
-                gmsh.option.setNumber("General.Verbosity", 0)
-                func(self, *args, **kwargs)
+                if self._comm.rank == 0:
+                    gmsh.option.setNumber("General.ExpertMode", 1)
+                    gmsh.option.setNumber("General.Verbosity", 0)
+                    if self.verbose:
+                        _print("Generating mesh...", end="\r")
+                    func(self, *args, **kwargs)
+                if 'filename' in kwargs:
+                    self.write_to_dolfinx(dim, kwargs["filename"])
                 self.geom.__exit__()
+                if self.verbose:
+                    _print("Generating mesh - Done")
             return decorated_method
         return gmshDecorator
 
@@ -90,6 +112,7 @@ class GmshGenerator:
         gmsh.open(filename)
         gmsh.model.mesh.generate(dim)
         gmsh.write(output)
+        self.write_to_dolfinx(dim, filename)
         gmsh.finalize()
 
     @gmshEnvironment(1)
@@ -103,17 +126,17 @@ class GmshGenerator:
         for i in range(n_elements):
             lines[i] = self.geom.add_line(points[i], points[i + 1])
 
-        self._label_physical_elements(lines, structure)
+        self._label_physical_elements(lines, points, structure)
 
-        ncc = self.geom.add_physical(points[0], label='negativePlug')
-        pcc = self.geom.add_physical(points[-1], label='positivePlug')
+        ncc = self.geom.add_physical(points[0], label='negative_plug')
+        pcc = self.geom.add_physical(points[-1], label='positive_plug')
 
         for i in range(n_elements):
             trans_pars = self.discretization[structure[i]]
             self.geom.set_transfinite_curve(
                 lines[i], trans_pars['n'], trans_pars['type'], trans_pars['par'])
 
-        self.geom.generate_mesh(dim=1, verbose=True)
+        self.geom.generate_mesh(dim=1, verbose=self.verbose)
         if filename:
             self.write_gmsh_file(filename)
         else:
@@ -142,20 +165,17 @@ class GmshGenerator:
         for i in range(n_elements):
             surfaces[i] = self.geom.add_plane_surface(
                 self.geom.add_curve_loop(
-                    [lines[3 * i + 1], 
-                     lines[3 * (i + 1)], 
-                     lines[3 * i + 2], 
+                    [lines[3 * i + 1],
+                     lines[3 * (i + 1)],
+                     lines[3 * i + 2],
                      -lines[3 * i]]))
 
         lines_to_label = [lines[3 * i] for i in range(n_elements + 1)]
         # Label physical entities
-        self._label_physical_elements(surfaces, structure)
+        self._label_physical_elements(surfaces, lines_to_label, structure)
 
-        ncc = self.geom.add_physical(lines[0], label='negativePlug')
-        pcc = self.geom.add_physical(lines[-1], label='positivePlug')
-        Y_m = self.geom.add_physical(
-            self._flatten_list([lines[3 * i + 1] for i in range(n_elements)]), 
-            label='Y_m')
+        ncc = self.geom.add_physical(lines[0], label='negative_plug')
+        pcc = self.geom.add_physical(lines[-1], label='positive_plug')
 
         # Define mesh
         for i in range(n_elements):
@@ -170,7 +190,132 @@ class GmshGenerator:
             self.geom.set_transfinite_surface(surfaces[i], 'Left', [])
 
         # Generate and export mesh
-        self.geom.generate_mesh(dim=2, verbose=True)
+        self.geom.generate_mesh(dim=2, verbose=self.verbose)
+        if filename:
+            self.write_gmsh_file(filename)
+        else:
+            self.gmsh_mesh = self._get_gmsh_mesh()
+
+    @gmshEnvironment(3)
+    def create_3D_mesh(self, filename: str = '', structure=['a', 's', 'c'],
+                       L=[76e-6, 25e-6, 68e-6], nL: int = 30,
+                       H=0.01, nH: int = 10, Z=0.01, nZ: int = 10):
+        n_elements = len(structure)
+        self._adapt_discretization(structure, L, nL)
+        # Check structure structure
+        if 'pcc' in structure or 'ncc' in structure:
+            if structure[0] not in ('pcc', 'ncc') or structure[-1] not in ('pcc', 'ncc'):
+                raise ValueError("Current collectors must be at the extremes of the cell")
+        # Generate geometries
+        # Points
+        points_down_0 = self._draw_point_series(
+            start=[0, 0, 0], L=L, structure=structure, direction=0, sign=1)
+        points_down_1 = self._draw_point_series(
+            start=[0, 0, Z], L=L, structure=structure, direction=0, sign=1)
+        points_up_0 = self._draw_point_series(
+            start=[0, H, 0], L=L, structure=structure, direction=0, sign=1)
+        points_up_1 = self._draw_point_series(
+            start=[0, H, Z], L=L, structure=structure, direction=0, sign=1)
+        # Lines
+        lines_front = np.zeros(3 * (n_elements) + 1).tolist()
+        for i in range(n_elements):
+            lines_front[3 * i] = self.geom.add_line(points_down_0[i], points_up_0[i])
+            lines_front[3 * i + 1] = self.geom.add_line(points_down_0[i], points_down_0[i + 1])
+            lines_front[3 * i + 2] = self.geom.add_line(points_up_0[i], points_up_0[i + 1])
+        lines_front[-1] = self.geom.add_line(points_down_0[-1], points_up_0[-1])
+
+        lines_back = np.zeros(3 * (n_elements) + 1).tolist()
+        for i in range(n_elements):
+            lines_back[3 * i] = self.geom.add_line(points_down_1[i], points_up_1[i])
+            lines_back[3 * i + 1] = self.geom.add_line(points_down_1[i], points_down_1[i + 1])
+            lines_back[3 * i + 2] = self.geom.add_line(points_up_1[i], points_up_1[i + 1])
+        lines_back[-1] = self.geom.add_line(points_down_1[-1], points_up_1[-1])
+
+        lines_joint = np.zeros(2 * (n_elements + 1)).tolist()
+        for i in range(n_elements + 1):
+            lines_joint[2 * i] = self.geom.add_line(points_down_0[i], points_down_1[i])
+            lines_joint[2 * i + 1] = self.geom.add_line(points_up_0[i], points_up_1[i])
+
+        # Curve Loops & Surfaces
+        surfaces = np.zeros(5 * n_elements + 1).tolist()
+        for i in range(n_elements):
+            surfaces[5 * i] = self.geom.add_surface(
+                self.geom.add_curve_loop([
+                    -lines_joint[2 * i],
+                    lines_front[3 * i],
+                    lines_joint[2 * i + 1],
+                    -lines_back[3 * i]
+                ]))
+            surfaces[5 * i + 1] = self.geom.add_surface(
+                self.geom.add_curve_loop([
+                    -lines_back[3 * i + 1],
+                    lines_back[3 * i],
+                    lines_back[3 * i + 2],
+                    -lines_back[3 * (i + 1)]
+                ]))
+            surfaces[5 * i + 2] = self.geom.add_surface(
+                self.geom.add_curve_loop([
+                    -lines_front[3 * i + 1],
+                    lines_joint[2 * i],
+                    lines_back[3 * i + 1],
+                    -lines_joint[2 * (i + 1)]
+                ]))
+            surfaces[5 * i + 3] = self.geom.add_surface(
+                self.geom.add_curve_loop([
+                    lines_front[3 * i + 2],
+                    lines_joint[2 * (i + 1) + 1],
+                    -lines_back[3 * i + 2],
+                    -lines_joint[2 * i + 1]
+                ]))
+            surfaces[5 * i + 4] = self.geom.add_surface(
+                self.geom.add_curve_loop([
+                    lines_front[3 * i + 1],
+                    lines_front[3 * (i + 1)],
+                    -lines_front[3 * i + 2],
+                    -lines_front[3 * i]
+                ]))
+        surfaces[5 * n_elements] = self.geom.add_surface(
+            self.geom.add_curve_loop([
+                -lines_joint[2 * n_elements],
+                lines_front[3 * n_elements],
+                lines_joint[2 * n_elements + 1],
+                -lines_back[3 * n_elements]
+            ]))
+
+        # Surface Loops & Volumes
+        surface_loops = [0 for i in range(n_elements)]
+        volumes = [0 for i in range(n_elements)]
+        for i in range(n_elements):
+            surface_loops[i] = self.geom.add_surface_loop([surfaces[5 * i + j] for j in range(6)])
+            volumes[i] = self.geom.add_volume(surface_loops[i])
+        surfaces_to_label = [surfaces[5 * i] for i in range(n_elements + 1)]
+        # Label physical entities
+        self._label_physical_elements(volumes, surfaces_to_label, structure)
+
+        ncc = self.geom.add_physical(surfaces[0], label='negative_plug')
+        pcc = self.geom.add_physical(surfaces[-1], label='positive_plug')
+
+        # Define mesh
+        for i in range(n_elements):
+            trans_pars = self.discretization[structure[i]]
+            self.geom.set_transfinite_curve(
+                lines_front[3 * i + 1], trans_pars['n'], trans_pars['type'], trans_pars['par'])
+            self.geom.set_transfinite_curve(
+                lines_front[3 * i + 2], trans_pars['n'], trans_pars['type'], trans_pars['par'])
+            self.geom.set_transfinite_curve(
+                lines_back[3 * i + 1], trans_pars['n'], trans_pars['type'], trans_pars['par'])
+            self.geom.set_transfinite_curve(
+                lines_back[3 * i + 2], trans_pars['n'], trans_pars['type'], trans_pars['par'])
+        for i in range(n_elements + 1):
+            self.geom.set_transfinite_curve(lines_front[3 * i], nH, 'Progression', 1)
+            self.geom.set_transfinite_curve(lines_back[3 * i], nH, 'Progression', 1)
+            self.geom.set_transfinite_curve(lines_joint[2 * i], nZ, 'Progression', 1)
+            self.geom.set_transfinite_curve(lines_joint[2 * i + 1], nZ, 'Progression', 1)
+        for surf in surfaces:
+            self.geom.set_transfinite_surface(surf, 'Left', [])
+        for vol in volumes:
+            self.geom.set_transfinite_volume(vol, [])
+        self.geom.generate_mesh(dim=3, verbose=self.verbose)
         if filename:
             self.write_gmsh_file(filename)
         else:
@@ -208,6 +353,7 @@ class GmshGenerator:
         if 'pcc' in structure or 'ncc' in structure:
             tab_points = np.zeros((len(tab_indexes), 4)).tolist()
             for i, tab in enumerate(tab_indexes):
+                mesh_size = L[tab[2]] / 10
                 l_pos = [sum([L[j] for j in range(tab[2])]),
                          sum([L[j] for j in range(tab[2] + 1)])]
                 if tab[0] in [0, 7]:  # Vertical tabs
@@ -215,14 +361,28 @@ class GmshGenerator:
                     z_pos = [Z * distribution[tab[1]], Z * distribution[tab[1] + 1]]
                     tab_points[i][0] = self.geom.add_point(
                         [l_pos[0], y_pos[0], z_pos[0]])
+                    # [l_pos[0], y_pos[0], z_pos[0]], mesh_size)
                     tab_points[i][1] = self.geom.add_point(
                         [l_pos[0], y_pos[0], z_pos[1]])
+                    # [l_pos[0], y_pos[0], z_pos[1]], mesh_size)
                     tab_points[i][2] = self.geom.add_point(
                         [l_pos[1], y_pos[0], z_pos[0]])
+                    # [l_pos[1], y_pos[0], z_pos[0]], mesh_size)
                     tab_points[i][3] = self.geom.add_point(
                         [l_pos[1], y_pos[0], z_pos[1]])
+                    # [l_pos[1], y_pos[0], z_pos[1]], mesh_size)
                 else:  # Horizontal tabs
                     raise NotImplementedError("Only vertical tabs are available.")
+                    # y_pos = [H * distribution[tab[0]], H * distribution[tab[0] + 1]]
+                    # z_pos = [Z * distribution[tab[1]]]
+                    # tab_points[i][0] = self.geom.add_point(
+                    #     [l_pos[0], y_pos[0], z_pos[0]])
+                    # tab_points[i][1] = self.geom.add_point(
+                    #     [l_pos[0], y_pos[1], z_pos[0]])
+                    # tab_points[i][2] = self.geom.add_point(
+                    #     [l_pos[1], y_pos[0], z_pos[0]])
+                    # tab_points[i][3] = self.geom.add_point(
+                    #     [l_pos[1], y_pos[1], z_pos[0]])
 
         # Lines: [transversal, vertical (in-plane), horizontal (in-plane)]
         lines = [
@@ -265,6 +425,21 @@ class GmshGenerator:
                         points[i_tab + 1][j_tab][k_tab], tab_points[i][3])
                 else:
                     raise NotImplementedError("Only vertical tabs are available.")
+                    # j_tab = tab[0]
+                    # z_tab = max(tab[1] - 2, 0) # Double check (!!)
+                    # tab_lines[i][0] = self.geom.add_line(tab_points[i][0], tab_points[i][1])
+                    # tab_lines[i][1] = self.geom.add_line(tab_points[i][0], tab_points[i][2])
+                    # tab_lines[i][2] = self.geom.add_line(tab_points[i][2], tab_points[i][3])
+                    # tab_lines[i][3] = self.geom.add_line(tab_points[i][1], tab_points[i][3])
+
+                    # tab_lines[i][4] = self.geom.add_line(
+                    #     points[i_tab][j_tab - 1][z_tab], tab_points[i][0])
+                    # tab_lines[i][5] = self.geom.add_line(
+                    #     points[i_tab][j_tab][z_tab], tab_points[i][1])
+                    # tab_lines[i][6] = self.geom.add_line(
+                    #     points[i_tab + 1][j_tab - 1][z_tab], tab_points[i][2])
+                    # tab_lines[i][7] = self.geom.add_line(
+                    #     points[i_tab + 1][j_tab][z_tab], tab_points[i][3])
 
         # Curve_loops & Surfaces
         # Curve_loops: [In-plane (Front-back), Up-Down (H+, H-), Sides (Z+, Z-)]
@@ -350,7 +525,48 @@ class GmshGenerator:
                              ]))
                 else:
                     raise NotImplementedError("Only vertical tabs are available.")
-                  
+                    # i_tab = tab[2]
+                    # j_tab = tab[0]
+                    # k_tab = max(tab[1] - 2, 0)
+                    # # Top surface
+                    # tab_surfaces[i][0] = self.geom.add_plane_surface(
+                    #     self.geom.add_curve_loop(
+                    #         [tab_lines[i][1],
+                    #          tab_lines[i][2],
+                    #          -tab_lines[i][3],
+                    #          -tab_lines[i][0]]))
+                    # # rear
+                    # tab_surfaces[i][1] = self.geom.add_plane_surface(
+                    #     self.geom.add_curve_loop(
+                    #         [-tab_lines[i][0],
+                    #          -tab_lines[i][4],
+                    #          lines[2][i_tab][j_tab - 1][k_tab],
+                    #          tab_lines[i][5]]))
+                    # # back
+                    # tab_surfaces[i][2] = self.geom.add_plane_surface(
+                    #     self.geom.add_curve_loop(
+                    #         [tab_lines[i][1],
+                    #          -tab_lines[i][6],
+                    #          -lines[0][i_tab][j_tab - 1][k_tab],
+                    #          tab_lines[i][4],
+                    #          ]))
+                    # # side
+                    # tab_surfaces[i][3] = self.geom.add_plane_surface(
+                    #     self.geom.add_curve_loop(
+                    #         [-tab_lines[i][2],
+                    #          -tab_lines[i][6],
+                    #          lines[2][i_tab + 1][j_tab - 1][k_tab],
+                    #          tab_lines[i][7],
+                    #          ]))
+                    # # front
+                    # tab_surfaces[i][4] = self.geom.add_plane_surface(
+                    #     self.geom.add_curve_loop(
+                    #         [tab_lines[i][3],
+                    #          -tab_lines[i][7],
+                    #          -lines[0][i_tab][j_tab][k_tab],
+                    #          tab_lines[i][5],
+                    #          ]))
+
         # Surface Loops & Volumes
         volumes = np.zeros((5, 5, n_elements)).tolist()
         for i in range(5):
@@ -382,24 +598,26 @@ class GmshGenerator:
                 volumes_to_label[tab[2]].append(tab_volumes[i])
 
         # Label physical entities
-        self._label_physical_elements(volumes_to_label, structure)
+        surfaces_to_label = [[[surfaces[0][i][j][k] for i in range(5)] for j in range(5)]
+                             for k in range(n_elements + 1)]
+        self._label_physical_elements(volumes_to_label, surfaces_to_label, structure)
 
         if 'pcc' in structure or 'ncc' in structure:
             ncc = self.geom.add_physical(
                 self._flatten_list([tab_surfaces[i][j] for j in range(1)
                                     for i, tab in enumerate(tab_indexes) if tab[3] == 'ncc']),
-                label='negativePlug')
+                label='negative_plug')
             pcc = self.geom.add_physical(
                 self._flatten_list([tab_surfaces[i][j] for j in range(1)
                                     for i, tab in enumerate(tab_indexes) if tab[3] == 'pcc']),
-                label='positivePlug')
+                label='positive_plug')
         else:
             ncc = self.geom.add_physical(
                 self._flatten_list([surfaces[0][i][j][0] for i in range(5) for j in range(5)]),
-                label='negativePlug')
+                label='negative_plug')
             pcc = self.geom.add_physical(
                 self._flatten_list([surfaces[0][i][j][-1] for i in range(5) for j in range(5)]),
-                label='positivePlug')
+                label='positive_plug')
 
         Y_m = self.geom.add_physical(
             self._flatten_list([surfaces[1][0][j][k]
@@ -419,7 +637,7 @@ class GmshGenerator:
             1 + int(max(1, np.ceil(nZ * 2 / 10))),
             1 + int(max(2, np.ceil(nZ * 3 / 10))),
             1 + int(max(1, np.ceil(nZ / 10)))]
-        
+
         for i in range(n_elements):
             trans_pars = self.discretization[structure[i]]
             for j in range(6):
@@ -464,23 +682,46 @@ class GmshGenerator:
                             tab_lines[i][4 + j], H_disc[2], 'Progression', 1)
                 else:
                     raise NotImplementedError("Only vertical tabs are available.")
-                
+                    # self.geom.set_transfinite_curve(
+                    #     tab_lines[i][0], H_disc[1], 'Progression', 1)
+                    # self.geom.set_transfinite_curve(
+                    #     tab_lines[i][1], trans_pars['n'], trans_pars['type'], trans_pars['par'])
+                    # self.geom.set_transfinite_curve(
+                    #     tab_lines[i][2], H_disc[1], 'Progression', 1)
+                    # self.geom.set_transfinite_curve(
+                    #     tab_lines[i][3], trans_pars['n'], trans_pars['type'], trans_pars['par'])
+                    # for j in range(4):
+                    #     self.geom.set_transfinite_curve(
+                    #         tab_lines[i][4 + j], Z_disc[2], 'Progression', 1)
                 for j in range(5):
                     self.geom.set_transfinite_surface(tab_surfaces[i][j], 'Left', [])
                 self.geom.set_transfinite_volume(tab_volumes[i], [])
-        self.geom.generate_mesh(dim=3, verbose=True)
+        self.geom.generate_mesh(dim=3, verbose=self.verbose)
         if filename:
             self.write_gmsh_file(filename)
         else:
             self.gmsh_mesh = self._get_gmsh_mesh()
 
-    def _label_physical_elements(self, elements: list, structure: list):
+    def _label_physical_elements(self, elements: list, facets: list, structure: list):
         assert len(elements) == len(structure), "Element number incorrect"
+        assert len(elements) == len(facets) - 1
         keys = np.array(structure)
         ind = np.arange(len(structure))
         key_dict = {}
         for k in set(keys):
             key_dict[k] = ind[k == keys]
+        interface_dict = {}
+        for k in set(keys):
+            has_interface = key_dict[k][key_dict[k] > 0]
+            for j in set(keys):
+                if j != k:
+                    interfaces = has_interface[keys[has_interface - 1] == j]
+                    tag = '-'.join(sorted([j, k]))
+                    if len(interfaces) > 0:
+                        if tag in interface_dict.keys():
+                            interface_dict[tag] = np.concatenate([interface_dict[tag], interfaces])
+                        else:
+                            interface_dict[tag] = interfaces
 
         for k in key_dict:
             objects = []
@@ -489,6 +730,13 @@ class GmshGenerator:
                 for item in flattened_elements:
                     objects.append(item)
             self.geom.add_physical(objects, label=self.labels[k])
+        for k in interface_dict:
+            facet_objects = []
+            for index in interface_dict[k]:
+                flattened_elements = self._flatten_list(facets[index])
+                for item in flattened_elements:
+                    facet_objects.append(item)
+            self.geom.add_physical(facet_objects, label=self.labels[k])
 
     def _flatten_list(self, elements):
         if not isinstance(elements, list):
@@ -535,11 +783,19 @@ class GmshGenerator:
         points = np.zeros(n_elem + 1).tolist()
         x = start
         points[0] = self.geom.add_point(x.copy())
+        # points[0] = self.geom.add_point(x.copy(),
+        #                                 min(lcar, L[0] / self.discretization[structure[0]]['n']))
         for i in range(n_elem - 1):
             x[direction] += sign * L[i]
             points[i + 1] = self.geom.add_point(x.copy())
+            # points[i + 1] = self.geom.add_point(
+            #     x.copy(), min(lcar,
+            #                   L[i] / self.discretization[structure[i]]['n'],
+            #                   L[i + 1] / self.discretization[structure[i + 1]]['n']))
         x[direction] += sign * L[-1]
         points[-1] = self.geom.add_point(x.copy())
+        # points[-1] = self.geom.add_point(
+        #     x.copy(), min(lcar, L[-1] / self.discretization[structure[-1]]['n']))
         return points
 
     def _get_gmsh_mesh(self):
@@ -558,3 +814,11 @@ class GmshGenerator:
 
     def get_field_data(self):
         return {key: value[0] for key, value in self.field_data.items()}
+
+    def write_to_dolfinx(self, dim: int, filename: str):
+        fname = filename.rsplit('.', 1)[0] + ".xdmf"
+        mesh, subdomains, boundaries = model_to_mesh(gmsh.model, self._comm, 0, gdim=dim)
+        xdmf = dfx.io.XDMFFile(self._comm, fname, 'w')
+        xdmf.write_mesh(mesh)
+        xdmf.write_meshtags(subdomains, mesh.geometry)
+        xdmf.write_meshtags(boundaries, mesh.geometry)

@@ -5,21 +5,25 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
 
-   cideMOD.simulation_interface
+   cideMOD.cell
    cideMOD.helpers
    cideMOD.mesh
    cideMOD.models
    cideMOD.numerics
+   cideMOD.simulation_interface
 
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+cideMOD.main module
+-------------------
 
-   cideMOD.pxD
+.. automodule:: cideMOD.main
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
@@ -28,4 +32,3 @@ Module contents
    :members:
    :undoc-members:
    :show-inheritance:
-   :noindex:

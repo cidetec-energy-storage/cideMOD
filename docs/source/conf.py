@@ -18,11 +18,11 @@ sys.path.insert(0, pathlib.Path(__file__).parents[2].joinpath('src').resolve().a
 # -- Project information -----------------------------------------------------
 
 project = 'cideMOD'
-copyright = '2022, CIDETEC'
+copyright = '2023, CIDETEC'
 author = 'CIDETEC'
 
 # The full version, including alpha/beta/rc tags
-release = 'v1.0.0'
+release = 'v2.0.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -83,7 +83,7 @@ latex_elements = {
     # Additional stuff for the LaTeX preamble.
     #
     'preamble': """\\usepackage{etoolbox}
-\patchcmd{\\thebibliography}{\\section*{\\refname}}{}{}{}""",
+\\patchcmd{\\thebibliography}{\\section*{\\refname}}{}{}{}""",
 
     # Latex figure (float) alignment
     #

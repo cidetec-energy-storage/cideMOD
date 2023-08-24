@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -16,5 +16,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-"""This module provides the logic needed to create, store, and reuse battery meshes.
-This module is not intended to interact with users directly, the Problem class automatically handle the meshing process."""
+"""
+This module provides the logic needed to create, store, and reuse
+battery meshes. This module is not intended to interact with users
+directly, the Problem class automatically handle the meshing process
+"""
+
+# TODO: Remove SubdomainMapper from here (make it private) and let's the mesher be the public face
+from cideMOD.mesh.base_mesher import DolfinMesher, BaseMesher, SubdomainMapper
+from cideMOD.mesh.gmsh_adapter import GmshMesher
+
+__all__ = ["DolfinMesher", "BaseMesher", "SubdomainMapper", "GmshMesher"]

@@ -1,14 +1,24 @@
 cideMOD.models.base package
 ===========================
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   cideMOD.models.base.base_models
+
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+cideMOD.models.base.base\_particle\_models module
+-------------------------------------------------
 
-   cideMOD.models.base.base_nondimensional
-   cideMOD.models.base.base_particle_models
+.. automodule:: cideMOD.models.base.base_particle_models
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------

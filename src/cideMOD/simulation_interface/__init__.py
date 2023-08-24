@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -28,7 +28,8 @@ from cideMOD.simulation_interface.battery_system import (
     DEFAULT_SIMULATION_OPTIONS,
     DEFAULT_TEST_PLAN,
 )
-from cideMOD.simulation_interface.triggers import SolverCrashed, Trigger, TriggerDetected
+from cideMOD.simulation_interface.error_check import ErrorCheck
+from cideMOD.simulation_interface.utils import run_case
 
 
 class DEFAULTS(Enum):
@@ -39,4 +40,4 @@ class DEFAULTS(Enum):
     TEST_PLAN = DEFAULT_TEST_PLAN
 
 
-__all__ = ["CSI", "Trigger", "TriggerDetected", "SolverCrashed", "DEFAULTS"]
+__all__ = ["CSI", "DEFAULTS", "ErrorCheck", "run_case"]

@@ -1,87 +1,23 @@
 {
-    "references": {
-        "1": "Ai (2020)",
-        "2": "Rieger (2016)"
-    },
-    "results": {
-        "0.5C": {
-            "voltage":{
-                "source":"file",
-                "value":"V_0.5C_Rieger.txt",
-                "unit": "V"
-            },
-            "temperatureRise":
-            {
-                "source":"file",
-                "value":"T_0.5C_Rieger.txt",
-                "unit": "ºC"
-            },
-            "thicknessChange":
-            {
-                "source":"file",
-                "value":"thick_0.5C_Rieger.txt",
-                "unit": "micrometers"
-            }
-        },
-        "1C": {
-            "voltage":{
-                "source":"file",
-                "value":"V_1C_Rieger.txt",
-                "unit": "V"
-            },
-            "temperatureRise":
-            {
-                "source":"file",
-                "value":"T_1C_Rieger.txt",
-                "unit": "ºC"
-            },
-            "thicknessChange":
-            {
-                "source":"file",
-                "value":"thick_1C_Rieger.txt",
-                "unit": "micrometers"
-            }
-        },
-        "2C": {
-            "voltage":{
-                "source":"file",
-                "value":"V_2C_Rieger.txt",
-                "unit": "V"
-            },
-            "temperatureRise":
-            {
-                "source":"file",
-                "value":"T_2C_Rieger.txt",
-                "unit": "ºC"
-            },
-            "thicknessChange":
-            {
-                "source":"file",
-                "value":"thick_2C_Rieger.txt",
-                "unit": "micrometers"
-            }
-        }
-    },
     "constants": {
         "R": {"unit": "J/K mol", "value": 8.314472},
-        "F": {"unit": "C/mol", "value": 96485.3365},
-        "alpha": {"unit": "-", "value": 0.5}
+        "F": {"unit": "C/mol", "value": 96485.3365}
     },
     "properties": {
-        "heatConvection": {"unit": "W/m^2 K", "value": 35},
+        "heat_convection": {"unit": "W/m^2 K", "value": 35},
         "emissivity": {"unit": "-", "value": 0.95},
-        "thermalExpansionRate": {"unit": "m/K", "value": 1.1e-6}
+        "thermal_expansion_rate": {"unit": "m/K", "value": 1.1e-6}
     },
-    "negativeCurrentCollector": {
+    "negative_current_collector": {
         "name": "Cu",
         "thickness": {"unit": "m", "value": 10e-06},
         "area": {"unit": "m^2", "value": 0.002397},
         "density": {"unit": "kg/m3", "notes": "taken from literature","value": 8960},
-        "specificHeat": {"unit": "J/kg K", "notes": "taken from literature", "value": 385.0},
-        "thermalConductivity": {"unit": "W/mK", "value": 398},
-        "electronicConductivity": {"unit": "S/m", "value": 5.8e7}
+        "specific_heat": {"unit": "J/kg K", "notes": "taken from literature", "value": 385.0},
+        "thermal_conductivity": {"unit": "W/mK", "value": 398},
+        "electronic_conductivity": {"unit": "S/m", "value": 5.8e7}
     },
-    "negativeElectrode": {
+    "negative_electrode": {
         "name": "LiC6",
         "thickness": {"unit": "m", "value": 76.5e-06},
         "height": {"unit": "m", "value": 51e-3},
@@ -89,26 +25,27 @@
         "area": {"unit": "m^2", "value": 0.002397},
         "porosity": {"unit": "-", "value": 0.33},
         "bruggeman": {"unit": "-", "value": 2.914},
-        "electronicConductivity": {"unit": "S/m", "value": 100.0, "effective": false, "correction":"bruggeman"},
-        "thermalConductivity": {"unit": "W/mK", "value": 1.04, "effective": true, "correction":"bruggeman"},
-        "specificHeat": {"unit": "J/kg K", "notes": "taken from literature", "value": 706.0, "effective": true, "correction":"bruggeman"},
+        "electronic_conductivity": {"unit": "S/m", "value": 100.0, "effective": false, "correction":"bruggeman"},
+        "thermal_conductivity": {"unit": "W/mK", "value": 1.04, "effective": true, "correction":"bruggeman"},
+        "specific_heat": {"unit": "J/kg K", "notes": "taken from literature", "value": 706.0, "effective": true, "correction":"bruggeman"},
         "density": {"unit": "kg/m3", "notes": "taken from literature","value": 2260},
         "active_materials": 
         [
 	      {
-            "volFrac_active": {"unit": "-", "value": 0.61},
-            "particleRadius": {"unit": "m", "value": 5e-06},
+            "volume_fraction": {"unit": "-", "value": 0.61},
+            "particle_radius": {"unit": "m", "value": 5e-06},
             "stoichiometry1": {"unit": "-", "value": 0.84},
             "stoichiometry0": {"unit": "-", "value": 0.0065},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 1e-11},
-            "maximumConcentration": {"unit": "mol/m3", "value": 28700.0},
-            "diffusionConstant": {"unit": "m^2/s", "value": 3.9e-14, "arrhenius": {"activationEnergy": 5000, "referenceTemperature":298.15}},
-            "openCircuitPotential": {
+            "kinetic_constant": {"unit": "m^2.5/mol^0.5 s", "value": 1e-11},
+            "alpha": {"unit": "-", "value": 0.5},
+            "maximum_concentration": {"unit": "mol/m3", "value": 28700.0},
+            "diffusion_constant": {"unit": "m^2/s", "value": 3.9e-14, "arrhenius": {"activationEnergy": 5000, "referenceTemperature":298.15}},
+            "OCP": {
                 "unit": ["-", "V"], 
                 "type": "spline", 
-                "spline_type": "not-a-knot", 
+                "spline_type": "Akima1D", 
                 "source": "file", 
-                "value": "OCV_G_Rieger.txt"
+                "value": "OCPs/OCV_G_Rieger.txt"
             },
             "partial_molar_volume": {"unit": "m^3/mol", "value": 3.1e-6},
             "young_modulus": {"unit": "Pa", "value": 15e+9},
@@ -124,10 +61,10 @@
         "density": {"unit": "kg/m3", "notes": "assumed uniform density across cell","value": 2470},
         "porosity": {"unit": "-", "value": 0.5},
         "bruggeman": {"unit": "-", "value": 1.5},
-        "thermalConductivity": {"unit": "W/mK", "value": 0.334, "effective": true, "correction":"bruggeman"},
-        "specificHeat": {"unit": "J/kg K", "notes": "assumed uniform heat capacity across cell", "value": 1080.0, "effective": true, "correction":"bruggeman"}
+        "thermal_conductivity": {"unit": "W/mK", "value": 0.334, "effective": true, "correction":"bruggeman"},
+        "specific_heat": {"unit": "J/kg K", "notes": "assumed uniform heat capacity across cell", "value": 1080.0, "effective": true, "correction":"bruggeman"}
     },
-    "positiveElectrode": {
+    "positive_electrode": {
         "name": "LiCoO2",
         "thickness": {"unit": "m", "value": 68.0e-06},
         "height": {"unit": "m", "value": 51e-3},
@@ -135,26 +72,27 @@
         "area": {"unit": "m^2", "value": 0.002397},
         "porosity": {"unit": "-", "value": 0.32},
         "bruggeman": {"unit": "-", "value": 1.83},
-        "electronicConductivity": {"unit": "S/m", "value": 10, "effective": false, "correction":"bruggeman"},
-        "thermalConductivity": {"unit": "W/mK", "value": 1.58, "effective": true, "correction":"bruggeman"},
-        "specificHeat": {"unit": "J/kg K", "notes": "assumed", "value": 1080.0, "effective": true, "correction":"bruggeman"},
+        "electronic_conductivity": {"unit": "S/m", "value": 10, "effective": false, "correction":"bruggeman"},
+        "thermal_conductivity": {"unit": "W/mK", "value": 1.58, "effective": true, "correction":"bruggeman"},
+        "specific_heat": {"unit": "J/kg K", "notes": "assumed", "value": 1080.0, "effective": true, "correction":"bruggeman"},
         "density": {"unit": "kg/m3", "notes": "assumed","value": 2000},
         "active_materials": 
         [
 	      {
-		    "volFrac_active": {"unit": "-", "value": 0.62},
-            "particleRadius": {"unit": "m", "value": 3.0e-06},
+		    "volume_fraction": {"unit": "-", "value": 0.62},
+            "particle_radius": {"unit": "m", "value": 3.0e-06},
             "stoichiometry1": {"unit": "-", "value": 0.435},
             "stoichiometry0": {"unit": "-", "value": 0.9651},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 1e-11},
-            "maximumConcentration": {"unit": "mol/m3", "value": 49943.0},
-            "diffusionConstant": {"unit": "m^2/s", "value": 5.387e-15, "arrhenius": {"activationEnergy": 5000, "referenceTemperature":298.15}},
-            "openCircuitPotential": {
+            "kinetic_constant": {"unit": "m^2.5/mol^0.5 s", "value": 1e-11},
+            "alpha": {"unit": "-", "value": 0.5},
+            "maximum_concentration": {"unit": "mol/m3", "value": 49943.0},
+            "diffusion_constant": {"unit": "m^2/s", "value": 5.387e-15, "arrhenius": {"activationEnergy": 5000, "referenceTemperature":298.15}},
+            "OCP": {
                 "unit": ["-", "V"], 
                 "type": "spline", 
-                "spline_type": "not-a-knot", 
+                "spline_type": "Akima1D", 
                 "source": "file", 
-                "value": "OCV_LCO_Rieger.txt"
+                "value": "OCPs/OCV_LCO_Rieger.txt"
             },
             "partial_molar_volume": {"unit": "m^3/mol", "value": -0.728e-6},
             "young_modulus": {"unit": "Pa", "value": 375e+9},
@@ -162,35 +100,98 @@
           }
         ]
     },
-    "positiveCurrentCollector": {
+    "positive_current_collector": {
         "name": "Al",
         "thickness": {"unit": "m", "value": 15e-06},
         "area": {"unit": "m^2", "value": 0.002397},
         "density": {"unit": "kg/m3", "notes": "taken from literature","value": 2700},
-        "specificHeat": {"unit": "J/kg K", "notes": "taken from literature", "value": 900.0},
-        "thermalConductivity": {"unit": "W/mK", "value": 205},
-        "electronicConductivity": {"unit": "S/m", "value": 3.77e7}
+        "specific_heat": {"unit": "J/kg K", "notes": "taken from literature", "value": 900.0},
+        "thermal_conductivity": {"unit": "W/mK", "value": 205},
+        "electronic_conductivity": {"unit": "S/m", "value": 3.77e7}
     },
     "electrolyte": {
         "name": "LiPF6",
-        "diffusionConstant": {
+        "diffusion_constant": {
             "unit": "m^2/s", 
             "value": "pow(10,-0.22*0.001*c_e-8.43-54/(temp-229-5*0.001*c_e))",
             "_value": 6e-12, "effective": false, "correction":"bruggeman"
         },
-        "ionicConductivity": {
+        "ionic_conductivity": {
             "unit": "S/m", 
             "value": "c_e*0.0001*pow(-10.5+0.074*temp-6.96*pow(10,-5)*pow(temp,2)+0.688*0.001*c_e-0.0178*0.001*c_e*temp+2.8*pow(10,-8)*c_e*pow(temp,2)+0.494*pow(0.001*c_e,2)-8.86*pow(10,-4)*pow(0.001*c_e,2)*temp,2)",
             "_value": 0.7, "effective": false, "correction":"bruggeman"
         },
-        "transferenceNumber": {"unit": "-", "value": 0.38},
-        "activityDependence": {
+        "transference_number": {"unit": "-", "value": 0.38},
+        "activity_dependence": {
             "unit":"-", 
             "note": "This is the (dln(f)/dln(c_e)+1) term in the potential equation",
             "value":"(0.601-0.24*pow(1e-3*c_e,0.5)+0.982*(1-0.0052*(temp-T_0))*pow(1e-3*c_e,3/2))/(1-t_p)",
             "_value": 1
         },
-        "initialConcentration": {"unit": "mol/m3", "value": 1000}
+        "initial_concentration": {"unit": "mol/m3", "value": 1000}
     },
-    "structure": ["ncc","a","s","c","pcc"]
+    "structure": ["ncc","a","s","c","pcc"],
+    "references": {
+        "1": "Ai (2020)",
+        "2": "Rieger (2016)"
+    },
+    "results": {
+        "0.5C": {
+            "voltage":{
+                "source":"file",
+                "value":"reference_data/V_0.5C_Rieger.txt",
+                "unit": "V"
+            },
+            "temperatureRise":
+            {
+                "source":"file",
+                "value":"reference_data/T_0.5C_Rieger.txt",
+                "unit": "ºC"
+            },
+            "thicknessChange":
+            {
+                "source":"file",
+                "value":"reference_data/thick_0.5C_Rieger.txt",
+                "unit": "micrometers"
+            }
+        },
+        "1C": {
+            "voltage":{
+                "source":"file",
+                "value":"reference_data/V_1C_Rieger.txt",
+                "unit": "V"
+            },
+            "temperatureRise":
+            {
+                "source":"file",
+                "value":"reference_data/T_1C_Rieger.txt",
+                "unit": "ºC"
+            },
+            "thicknessChange":
+            {
+                "source":"file",
+                "value":"reference_data/thick_1C_Rieger.txt",
+                "unit": "micrometers"
+            }
+        },
+        "2C": {
+            "voltage":{
+                "source":"file",
+                "value":"reference_data/V_2C_Rieger.txt",
+                "unit": "V"
+            },
+            "temperatureRise":
+            {
+                "source":"file",
+                "value":"reference_data/T_2C_Rieger.txt",
+                "unit": "ºC"
+            },
+            "thicknessChange":
+            {
+                "source":"file",
+                "value":"reference_data/thick_2C_Rieger.txt",
+                "unit": "micrometers"
+            }
+        }
+    }
 }

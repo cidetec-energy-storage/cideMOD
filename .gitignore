@@ -3,7 +3,6 @@
 
 ## cideMOD ##
 results*
-meshes/
 
 ## PETSC ##
 *.log
@@ -61,3 +60,6 @@ cover/
 docs/_build/
 docs/build/
 docs/latex/
+
+#PETSC logs
+*.log

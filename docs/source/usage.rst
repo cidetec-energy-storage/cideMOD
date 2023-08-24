@@ -4,28 +4,27 @@ Usage
 Getting Started
 ---------------
 
-The most simple way of using the library is to interact with the *CSI*
-object:
+The most simple way of using the library is to interact with the Cell
+Simulation Interface, *CSI* object:
 
 .. code-block:: python
 
    >>> from cideMOD import CSI, DEFAULTS
-   >>> csi = CSI('params.json', DEFAULTS.SIMULATION_OPTIONS.value, name="first_run")
-   >>> csi.read_test_plan(DEFAULTS.TEST_PLAN.value)
+   >>> csi = CSI('params.json', DEFAULTS.SIMULATION_OPTIONS.value,
+                 test_plan = DEFAULTS.TEST_PLAN.value)
    >>> csi.run_test_plan()
 
 Specify Model Options
 ----------------------
 The model options can be specified through the
-:class:`ModelOptions <cideMOD.models.model_options.ModelOptions>`
-class. For example:
+:meth:`get_model_options <cideMOD.models.model_options.get_model_options>`
+method. For example:
 
 .. code-block:: python
 
-   >>> from cideMOD import CSI, DEFAULTS, ModelOptions
-   >>> options = ModelOptions(mode='P2D', solve_thermal=False, solve_SEI=True)
-   >>> csi = CSI('params.json', options, name="first_run")
-   >>> csi.read_test_plan(DEFAULTS.TEST_PLAN.value)
+   >>> from cideMOD import CSI, DEFAULTS, get_model_options
+   >>> options = get_model_options(model='P2D', solve_thermal=False, solve_SEI=True)
+   >>> csi = CSI('params.json', options, test_plan=DEFAULTS.TEST_PLAN.value)
    >>> csi.run_test_plan()
 
 Cell Parameters
@@ -49,15 +48,15 @@ different mandatory objects:
    entry defined in the following points.
 
 * Current collectors:
-   There is a distinction between the :code:`"positiveCurrentCollector"`
-   and :code:`"negativeCurrentCollector"`, as they often have different
+   There is a distinction between the :code:`"positive_current_collector"`
+   and :code:`"negative_current_ollector"`, as they often have different
    properties. These keywords must contain geometry properties and
    conductivity. If the thermal model is used, thermal properties
    should be specified as well.
 
 * Electrodes:
-   There is a distinction between the :code:`"positiveElectrode"` and
-   :code:`"negativeElectrode"`, as they have different properties.
+   There is a distinction between the :code:`"positive_electrode"` and
+   :code:`"negative_electrode"`, as they have different properties.
    These keywords must contain information about geometry, porosity,
    and conductivity. If the thermal model is used, thermal properties
    should be specified as well. Additionally, electrodes should contain
@@ -96,7 +95,7 @@ interface to simulate cell behavior, it is necesary to specify a test
 plan. This can be specified as a json or created programatically as
 python dictionaries or using cideMOD's
 :class:`Input <cideMOD.simulation_interface.inputs.Input>`
-and :class:`Trigger <cideMOD.simulation_interface.triggers.Trigger>`
+and :class:`Trigger <cideMOD.numerics.triggers.Trigger>`
 classes. An example of a test plan built in the code with the different
 building blocks can be found in the :doc:`Use Cases <examples>`
 section.

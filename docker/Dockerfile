@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -17,16 +17,25 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-FROM multiphenics/multiphenics
+FROM dolfinx/dolfinx:nightly
 LABEL maintainer = "CIDETEC <cidemod@cidetec.es>"
 
-USER fenics
-COPY --chown=fenics . /tmp/cideMOD
+USER root
+RUN useradd -m -s /bin/bash -G sudo,docker_env cideMOD && \
+    echo "cideMOD:docker" | chpasswd && \
+    echo "cideMOD ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    rm /etc/my_init.d/10_syslog-ng.init && \
+    chmod +x /etc/my_init.d/set-home-permissions.sh && \
+    ldconfig
+
+USER cideMOD
+COPY --chown=cideMOD . /tmp/cideMOD
 
 USER root
 WORKDIR /tmp/cideMOD
 RUN pip install -qU pip && \
-    pip install -q . && \
+    pip install -q ./multiphenicsx/ && \
+    pip install -q ./dev_cideMOD/ && \
     pip cache purge
 
 USER root
@@ -36,16 +45,19 @@ RUN apt-get -qq update && \
     apt-get clean
 
 
-USER fenics
-WORKDIR $FENICS_HOME
+USER cideMOD
+WORKDIR $CIDEMOD_HOME
 RUN mkdir cideMOD && \
-    ln -s $FENICS_PREFIX/lib/python3.6/dist-packages/cideMOD*egg/cideMOD cideMOD/src && \
-    mv /tmp/cideMOD/tests cideMOD/ && \
-    mv /tmp/cideMOD/examples cideMOD && \
-    mv /tmp/cideMOD/data cideMOD && \
-    mv /tmp/cideMOD/docs cideMOD
+    ln -s $CIDEMOD_PREFIX/lib/python3.9/dist-packages/cideMOD*egg/cideMOD cideMOD/src && \
+    mv /tmp/cideMOD/dev_cideMOD/tests cideMOD/ && \
+    mv /tmp/cideMOD/dev_cideMOD/examples cideMOD && \
+    mv /tmp/cideMOD/dev_cideMOD/data cideMOD && \
+    mv /tmp/cideMOD/dev_cideMOD/docs cideMOD
 
 USER root
+WORKDIR $CIDEMOD_HOME
 RUN rm -rf /tmp/cideMOD && \
     echo export PYTHONPATH=$PYTHONPATH:$(find /usr/local/lib -name "gmsh-*-sdk")/lib >>/root/.bashrc && \
-    echo export PYTHONPATH=$PYTHONPATH:$(find /usr/local/lib -name "gmsh-*-sdk")/lib >>/home/fenics/.bashrc
+    echo export PYTHONPATH=$PYTHONPATH:$(find /usr/local/lib -name "gmsh-*-sdk")/lib >>/home/cideMOD/.bashrc
+
+USER cideMOD
