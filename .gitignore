@@ -63,3 +63,6 @@ docs/latex/
 
 #PETSC logs
 *.log
+
+# Docker
+docker/
