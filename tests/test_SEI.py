@@ -30,7 +30,7 @@ pytestmark = [pytest.mark.degradation, pytest.mark.Safari]
 class TestP2D_SEI:
     case = 'Safari_2009'
     model_options_dict = {'model': 'P2D',
-                          'solve_SEI': True,
+                          'SEI_model': 'solvent_diffusion',
                           'clean_on_exit': False,
                           'particle_order': 2,
                           'dimensionless': False}

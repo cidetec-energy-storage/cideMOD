@@ -23,6 +23,7 @@ __root_model__ = False
 __hierarchy__ = 300
 
 from pydantic import BaseModel, validator
+from typing import Optional
 
 from cideMOD.helpers.logging import VerbosityLevel
 from cideMOD.cell import register_cell_component
@@ -146,20 +147,17 @@ class BaseSEIModelOptions(BaseModel):
     """
     SEI Model
     ---------
-    solve_SEI: bool
-        Whether or not to solve the SEI model.
-    SEI_model: str
+    SEI_model: Optional[str]
         Which limiting mechanism is applied to the SEI model, one of
-        `solvent_diffusion`, `electron_migration`.
-        Default to `solvent_diffusion`.
+        `solvent_diffusion`, `electron_migration`. Use None in order to
+        deactivate the SEI model. Defaults to None.
     """
-    solve_SEI: bool = False
-    SEI_model: str = 'solvent_diffusion'
+    SEI_model: Optional[str] = None
 
     @validator('SEI_model')
     def validate_particle_coupling(cls, v):
         available_SEI_models = ('solvent_diffusion', 'electron_migration')
-        if v not in available_SEI_models:
+        if v is not None and v not in available_SEI_models:
             raise ValueError(f"Unrecognized SEI model '{v}'. Available options: '"
                              + "' '".join(available_SEI_models) + "'")
         return v
@@ -193,8 +191,7 @@ class BaseSEIModel(BasePXDModel):
         bool
             Whether or not this model should be added to the cell model.
         """
-        # TODO: Ensure that model_options has been extended with SEIModelOptions
-        return model_options.solve_SEI
+        return model_options.SEI_model is not None
 
     # ******************************************************************************************* #
     # ***                                     CellParser                                      *** #

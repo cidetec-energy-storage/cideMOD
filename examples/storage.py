@@ -30,9 +30,9 @@ REST_TEST_PLAN = {
 }
 
 case = "Safari_2009"
-data_path = "../data/data_{}".format(case)
+data_path = f"../data/data_{case}"
 
-SIMULATION_OPTIONS = get_model_options(model='P4D', solve_SEI=True, dimensionless=False,
+SIMULATION_OPTIONS = get_model_options(model='P4D', SEI_model='solvent_diffusion',
                                        save_path=f"{case}_storage")
 cell_data = os.path.join(data_path, "params_cycling.json")
 

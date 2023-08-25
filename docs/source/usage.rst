@@ -23,7 +23,7 @@ method. For example:
 .. code-block:: python
 
    >>> from cideMOD import CSI, DEFAULTS, get_model_options
-   >>> options = get_model_options(model='P2D', solve_thermal=False, solve_SEI=True)
+   >>> options = get_model_options(model='P2D', solve_thermal=False, SEI_model='solvent_diffusion')
    >>> csi = CSI('params.json', options, test_plan=DEFAULTS.TEST_PLAN.value)
    >>> csi.run_test_plan()
 

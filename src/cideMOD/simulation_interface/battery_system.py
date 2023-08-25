@@ -129,6 +129,8 @@ class CSI:
         if isinstance(cell_data, CellParser):
             return cell_data
         elif isinstance(cell_data, str):
+            if isinstance(data_path, str) and not cell_data.startswith(data_path):
+                cell_data = os.path.join(data_path, cell_data)
             if not os.path.exists(cell_data):
                 raise FileNotFoundError(f"Path to cell data '{cell_data}' does not exists")
             if data_path is None:

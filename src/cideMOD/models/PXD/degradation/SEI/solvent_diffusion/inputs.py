@@ -66,8 +66,7 @@ class DiffusionSEIModelInputs(BasePXDModelInputs):
         bool
             Whether or not this model should be added to the cell model.
         """
-        # TODO: Ensure that model_options has been extended with SEIModelOptions
-        return model_options.solve_SEI and model_options.SEI_model == 'solvent_diffusion'
+        return model_options.SEI_model == 'solvent_diffusion'
 
     # ******************************************************************************************* #
     # ***                                     CellParser                                      *** #

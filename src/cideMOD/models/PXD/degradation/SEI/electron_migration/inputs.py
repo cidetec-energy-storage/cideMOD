@@ -43,8 +43,7 @@ class MigrationSEIModelInputs(BasePXDModelInputs):
         bool
             Whether or not this model should be added to the cell model.
         """
-        # TODO: Ensure that model_options has been extended with SEIModelOptions
-        return model_options.solve_SEI and model_options.SEI_model == 'electron_migration'
+        return model_options.SEI_model == 'electron_migration'
 
     # ******************************************************************************************* #
     # ***                                     CellParser                                      *** #

@@ -8,7 +8,7 @@ from cideMOD import (
 )
 
 case = "Ai_2020"
-data_path = "data/data_{}".format(case)
+data_path = f"data/data_{case}"
 params = "params.json"
 
 model_options = get_model_options(model='P2D', save_path=f"{case}_discharge", overwrite=False)
