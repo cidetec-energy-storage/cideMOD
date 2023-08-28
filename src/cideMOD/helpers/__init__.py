@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -16,10 +16,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-"""This module provides helper classes and functions to read/write/process battery related information"""
+"""
+This module provides helper classes and functions to read/write/process
+battery related information
+"""
 
-from cideMOD.helpers.config_parser import CellParser
-from cideMOD.helpers.error_check import ErrorCheck
-from cideMOD.helpers.miscellaneous import init_results_folder
+from cideMOD.helpers.logging import VerbosityLevel, LogLevel
+from cideMOD.helpers.miscellaneous import init_results_folder, plot_list_variable
+from cideMOD.helpers.plotview import PlotView
 
-__all__ = ["CellParser", "ErrorCheck", "init_results_folder"]
+__all__ = ["VerbosityLevel", "LogLevel", "init_results_folder", "plot_list_variable", "PlotView"]

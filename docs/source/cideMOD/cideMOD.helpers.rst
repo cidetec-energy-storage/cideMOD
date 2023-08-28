@@ -4,14 +4,37 @@ cideMOD.helpers package
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+cideMOD.helpers.baseview module
+-------------------------------
 
-   cideMOD.helpers.config_parser
-   cideMOD.helpers.error_check
-   cideMOD.helpers.extract_fom_info
-   cideMOD.helpers.miscellaneous
-   cideMOD.helpers.warehouse
+.. automodule:: cideMOD.helpers.baseview
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+cideMOD.helpers.logging module
+------------------------------
+
+.. automodule:: cideMOD.helpers.logging
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+cideMOD.helpers.miscellaneous module
+------------------------------------
+
+.. automodule:: cideMOD.helpers.miscellaneous
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+cideMOD.helpers.plotview module
+-------------------------------
+
+.. automodule:: cideMOD.helpers.plotview
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------

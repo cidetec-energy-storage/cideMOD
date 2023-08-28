@@ -6,10 +6,10 @@ Modelling
 Geometry and mesh
 ------------------
 
-The cideMOD library works on top of FEniCS :cite:p:`fenics` using
+The cideMOD library works on top of FEniCSx :cite:p:`FEniCSx` using
 finite elements to solve the PDEs that represent the cell physics. It
 is designed to work on any geometry or mesh that has been
-properly tagged. However, using FEniCS and Gmsh :cite:p:`gmsh`, cideMOD
+properly tagged. However, using FEniCSx and Gmsh :cite:p:`gmsh`, cideMOD
 is able to create automatically realistic 3D meshes of batteries in
 pouch cell format with different dimensions and tab positions.
 
@@ -110,7 +110,7 @@ of such domains with the rest of the model.
 In cideMOD, we solve the pseudodimension with an sprectral approach.
 Therefore, we consider a set of global basis functions (even Legendre
 polynomials) and assume that the solution is a linear combination of
-those. Thus, we can solve the problem in a single mesh and FEniCS
+those. Thus, we can solve the problem in a single mesh and FEniCSx
 matrix.
 
 Additionally, as the particle model is only connected to the rest of
@@ -156,7 +156,7 @@ different in the two cases:
 
 .. rubric:: P2D
 
-As the P2D model as simpler, it uses standard FEniCS interval meshes
+As the P2D model as simpler, it uses standard FEniCSx interval meshes
 to discretize the 1D cell domain in transversal direction. Each of the
 subdomains is normalized to (0,1) and therefore, the mesh never changes
 for the same type of cell even when the dimensions of the different
@@ -167,13 +167,13 @@ subdomains changes.
 
 Given the necessity of modeling details in 3D (for example, current
 collector tabs), the normalization strategy, used to get a simpler mesh
-that could be generated with FEniCS does not work anymore. In this case,
+that could be generated with FEniCSx does not work anymore. In this case,
 it is preferred to use the real geometry of the cell, generated with Gmsh.
 Due to the disparity of scales in the real cell geometry and in order
 to incorporate contributions from all the residuals in a proper way,
 the equations are non-dimensionalized. This makes real cell geometry representations
 possible, but as a consequence, each time the geometry changes, 
-the mesh needs to change, and the FEniCS engine has to
+the mesh needs to change, and the FEniCSx engine has to
 recompile part of the solver code.
 
 

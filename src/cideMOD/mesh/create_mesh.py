@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -22,12 +22,13 @@ from pathlib import Path
 
 from mpi4py import MPI
 
-from cideMOD.helpers.config_parser import CellParser
+from cideMOD.cell.parser import CellParser
 from cideMOD.mesh.gmsh_adapter import GmshMesher
 
 assert MPI.COMM_WORLD.size == 1, "Mesh cannot be created in parallel"
 
-def create_mesh(file_path, mode, x,y,z):
+
+def create_mesh(file_path, mode, x, y, z):
     params = Path(file_path)
     options = {
         'mode': mode,
@@ -36,7 +37,7 @@ def create_mesh(file_path, mode, x,y,z):
         'N_z': z,
     }
 
-    cell = CellParser(str(params.absolute()),str(params.parent.absolute()), log=False)
+    cell = CellParser(str(params.absolute()), str(params.parent.absolute()), log=False)
     mesher = GmshMesher(options, cell)
     created = mesher.prepare_mesh()
     if created:
@@ -44,13 +45,21 @@ def create_mesh(file_path, mode, x,y,z):
     else:
         print('Using cached mesh.', flush=True)
 
-if __name__=="__main__":
-    parser = argparse.ArgumentParser(description='Generate battery geometry and mesh. Should allways be run in serial')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Generate battery geometry and mesh. Should allways be run in serial')
     parser.add_argument('params_file', type=str, nargs=1, help='Path to cell params file')
     parser.add_argument('mode', type=str, nargs=1, choices=('P3D', 'P4D'), help='Type of mesh')
-    parser.add_argument('N_x', type=int, nargs=1, default=30, help='number of discretization elements in x direction')
-    parser.add_argument('N_y', type=int, nargs=1, default=30, help='number of discretization elements in x direction')
-    parser.add_argument('N_z', type=int, nargs=1, default=30, help='number of discretization elements in x direction')
+    parser.add_argument(
+        'N_x', type=int, nargs=1, default=30,
+        help='number of discretization elements in x direction')
+    parser.add_argument(
+        'N_y', type=int, nargs=1, default=30,
+        help='number of discretization elements in y direction')
+    parser.add_argument(
+        'N_z', type=int, nargs=1, default=30,
+        help='number of discretization elements in z direction')
     args = parser.parse_args()
     create_mesh(
         file_path=args.params_file[0],

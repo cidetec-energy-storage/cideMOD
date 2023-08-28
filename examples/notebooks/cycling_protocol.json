@@ -1,0 +1,72 @@
+{
+    "initial_state": {"SOC": 1, "exterior_temperature": 298.15},
+    "steps": [
+        {"name": "Cycling", "type": "Cycle", "count": 2, "steps": [
+            {
+                "name": "Discharge",
+                "type": "Current",
+                "value": -1,
+                "unit": "C",
+                "t_max": {"value": 1, "unit": "h"},
+                "store_delay": -1,
+                "min_step": 10,
+                "events": [{
+                    "type": "Voltage",
+                    "value": 3,
+                    "unit": "V",
+                    "atol": 1e-4, 
+                    "rtol": 1e-3,
+                    "goto": "Next" 
+                }]
+            },
+            {
+                "name": "Pause",
+                "type": "Rest",
+                "t_max": {"value": 15, "unit": "min"},
+                "store_delay": -1,
+                "min_step": 10
+            },
+            {
+                "name": "Charge-CC",
+                "type": "Current",
+                "value": 1,
+                "unit": "C",
+                "t_max": {"value": 1, "unit": "h"},
+                "store_delay": -1,
+                "min_step": 5,
+                "events": [{
+                    "type": "Voltage",
+                    "value": 4.1,
+                    "unit": "V",
+                    "atol": 1e-4, 
+                    "rtol": 1e-3,
+                    "goto": "Next" 
+                }]
+            },
+            {
+                "name": "Charge-CV",
+                "type": "Voltage",
+                "value": 4.1,
+                "unit": "V",
+                "t_max": {"value": 1, "unit": "h"},
+                "store_delay": -1,
+                "min_step": 10,
+                "events": [{
+                    "type": "Current",
+                    "value": 0.02,
+                    "unit": "C",
+                    "atol": 1e-4, 
+                    "rtol": 1e-3,
+                    "goto": "Next" 
+                }]
+            },
+            {
+                "name": "Pause",
+                "type": "Rest",
+                "t_max": {"value": 15, "unit": "min"},
+                "store_delay": -1,
+                "min_step": 10
+            }
+        ]}
+    ]
+}

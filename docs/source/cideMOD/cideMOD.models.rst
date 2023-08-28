@@ -5,24 +5,30 @@ Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
 
+   cideMOD.models.PXD
    cideMOD.models.base
-   cideMOD.models.degradation
-   cideMOD.models.electrochemical
-   cideMOD.models.mechanical
    cideMOD.models.particle_models
-   cideMOD.models.thermal
 
 Submodules
 ----------
 
-.. toctree::
-   :maxdepth: 2
+cideMOD.models.model\_handler module
+------------------------------------
 
-   cideMOD.models.cell_components
-   cideMOD.models.model_options
-   cideMOD.models.nondimensional_model
+.. automodule:: cideMOD.models.model_handler
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+cideMOD.models.model\_options module
+------------------------------------
+
+.. automodule:: cideMOD.models.model_options
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------

@@ -1,33 +1,21 @@
 {
-    "references": {
-        "1": "Chen (2020)"
-    },
-    "results":{
-        "0.5C":{
-            "voltage": {
-                "source": "file",
-                "value": "V_0.5C_Chen.txt",
-                "unit": "V"
-            }
-        }
-    },
     "constants": {
         "R": {"unit": "J/K mol", "value": 8.314472},
-        "F": {"unit": "A/mol", "value": 96485.3365},
-        "alpha": {"unit": "-", "value": 0.5}
+        "F": {"unit": "A/mol", "value": 96485.3365}
     },
     "properties": {
-        "heatConvection": {"unit": "W/m^2 K", "value": 5.0}
+        "heat_convection": {"unit": "W/m^2 K", "value": 5.0}
     },
-    "negativeCurrentCollector": {
+    "negative_current_collector": {
         "name": "Cu",
-        "thickness": {"unit": "m", "value": 2e-05},
+        "thickness": {"unit": "m", "value": 1.2e-05},
         "width": {"unit": "m", "value": 1.58},
         "height": {"unit": "m", "value": 0.065},
         "area": {"unit": "m^2", "value": 0.1027},
-        "density": {"unit": "kg/m3", "value": 8000.0}
+        "density": {"unit": "kg/m3", "value": 8960.0},
+        "electronicConductivity": {"unit": "S/m", "value": 5.84e7}
     },
-    "negativeElectrode": {
+    "negative_electrode": {
         "name": "Graphite-SiO_x",
         "thickness": {"unit": "m", "value": 85.2e-06},
         "width": {"unit": "m", "value": 1.58},
@@ -35,26 +23,27 @@
         "area": {"unit": "m^2", "value": 0.1027},
         "porosity": {"unit": "-", "value": 0.25},
         "bruggeman": {"unit": "-", "value": 1.5},
-        "electronicConductivity": {"unit": "S/m", "value": 215.0},
-        "thermalConductivity": {"unit": "W/mK", "value": 5.0},
-        "specificHeat": {"unit": "J/kg K", "value": 1437.0},
-        "density": {"unit": "g/m3", "value": 1932.24},
+        "electronic_conductivity": {"unit": "S/m", "value": 215.0},
+        "thermal_conductivity": {"unit": "W/mK", "value": 5.0},
+        "specific_heat": {"unit": "J/kg K", "value": 1437.0},
+        "density": {"unit": "kg/m3", "value": 1932.24},
         "active_materials": 
         [
           {
-            "volFrac_active": {"unit": "-", "value": 0.75},
-            "particleRadius": {"unit": "m", "value": 5.86e-06},
+            "volume_fraction": {"unit": "-", "value": 0.75},
+            "particle_radius": {"unit": "m", "value": 5.86e-06},
             "stoichiometry1": {"unit": "-", "value": 0.9014},
             "stoichiometry0": {"unit": "-", "value": 0.0279},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 6.71e-12},
-            "maximumConcentration": {"unit": "mol/m3", "value": 33133.0},
-            "diffusionConstant": {"unit": "m^2/s", "value": 3.3e-14, "nota": "Cuidado, este parámetro está tuneado de forma diferente para 0.5C, 1C y 2C"},
-            "openCircuitPotential": {
+            "kinetic_constant": {"unit": "m^2.5/mol^0.5 s", "value": 6.71e-12},
+            "alpha": {"unit": "-", "value": 0.5},
+            "maximum_concentration": {"unit": "mol/m3", "value": 33133.0},
+            "diffusion_constant": {"unit": "m^2/s", "value": 3.3e-14, "nota": "Cuidado, este parámetro está tuneado de forma diferente para 0.5C, 1C y 2C"},
+            "OCP": {
                 "unit": ["-", "V"], 
                 "type": "spline", 
-                "spline_type": "not-a-knot", 
+                "spline_type": "Akima1D", 
                 "source": "file", 
-                "value": "OCV_Anode_Chen.txt"
+                "value": "OCPs/OCV_Anode_Chen.txt"
             }
           }
         ]
@@ -67,10 +56,10 @@
         "density": {"unit": "kg/m3", "value": 1037.91},
         "porosity": {"unit": "-", "value": 0.47},
         "bruggeman": {"unit": "-", "value": 1.5},
-        "thermalConductivity": {"unit": "W/mK", "value": 1.0},
-        "specificHeat": {"unit": "J/kg K", "value": 1978.0}
+        "thermal_conductivity": {"unit": "W/mK", "value": 1.0},
+        "specific_heat": {"unit": "J/kg K", "value": 1978.0}
     },
-    "positiveElectrode": {
+    "positive_electrode": {
         "name": "NMC",
         "thickness": {"unit": "m", "value": 75.6e-06},
         "width": {"unit": "m", "value": 1.58},
@@ -78,42 +67,57 @@
         "area": {"unit": "m^2", "value": 0.1027},
         "porosity": {"unit": "-", "value": 0.335},
         "bruggeman": {"unit": "-", "value": 1.5},
-        "electronicConductivity": {"unit": "S/m", "value": 0.18},
-        "thermalConductivity": {"unit": "W/mK", "value": 5.0},
-        "specificHeat": {"unit": "J/kg K", "value": 900.0},
+        "electronic_conductivity": {"unit": "S/m", "value": 0.18},
+        "thermal_conductivity": {"unit": "W/mK", "value": 5.0},
+        "specific_heat": {"unit": "J/kg K", "value": 900.0},
         "density": {"unit": "kg/m3", "value": 3391.8},
         "active_materials": 
         [
             {
-            "volFrac_active": {"unit": "-", "value": 0.665},
-            "particleRadius": {"unit": "m", "value": 5.22e-06},
+            "volume_fraction": {"unit": "-", "value": 0.665},
+            "particle_radius": {"unit": "m", "value": 5.22e-06},
             "stoichiometry1": {"unit": "-", "value": 0.27},
             "stoichiometry0": {"unit": "-", "value": 0.9084},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.54e-11},
-            "maximumConcentration": {"unit": "mol/m3", "value": 63104.0},
-            "diffusionConstant": {"unit": "m^2/s", "value": 4e-15},
-            "openCircuitPotential": {
+            "kinetic_constant": {"unit": "m^2.5/mol^0.5 s", "value": 3.54e-11},
+            "alpha": {"unit": "-", "value": 0.5},
+            "maximum_concentration": {"unit": "mol/m3", "value": 63104.0},
+            "diffusion_constant": {"unit": "m^2/s", "value": 4e-15},
+            "OCP": {
                 "unit": ["-", "V"], 
                 "type": "spline", 
-                "spline_type": "not-a-knot", 
-                "value": "OCV_Cathode_Chen.txt"}
+                "source": "file", 
+                "spline_type": "Akima1D", 
+                "value": "OCPs/OCV_Cathode_Chen.txt"}
             }
         ]
     },
-    "positiveCurrentCollector": {
+    "positive_current_collector": {
         "name": "Al",
-        "thickness": {"unit": "m", "value": 1e-05},
+        "thickness": {"unit": "m", "value": 1.6e-05},
         "width": {"unit": "m", "value": 1.58},
         "height": {"unit": "m", "value": 0.065},
         "area": {"unit": "m^2", "value": 0.1027},
-        "density": {"unit": "kg/m3", "value": 5000.0}
+        "density": {"unit": "kg/m3", "value": 2700.0},
+        "electronicConductivity": {"unit": "S/m", "value": 3.77e7}
     },
     "electrolyte": {
         "name": "LiPF6",
-        "diffusionConstant": {"unit": "m^2/s", "value": "8.794e-11*(c_e*1e-3)**2-3.972e-10*(c_e*1e-3)+4.862e-10","effective":false, "correction": "bruggeman","_value": 1.7694e-10},
-        "ionicConductivity": {"unit": "S/m", "value": "0.1297*(c_e*1e-3)**3-2.51*(c_e*1e-3)**1.5+3.329*c_e*1e-3","effective":false, "correction": "bruggeman","_value": 0.9487},
-        "transferenceNumber": {"unit": "-", "value": 0.2594},
-        "initialConcentration": {"unit": "mol/m3", "value": 1000.0}
+        "diffusion_constant": {"unit": "m^2/s", "value": "8.794e-11*(c_e*1e-3)**2-3.972e-10*(c_e*1e-3)+4.862e-10","effective":false, "correction": "bruggeman","_value": 1.7694e-10},
+        "ionic_conductivity": {"unit": "S/m", "value": "0.1297*(c_e*1e-3)**3-2.51*(c_e*1e-3)**1.5+3.329*c_e*1e-3","effective":false, "correction": "bruggeman","_value": 0.9487},
+        "transference_number": {"unit": "-", "value": 0.2594},
+        "initial_concentration": {"unit": "mol/m3", "value": 1000.0}
     },
-    "structure": ["a","s","c"]
+    "structure": ["a","s","c"],
+    "references": {
+        "1": "Chen (2020)"
+    },
+    "results":{
+        "0.5C":{
+            "voltage": {
+                "source": "file",
+                "value": "reference_data/V_0.5C_Chen.txt",
+                "unit": "V"
+            }
+        }
+    }
 }

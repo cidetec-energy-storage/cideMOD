@@ -1,38 +1,33 @@
 {
-    "references": {
-        "1": "Safari (2009)",
-        "2": "Ramadass (2004)",
-        "3": "Doyle (1996)"
-    },
     "constants": {
         "R": {"unit": "J/K mol", "value": 8.314472},
-        "F": {"unit": "C/mol", "value": 96485.3365},
-        "alpha": {"unit": "-", "value": 0.5}
+        "F": {"unit": "C/mol", "value": 96485.3365}
     },
     "properties": {},
-    "negativeElectrode": {
+    "negative_electrode": {
         "name": "LiC6",
         "thickness": {"unit": "m", "value": 88.0e-06},
         "area": {"unit": "m^2", "value": 0.067718},
         "porosity": {"unit": "-", "value": 0.485},
         "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 49, "effective": true, "notas": "Ramadass (2004)"},
+        "electronic_conductivity": {"unit": "S/m", "value": 49, "effective": true, "notas": "Ramadass (2004)"},
         "active_materials": 
         [
 	      {
-		    "volFrac_active": {"unit": "-", "value": 0.49},
-            "particleRadius": {"unit": "m", "value": 2e-6},
+		    "volume_fraction": {"unit": "-", "value": 0.49},
+            "particle_radius": {"unit": "m", "value": 2e-6},
             "stoichiometry1": {"unit": "-", "value": 0.74},
             "stoichiometry0": {"unit": "-", "value": 0.03},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 6.545915E-13, "notes":"2.07e-11/sqrt(1e3)"},
-            "maximumConcentration": {"unit": "mol/m3", "value": 30555},
-            "diffusionConstant": {"unit": "m^2/s", "value": 2e-14},
-            "openCircuitPotential": {
+            "kinetic_constant": {"unit": "m^2.5/mol^0.5 s", "value": 6.545915E-13, "notes":"2.07e-11/sqrt(1e3)"},
+            "alpha": {"unit": "-", "value": 0.5},
+            "maximum_concentration": {"unit": "mol/m3", "value": 30555},
+            "diffusion_constant": {"unit": "m^2/s", "value": 2e-14},
+            "OCP": {
                 "unit": ["-", "V"],
                 "type": "spline",
-                "spline_type": "not-a-knot",
+                "spline_type": "Akima1D",
                 "source": "file",
-                "value": "OCV_G.txt"
+                "value": "OCPs/OCV_G.txt"
             }
           }
         ],
@@ -58,55 +53,61 @@
         "porosity": {"unit": "-", "value": 0.55},
         "bruggeman": {"unit": "-", "value": 4}
     },
-    "positiveElectrode": {
+    "positive_electrode": {
         "name": "LCO",
         "thickness": {"unit": "m", "value": 80e-06},
         "area": {"unit": "m^2", "value": 0.0677},
         "porosity": {"unit": "-", "value": 0.385},
         "bruggeman": {"unit": "-", "value": 4},
-        "electronicConductivity": {"unit": "S/m", "value": 59, "effective": true, "notas":"Ramadass (2004)"},
+        "electronic_conductivity": {"unit": "S/m", "value": 59, "effective": true, "notas":"Ramadass (2004)"},
         "active_materials": 
         [
 	      {
-		    "volFrac_active": {"unit": "-", "value": 0.59},
-            "particleRadius": {"unit": "m", "value": 2e-06},
+		    "volume_fraction": {"unit": "-", "value": 0.59},
+            "particle_radius": {"unit": "m", "value": 2e-06},
             "stoichiometry1": {"unit": "-", "value_new": 0.01, "value": 0.5},
             "stoichiometry0": {"unit": "-", "value_new": 0.29, "value": 0.99},
-            "kineticConstant": {"unit": "m^2.5/mol^0.5 s", "value": 3.2887688E-13},
-            "maximumConcentration": {"unit": "mol/m3", "value": 51555},
-            "diffusionConstant": {"unit": "m^2/s", "value": 1e-14},
-            "openCircuitPotential": {
+            "kinetic_constant": {"unit": "m^2.5/mol^0.5 s", "value": 3.2887688E-13},
+            "alpha": {"unit": "-", "value": 0.5},
+            "maximum_concentration": {"unit": "mol/m3", "value": 51555},
+            "diffusion_constant": {"unit": "m^2/s", "value": 1e-14},
+            "OCP": {
                 "unit": ["-", "V"],
                 "type": "spline",
-                "spline_type": "not-a-knot",
+                "spline_type": "Akima1D",
                 "source": "file",
-                "value": "OCV_LCO.txt"
+                "value": "OCPs/OCV_LCO.txt"
             }
           }
         ]
     },
     "electrolyte": {
         "name": "LiPF6",
-        "diffusionConstant": {
+        "diffusion_constant": {
             "unit": "m^2/s",
             "value": 7.5e-10,
             "effective": false,
             "correction":"bruggeman"
         },
-        "ionicConductivity": {
+        "ionic_conductivity": {
             "unit": "S/m",
             "value": "(4.1253e-4+5.007e-3*(c_e*1e-3)-4.7212e-3*(c_e*1e-3)**2+1.5094e-3*(c_e*1e-3)**3-1.6018e-4*(c_e*1e-3)**4)*100",
             "effective": false,
             "correction":"bruggeman",
             "notas":"Cambiado a Ramadass (2004)"
         },
-        "transferenceNumber": {"unit": "-", "value": 0.363},
-        "activityDependence": {
+        "transference_number": {"unit": "-", "value": 0.363},
+        "activity_dependence": {
             "unit":"-",
             "note": "This is the (dln(f)/dln(c_e)+1) term in the potential equation",
             "value":1
         },
-        "initialConcentration": {"unit": "mol/m3", "value": 1000}
+        "initial_concentration": {"unit": "mol/m3", "value": 1000}
     },
-    "structure": ["a","s","c"]
+    "structure": ["a","s","c"],
+    "references": {
+        "1": "Safari (2009)",
+        "2": "Ramadass (2004)",
+        "3": "Doyle (1996)"
+    }
 }

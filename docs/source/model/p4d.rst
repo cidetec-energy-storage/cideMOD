@@ -5,12 +5,8 @@ Nondimensional model
 
 The model has been rescaled to obtain nondimensional quantities and
 homogeneize truncation errors, this scaling is inspired in
-:cite:t:`Ayerbe2020`. The methods
-:meth:`scale_variables <cideMOD.models.base.base_nondimensional.BaseModel.scale_variables>`
-and :meth:`unscale_variables <cideMOD.models.base.base_nondimensional.BaseModel.unscale_variables>`
-of the class :class:`NondimensionalModel <cideMOD.models.nondimensional_model.NondimensionalModel>`
-contain the implementation of this variable rescaling.
-The rescaled variables are obtained with the following relations:
+:cite:t:`Ayerbe2020`. The rescaled variables are obtained with the
+following relations:
 
 * Spatial and temporal dimensions:
 
@@ -86,10 +82,7 @@ The rescaled variables are obtained with the following relations:
 .. rubric:: Dimensionless numbers
 
 With the mentioned scaling and proper arrangement in the equations, we
-have defined the following dimensionless quantities, that are
-implemented in the method
-:meth:`calc_dimensionless_parameters <cideMOD.models.base.base_nondimensional.BaseModel.calc_dimensionless_parameters>`
-of :class:`NondimensionalModel <cideMOD.models.nondimensional_model.NondimensionalModel>`:
+have defined the following dimensionless quantities:
 
 +-----------------------------+----------------------------------------------------------------------------------------------+------------------------------------------------+-----------------------------------------------------------------------------------------+--------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | :math:`\tau_\mathrm{e}`     | :math:`\frac{D_\mathrm{e}^\mathrm{eff,ref} t_\mathrm{c}}{L_0}`                               | :math:`\delta_\kappa`                          | :math:`\frac{L_0 I_0}{\kappa_\mathrm{eff}^\mathrm{ref} \Phi_\mathrm{l}}`                | :math:`\delta_{\kappa_D}`            | :math:`\frac{\delta_\kappa}{2\alpha (1-t_+^0)(1+\frac{\partial \ln f_{\pm}}{\partial \ln c_\mathrm{e}})} \frac{\Phi_\mathrm{l}}{\Phi_T} \frac{c_\mathrm{e}^\mathrm{ref}}{\Delta c_\mathrm{e}^\mathrm{ref}}` |
@@ -109,9 +102,6 @@ equation have been reformulated.
 .. rubric:: Electrochemical Model
 
 * Mass transport in the electrolyte:
-   The mass transport in the electrolyte is calculated in the
-   :meth:`c_e_equation <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.c_e_equation>` 
-   method.
 
    .. math::
 
@@ -121,9 +111,6 @@ equation have been reformulated.
       \end{gathered}
 
 * Charge transport in the electrolyte:
-   The charge transport in the electrolyte is calculated in the
-   :meth:`phi_e_equation <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.phi_e_equation>`
-   method.
 
    .. math::
 
@@ -132,9 +119,6 @@ equation have been reformulated.
       \end{gathered}
 
 * Charge transport in the electrodes and current collectors:
-   The charge transport in the solid electron conductor materials is calculated in the
-   :meth:`phi_s_equation <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.phi_s_equation>`
-   method.
 
    .. math::
 
@@ -145,9 +129,7 @@ equation have been reformulated.
       \end{gathered}
 
 * Mass transport in the active material (pseudodimension):
-   The mass transport in the active material is calculated in the
-   :class:`SpectralLegendreModel <cideMOD.models.particle_models.implicit_\mathrm{c}oupling.NondimensionalSpectralModel>`
-   class using Legendre polynomials.
+   The mass transport in the active material is calculated using Legendre polynomials.
 
    .. math::
 
@@ -159,9 +141,7 @@ equation have been reformulated.
 
 * Exchange between the electrolyte and the electrode by lithium intercalation:
    The intercalation exchange current between the electrolyte and the
-   active materials is calculated in the
-   :meth:`j_int <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.j_Li_equation>`
-   method.
+   active materials is calculated as follows
 
    .. math::
 
@@ -170,9 +150,6 @@ equation have been reformulated.
       \end{gathered}
 
 * Overpotential
-   The overpotential at each part of the electrode is calculated in the 
-   :meth:`overpotential <cideMOD.models.electrochemical.nondimensional.ElectrochemicalModel.overpotential>`
-   method.
 
    .. math::
 
@@ -182,10 +159,7 @@ equation have been reformulated.
 
 .. rubric:: Thermal Model
 
-* Energy conservation:
-   The heat transfer across the cell is computed in the
-   :meth:`T_equation <cideMOD.models.thermal.nondimensional.ThermalModel.T_equation>`
-   function.
+* Energy conservation
    
    .. math::
 
@@ -197,9 +171,7 @@ equation have been reformulated.
 
 
 * Heat generation:
-   Several heat sources have been considered. They are added in the
-   :meth:`T_equation <cideMOD.models.thermal.nondimensional.ThermalModel.T_equation>`
-   directly.
+   Several heat sources have been considered.
 
    .. math::
 
@@ -242,10 +214,8 @@ equation have been reformulated.
 
 .. rubric:: Degradation Models
 
-* SEI formation side reaction
-   This model is implemented inside the
-   :class:`SolventLimitedSEIModel <cideMOD.models.degradation.nondimensional.SolventLimitedSEIModel>`
-   class. The model considers that the SEI is originated by the
+* SEI Models: solvent-diffusion
+   The model considers that the SEI is originated by the
    electrochemical reaction between a EC solvent molecule, two lithium ions
    and two electrons at the electrode surface:
 
@@ -311,8 +281,6 @@ equation have been reformulated.
       \end{gathered}
 
 * LAM model
-    This model is implemented inside the
-    :class:`SEI <cideMOD.models.degradation.nondimensional.LAM_model>` class.
     The model computes the loss of active material due to particle
     cracking driven by stresses. Therefore, the decrease of the volume
     fraction of active material is computed as

@@ -11,14 +11,14 @@ When you have docker installed and running, you need to open a terminal and use 
 
 .. code-block:: console
     
-   $ docker pull cidetec/cidemod
+   $ docker pull cidetec/cidemod:v2.0.0
 
 The image will start to download, this can take a few minutes. 
 When the image is completely downloaded, you can start a container using:
 
 .. code-block:: console
     
-   $ docker run --name cidemod -ti cidetec/cidemod
+   $ docker run --name cidemod -ti cidetec/cidemod:v2.0.0
 
 It is also possible to create and run the container using the Docker Desktop GUI, that may be easier for some users.
 Inside the terminal of the cideMOD container you have the cideMOD repository cloned in the user folder.

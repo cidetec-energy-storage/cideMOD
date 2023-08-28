@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -17,6 +17,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 from abc import ABC, abstractmethod
+
 
 class StrongCoupledPM(ABC):
 
@@ -71,6 +72,7 @@ class StrongCoupledPM(ABC):
         Update implicit model with results calculated without it
         """
 
+
 class WeakCoupledPM(ABC):
     @abstractmethod
     def setup(self):
@@ -83,4 +85,3 @@ class WeakCoupledPM(ABC):
     @abstractmethod
     def microscale_update(self):
         pass
-

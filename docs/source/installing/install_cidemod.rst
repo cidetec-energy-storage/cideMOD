@@ -1,44 +1,36 @@
-Install cideMOD
-----------------
+Install cideMOD docker image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+*Source:* `cideMOD DockerHub
+<https://hub.docker.com/r/cidetec/cidemod>`_
 
-From here we will assume that the user has a working environment with
-*FEniCS* and *Multiphenics*. If you don't have these libraries
-installed, please install it either from
-`source <install_from_source>`_ or via `Docker <install_docker>`_.
+Once Docker is installed, the next step is to download the cideMOD
+image and create the container.
 
-To use cideMOD, first install it using pip.
-
-.. code-block:: console
-
-    $ git clone https://github.com/cidetec-energy-storage/cideMOD.git
-    $ cd cideMOD
-    $ pip install .
-
-The P3D/P4D models make use of **gmsh** meshes to create the cell mesh.
-Therefore, the python environment should be able to locate the **gmsh**
-shared libraries. If your `$PYTHONPATH` doesn't contains gmsh, you
-should add it.
+1. Download the Docker image.
 
 .. code-block:: console
 
-    $ export PYTHONPATH=$PYTHONPATH:<path_to_gmsh_libs>
+   $ docker pull cidetec/cidemod:v2.0.0
 
-or
-
-.. code-block:: console
-
-    $ export PYTHONPATH=$PYTHONPATH:$(find /usr/local/lib -name "gmsh-*-sdk")/lib
-
-Additionally **gmsh** needs from some libraries that you may not have
-been installed.
+2. Check that the image is installed correctly.
 
 .. code-block:: console
 
-    $ sudo apt-get update
-    $ sudo apt-get install libglu1-mesa-dev libxcursor-dev libxinerama-dev
+   $ docker images
 
-To test if the installation is complete, run a simple test.
+3. Next, a folder is created that will be linked to the Docker
+   container for file sharing.
 
 .. code-block:: console
 
-    $ pytest -m "Chen and p2d and validation"
+   $ mkdir cideMOD
+
+4. Finally, the container is created based on the cideMOD image
+   and the link between the content folder and the newly created folder
+   is created.
+
+.. code-block:: console
+
+   $ docker run -ti --name cideMOD -v /home/{user_name}/{path_to}/cideMOD:/home/cideMOD/shared cidetec/cidemod
+
+The cideMOD container terminal should be opened.

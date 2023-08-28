@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 CIDETEC Energy Storage.
+# Copyright (c) 2023 CIDETEC Energy Storage.
 #
 # This file is part of cideMOD.
 #
@@ -17,12 +17,21 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 from cideMOD.models.base.base_particle_models import StrongCoupledPM, WeakCoupledPM
-from cideMOD.models.particle_models.implicit_coupling import SpectralLegendreModel, NondimensionalSpectralModel
-from cideMOD.models.particle_models.explicit_coupling import StandardParticleIntercalation
+from cideMOD.models.particle_models.implicit_coupling import (
+    SpectralLegendreModel,
+    StressEnhancedSpectralModel,
+    NondimensionalSpectralModel
+)
+from cideMOD.models.particle_models.explicit_coupling import (
+    StandardParticleIntercalation,
+    StressEnhancedIntercalation
+)
 
 __all__ = [
     'StrongCoupledPM',
     'StandardParticleIntercalation',
+    'StressEnhancedIntercalation',
     'SpectralLegendreModel',
+    'StressEnhancedSpectralModel',
     'NondimensionalSpectralModel',
 ]
