@@ -48,7 +48,7 @@ been installed.
     $ sudo apt-get update
     $ sudo apt-get install libglu1-mesa-dev libxcursor-dev libxinerama-dev
 
-To test if the installation is complete, run a simple test.
+To test if the installation is complete, run a simple test (within the tests folder).
 
 .. code-block:: console
 

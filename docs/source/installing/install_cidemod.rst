@@ -31,6 +31,6 @@ image and create the container.
 
 .. code-block:: console
 
-   $ docker run -ti --name cideMOD -v /home/{user_name}/{path_to}/cideMOD:/home/cideMOD/shared cidetec/cidemod
+   $ docker run -ti --name cideMOD -v /home/{user_name}/{path_to}/cideMOD:/home/cidemod/shared cidetec/cidemod
 
 The cideMOD container terminal should be opened.

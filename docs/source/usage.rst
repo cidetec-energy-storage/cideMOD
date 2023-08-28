@@ -110,6 +110,9 @@ An example of a simple discharge with this approach is given in the
 
 .. literalinclude:: ../../examples/main.py
 
+In the folder `examples/notebooks` you can find several examples 
+configuring cideMOD simulations from a beggining to an advance level.
+
 Outputs
 --------
 There are two kind of outputs available. For each simulation, the

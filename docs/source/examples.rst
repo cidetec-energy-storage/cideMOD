@@ -1,8 +1,10 @@
 Use cases
 ==========
 
-In the repository or docker image, several use cases are
-included together with corresponding literature datasets used in the examples.
+In the repository or docker image, several use cases are included
+together with corresponding literature datasets used in the examples.
+It is recommended to go through the jupyter notebooks that can be found
+within the `examples/notebooks` folder.
 
 .. _examples:
 
