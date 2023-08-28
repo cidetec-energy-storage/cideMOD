@@ -23,7 +23,7 @@ import numpy as np
 from scipy.interpolate import Akima1DInterpolator
 from scipy.integrate import quad, IntegrationWarning
 import matplotlib.pyplot as plt
-from cideMOD import __path__, CellParser, ErrorCheck, SolverCrashed, Problem, CSI, get_model_options
+from cideMOD import CellParser, ErrorCheck, SolverCrashed, Problem, CSI, get_model_options
 
 # TODO: Adapt the docstring
 
@@ -79,13 +79,15 @@ def run_case(
     """
 
     if data_path is None:
-        data_path = os.path.abspath(os.path.join(__path__[0], "../..", f"data/data_{case}"))
+        data_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", f"data/data_{case}"))
     if results_path is None:
-        results_path = os.path.abspath(os.path.join(__path__[0], "../..", f"tests/ref_results"))
+        results_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", f"tests/ref_results"))
 
     if save:
-        options_dict['save_path']=case
-    
+        options_dict['save_path'] = case
+
     options = get_model_options(**options_dict)
     cell = CellParser(params_json if cell_dict is None else cell_dict, data_path, options)
 
@@ -108,7 +110,7 @@ def run_case(
         problem.setup()
         I_app = I_app if I_app else -crate * cell.ref_capacity
 
-        t_f = t_f if t_f else 3600 #* cell.ref_capacity / I_app * 1.25
+        t_f = t_f if t_f else 3600  # * cell.ref_capacity / I_app * 1.25
 
         status = problem.solve(
             min_step=min_step,
@@ -152,7 +154,7 @@ def _check_results(
         result_file = ref_results[global_var]
 
         if isinstance(result_file, list):
-            tols = result_file[1] if len(result_file) == 2 else tols 
+            tols = result_file[1] if len(result_file) == 2 else tols
             result_file = result_file[0]
         elif not isinstance(result_file, str):
             raise TypeError("Ill defined reference results, must be a str or a list.")
@@ -160,12 +162,13 @@ def _check_results(
         model_result = np.column_stack([time, problem.get_global_variable(global_var_)])
 
         reference = np.genfromtxt(os.path.join(results_path, result_file), delimiter=delimiter)
-        
+
         error, time_ratio = _check_results_near(model_result, reference, tols, time_ratio_ref,
                                                 global_var, exact_comparison)
 
 
 def _check_results_near(v1, v2, tols, time_ratio_ref, global_var, exact_comparison):
+    t_ini = max(v1[0, 0], v2[0, 0])
     t_end = min(v1[-1, 0], v2[-1, 0])
     time_ratio = abs(v1[-1, 0] - v2[-1, 0] / time_ratio_ref) / t_end
 
@@ -175,7 +178,7 @@ def _check_results_near(v1, v2, tols, time_ratio_ref, global_var, exact_comparis
         error = lambda t: (c1(t) - c2(t)) ** 2
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=IntegrationWarning)
-            rmse = (quad(error, 0, t_end)[0] / t_end) ** 0.5
+            rmse = (quad(error, t_ini, t_end)[0] / t_end) ** 0.5
     else:
         rmse = np.sqrt(sum((v1[:, 1] - v2[:, 1]) ** 2) / v1.shape[0])
 

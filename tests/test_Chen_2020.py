@@ -63,7 +63,8 @@ class TestP2D_Chen:
     def test_exact(self):
         self.case_kwargs['ref_results'] = {
             'voltage-sim': [f"{self.case}/voltage_1C.txt", [1e-8, 1e-6]]}
-        return run_case(self.case, self.model_options_dict, **self.case_kwargs)
+        return run_case(self.case, self.model_options_dict,
+                        exact_comparison=True, **self.case_kwargs)
 
     def new_reference(self):
         # return self.test_exact()
