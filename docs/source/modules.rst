@@ -1,7 +1,14 @@
 API Reference
 ==============
 
-.. toctree::
-   :maxdepth: 2
+.. autosummary::
+   :recursive:
+   :toctree: generated
 
-   cideMOD/cideMOD
+   cideMOD.helpers
+   cideMOD.numerics
+   cideMOD.mesh
+   cideMOD.cell
+   cideMOD.models
+   cideMOD.simulation_interface
+   cideMOD.main

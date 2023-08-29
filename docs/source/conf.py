@@ -34,6 +34,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
 ]
 
@@ -54,8 +56,16 @@ bibtex_default_style = 'unsrt'
 
 # autodoc options
 autodoc_default_options = {
+    'members': True,
+    'show-inheritance': True,
+    'undoc-members': True,
     'ignore-module-all': True
 }
+autoclass_content = "both"
+
+# autosummary options
+autosummary_generate = True
+autosummary_ignore_module_all = True
 
 # -- Options for HTML output -------------------------------------------------
 

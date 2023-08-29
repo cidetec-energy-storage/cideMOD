@@ -16,6 +16,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""
+This module is the core of cideMOD. Contain the class for handling
+battery cell simulations
+"""
 import os
 import ufl
 import dolfinx as dfx

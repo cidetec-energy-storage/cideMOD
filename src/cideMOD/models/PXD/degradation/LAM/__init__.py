@@ -24,21 +24,21 @@ __hierarchy__ = 400
 
 from cideMOD.models import register_model
 from cideMOD.models.PXD.base_model import BasePXDModel
-from cideMOD.models.PXD.degradation.LAM.inputs import LAMModelInputs
-from cideMOD.models.PXD.degradation.LAM.preprocessing import LAMModelPreprocessing
-from cideMOD.models.PXD.degradation.LAM.equations import LAMModelEquations
-from cideMOD.models.PXD.degradation.LAM.outputs import LAMModelOutputs
+# from cideMOD.models.PXD.degradation.LAM.inputs import LAMModelInputs
+# from cideMOD.models.PXD.degradation.LAM.preprocessing import LAMModelPreprocessing
+# from cideMOD.models.PXD.degradation.LAM.equations import LAMModelEquations
+# from cideMOD.models.PXD.degradation.LAM.outputs import LAMModelOutputs
 
 
-@register_model
-class LAMModel(
-    LAMModelInputs,
-    LAMModelPreprocessing,
-    LAMModelEquations,
-    LAMModelOutputs,
-    BasePXDModel
-):
-    _name_ = __model_name__
-    _mtype_ = __mtype__
-    _root_ = __root_model__
-    _hierarchy_ = __hierarchy__
+# @register_model
+# class LAMModel(
+#     LAMModelInputs,
+#     LAMModelPreprocessing,
+#     LAMModelEquations,
+#     LAMModelOutputs,
+#     BasePXDModel
+# ):
+#     _name_ = __model_name__
+#     _mtype_ = __mtype__
+#     _root_ = __root_model__
+#     _hierarchy_ = __hierarchy__
