@@ -1,10 +1,10 @@
 .. |cideMOD_logo| image:: ./docs/source/Images/logo_final_cidemod_hor.png
   :alt: cideMOD_logo
 
-.. |docs| image:: https://readthedocs.org/projects/cidemod/badge/?version=latest
+.. |docs| image:: https://readthedocs.org/projects/cidemod/badge/?version=stable
     :alt: Documentation Status
     :scale: 100%
-    :target: https://cidemod.readthedocs.io/en/latest/
+    :target: https://cidemod.readthedocs.io/en/stable/
 
 .. |doi| image:: https://img.shields.io/badge/DOI-10.1149%2F1945--7111%2Fac91fb-informational
     :alt: Reference
@@ -128,7 +128,7 @@ Documentation
 -------------
 
 The documentation can be viewed at
-`ReadTheDocs <https://cidemod.readthedocs.io/en/latest/>`_.
+`ReadTheDocs <https://cidemod.readthedocs.io/en/stable/>`_.
 
 You can also access the documentation on the docs folder
 building it (See the requirements.txt file for necessary packages):
