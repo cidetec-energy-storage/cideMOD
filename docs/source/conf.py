@@ -45,7 +45,7 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = ['rtd_requirements.txt']
 
 # The master toctree document.
 master_doc = 'index'
@@ -62,6 +62,8 @@ autodoc_default_options = {
     'ignore-module-all': True
 }
 autoclass_content = "both"
+autodoc_mock_imports = ["dolfinx", "ufl", "mpi4py", "petsc4py", "multiphenicsx", "gmsh", "pandas",
+                        "plotly", "ipywidgets", "tabulate", "meshio", "pygmsh"]
 
 # autosummary options
 autosummary_generate = True

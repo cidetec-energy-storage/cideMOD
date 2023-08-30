@@ -60,6 +60,7 @@ cover/
 docs/_build/
 docs/build/
 docs/latex/
+docs/source/_autosummary/
 
 #PETSC logs
 *.log
