@@ -65,7 +65,7 @@ def isinstance_dolfinx(*args, dolfinx_classes=dolfinx_classes) -> Union[bool, Li
         return isinstance(args[0], dolfinx_classes)
 
 
-def interpolate(ex, V: Union[dfx.fem.FunctionSpace, dfx.fem.Function],
+def interpolate(ex, V: Union[dfx.fem.FunctionSpaceBase, dfx.fem.Function],
                 cells: Optional[np.ndarray] = None, dofs: Optional[np.ndarray] = None):
     """
     Method to interpolate ex into V.
@@ -75,7 +75,7 @@ def interpolate(ex, V: Union[dfx.fem.FunctionSpace, dfx.fem.Function],
     ex : Union[float,int,numpy.ndarray, dolfinx.fem.Function,
                ufl.Operator, dolfinx.Expression]
         The object to interpolate to.
-    V : Union[dfx.fem.FunctionSpace,dfx.fem.Function]
+    V : Union[dfx.fem.FunctionSpaceBase,dfx.fem.Function]
         The function (V or Function(V)) to interpolate into.
     cells : Optional[numpy.ndarray]
         The cells (mesh entities) to interpolate over. If None then all
@@ -91,14 +91,14 @@ def interpolate(ex, V: Union[dfx.fem.FunctionSpace, dfx.fem.Function],
     dfx.fem.Function
         The interpolated function.
     """
-    if isinstance(V, dfx.fem.FunctionSpace):
+    if isinstance(V, dfx.fem.FunctionSpaceBase):
         points = V.element.interpolation_points()
         f = dfx.fem.Function(V)
     elif isinstance(V, dfx.fem.Function):
         points = V.function_space.element.interpolation_points()
         f = V
     else:
-        raise Exception("V must be Function or FunctionSpace")
+        raise Exception("V must be Function or FunctionSpaceBase")
     if isinstance(ex, (float, int)):
         if dofs is None:
             f.x.array[:] = ex
@@ -163,7 +163,7 @@ class BlockFunction:
 
 
 class BlockFunctionSpace:
-    function_spaces: List[dfx.fem.FunctionSpace]
+    function_spaces: List[dfx.fem.FunctionSpaceBase]
     restriction_elements: Tuple[int, List[np.ndarray]]
     restrictions: List[mpx.DofMapRestriction]
     var_names: List[str]
@@ -208,10 +208,10 @@ class BlockFunctionSpace:
     def get_restriction(self, varname: str) -> mpx.DofMapRestriction:
         return self.restrictions[self.var_names.index(varname)]
 
-    def __call__(self, varname: str) -> dfx.fem.FunctionSpace:
+    def __call__(self, varname: str) -> dfx.fem.FunctionSpaceBase:
         return self.function_spaces[self.var_names.index(varname)]
 
-    def __getitem__(self, i: int) -> dfx.fem.FunctionSpace:
+    def __getitem__(self, i: int) -> dfx.fem.FunctionSpaceBase:
         return self.function_spaces[i]
 
 
