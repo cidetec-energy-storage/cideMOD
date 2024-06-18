@@ -26,4 +26,4 @@ To use cideMOD, first install it from source using pip.
     $ pip install .
 
 Additionally, some extra libraries are needed for the use of **gmsh** meshes 
-to create P3D/P4D meshes as described in :doc:`Installation Guide <install_from_mamba>`.
+to create P3D/P4D meshes as described in :doc:`Install with conda </installing/install_from_mamba>`.

@@ -6,7 +6,7 @@ feedstock for dolfinx. Optionally, one can install cideMOD using the Docker imag
 or in a FEniCSx working environment (with multiphenicsx) by downloading everything 
 from source and installing it with the Python package manager.
 
-.. include:: installing/install_mamba.rst
+.. include:: installing/install_from_mamba.rst
 
 .. include:: installing/install_docker.rst
 
