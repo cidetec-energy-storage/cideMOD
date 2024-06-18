@@ -157,20 +157,20 @@ class BaseCellModelPreprocessing(ABC):
     # ******************************************************************************************* #
 
     def set_state_variables(self, state_vars: list, mesher: BaseMesher,
-                            V: dfx.fem.FunctionSpace, V_vec: dfx.fem.FunctionSpace,
+                            V: dfx.fem.FunctionSpaceBase, V_vec: dfx.fem.FunctionSpaceBase,
                             problem) -> None:
         """
         This method sets the state variables of this specific model.
 
         Parameters
         ----------
-        state_vars : List(Tuple(str, numpy.ndarray, dolfinx.fem.FunctionSpace))
+        state_vars : List(Tuple(str, numpy.ndarray, dolfinx.fem.functionspace))
             List of tuples, each one containing the name, the
             subdomain and the function space of the state variable.
         mesher : BaseMesher
             Object that contains the mesh information.
-        V : dolfinx.fem.FunctionSpace
-            Common FunctionSpace to be used for each model.
+        V : dolfinx.fem.functionspace
+            Common functionspace to be used for each model.
         V_vec : dolfinx.fem.VectorFunctionSpace
             Common VectorFunctionSpace to be used for each model.
         problem: Problem

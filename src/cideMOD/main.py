@@ -240,7 +240,7 @@ class Problem:
     def _build_function_spaces(self):
         """Builds the function space"""
         # Get model function spaces
-        P1 = dfx.fem.FunctionSpace(self.mesher.mesh, ('Lagrange', 1))
+        P1 = dfx.fem.functionspace(self.mesher.mesh, ('Lagrange', 1))
         P1_vec = dfx.fem.VectorFunctionSpace(self.mesher.mesh, ('Lagrange', 1))
         elements = self._models.set_state_variables(self.mesher, P1, P1_vec, self)
 
@@ -256,9 +256,9 @@ class Problem:
         self._f_0 = self.u_1
 
         # Additional fem functions
-        self.V = dfx.fem.FunctionSpace(self.mesher.mesh, ('Lagrange', 1))
+        self.V = dfx.fem.functionspace(self.mesher.mesh, ('Lagrange', 1))
         self.V_vec = dfx.fem.VectorFunctionSpace(self.mesher.mesh, ('Lagrange', 1))
-        self.V_0 = dfx.fem.FunctionSpace(self.mesher.mesh, ('DG', 0))
+        self.V_0 = dfx.fem.functionspace(self.mesher.mesh, ('DG', 0))
         self.V_0_vec = dfx.fem.VectorFunctionSpace(self.mesher.mesh, ('DG', 0))
 
         self.P1_map = SubdomainMapper(self.mesher.field_restrictions, self.V)

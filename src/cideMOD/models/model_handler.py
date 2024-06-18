@@ -471,8 +471,8 @@ class ModelHandler(CellModelList):
         mesher : BaseMesher
             Object that contains the mesh information.
 
-        V : dolfinx.fem.FunctionSpace
-            Common FunctionSpace to be used for each model.
+        V : dolfinx.fem.functionspace
+            Common functionspace to be used for each model.
 
         V_vec : dolfinx.fem.VectorFunctionSpace
             Common VectorFunctionSpace to be used for each model.
@@ -481,7 +481,7 @@ class ModelHandler(CellModelList):
 
         Returns
         -------
-        List(Tuple(str, numpy.ndarray, dolfinx.fem.FunctionSpace))
+        List(Tuple(str, numpy.ndarray, dolfinx.fem.functionspace))
             Returns a list of tuples, each one containing the name, the
             subdomain and the function space of the state variable.
         """

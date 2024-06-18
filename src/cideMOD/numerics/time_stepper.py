@@ -16,6 +16,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+
+import numpy as np
+
 from abc import ABC, abstractmethod
 from dolfinx.common import Timer, timed
 
@@ -174,11 +177,11 @@ class AdaptiveTimeStepper(ConstantTimeStepper):
         error = []
         for index in range(len(problem.u_2.functions)):
             var_err = self.nu / 2 * (
-                (2 / (1 + self.tau) * problem.u_2[index].vector
-                 - 2 * problem.u_1[index].vector
-                 + 2 * self.tau / (1 + self.tau) * problem.u_0[index].vector)
+                (2 / (1 + self.tau) * problem.u_2[index].x.array
+                 - 2 * problem.u_1[index].x.array
+                 + 2 * self.tau / (1 + self.tau) * problem.u_0[index].x.array)
             )
-            error.append(var_err.norm())
+            error.append(np.linalg.norm(var_err))
         return error
 
     def _calc_nu(self, tau):

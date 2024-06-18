@@ -68,7 +68,7 @@ class StandardParticleIntercalation(WeakCoupledPM):
         self.ds = Measure('ds', domain=self.mesh, subdomain_data=facet_tag)
 
     def build_fs(self):
-        P1 = dfx.fem.FunctionSpace(self.mesh, ('Lagrange', 1))
+        P1 = dfx.fem.functionspace(self.mesh, ('Lagrange', 1))
 
         self.V = P1.clone()
         self.W = P1.clone()
@@ -240,9 +240,9 @@ class StandardParticleIntercalation(WeakCoupledPM):
             Form: Lithium Reaction Flux dependent on c_s
         """
         eta = phi - OCV(c_s / c_s_max)
-        BV = exp((1-alpha) * F * eta / (R * T)) - exp(-alpha * F * eta / (R * T))
+        BV = exp((1 - alpha) * F * eta / (R * T)) - exp(-alpha * F * eta / (R * T))
         k_0_eff = k_0 * exp(k_0_Ea / R * (1 / k_0_Tref - 1 / T))
-        i_0 = k_0_eff * c_e ** (1-alpha) * (c_s_max - c_s) ** (1-alpha) * c_s ** alpha
+        i_0 = k_0_eff * c_e ** (1 - alpha) * (c_s_max - c_s) ** (1 - alpha) * c_s ** alpha
         return i_0 * BV
 
     def get_average_c_s(self, increment=False):
