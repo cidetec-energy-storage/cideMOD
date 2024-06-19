@@ -79,20 +79,26 @@ simulation conditions
 Installation
 ------------
 
-Read the Installation Section in the documentation for more information
-and installation options.
+The **cideMOD** model is based on the finite element platform FEniCSx
+and the library multiphenicsx. The current version of **cideMOD** runs 
+on version 0.7.0 of dolfinx and the prefered installation method is using the conda-forge package for 
+FEniCSx (https://github.com/conda-forge/fenics-dolfinx-feedstock).
+Thus, a new conda environment can be setup to install the corresponding versions of dolfinx and multiphenicsx
 
-The **cideMOD** model is based on the finite element platform FEniCS
-and the library multiphenics. From here we will assume that the
-user has a working environment with FEniCS and multiphenics.
+.. code-block:: console
+
+   $ conda create --name cidemod python=3.11
+   $ conda activate cidemod
+   $ conda install fenics-dolfinx=0.7.0 fenics-libdolfinx=0.7.0
+   $ git clone -b dolfinx-v0.7.0 --depth 1 --single-branch https://github.com/multiphenics/multiphenicsx.git
+   $ pip install ./multiphenicsx
 
 To use **cideMOD**, first install it using pip:
 
 .. code-block:: console
-
+   
    $ git clone https://github.com/cidetec-energy-storage/cideMOD.git
-   $ cd cideMOD
-   $ pip install .
+   $ pip install ./cideMOD
 
 The P3D/P4D models make use of Gmsh meshes to create the battery
 mesh. Therefore, the python environment should be able to locate the
@@ -115,7 +121,7 @@ installed:
 .. code-block:: console
 
    $ sudo apt-get update
-   $ sudo apt-get install libglu1-mesa-dev libxcursor-dev libxinerama-dev
+   $ sudo apt-get install libglu1-mesa-dev libxcursor-dev libxinerama-dev libxft2 lib32ncurses6
 
 To test if the installation is complete, run a simple test (within the tests folder):
 
@@ -123,6 +129,8 @@ To test if the installation is complete, run a simple test (within the tests fol
 
    $ pytest -m "quicktest"
 
+Read the Installation Section in the documentation for more information
+and installation options.
 
 Documentation
 -------------

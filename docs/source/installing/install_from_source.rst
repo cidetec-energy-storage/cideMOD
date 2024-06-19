@@ -25,31 +25,5 @@ To use cideMOD, first install it from source using pip.
     $ cd cideMOD
     $ pip install .
 
-The P3D/P4D models make use of **gmsh** meshes to create the cell mesh.
-Therefore, the python environment should be able to locate the **gmsh**
-shared libraries. If your `$PYTHONPATH` doesn't contains gmsh, you
-should add it.
-
-.. code-block:: console
-
-    $ export PYTHONPATH=$PYTHONPATH:<path_to_gmsh_libs>
-
-or
-
-.. code-block:: console
-
-    $ export PYTHONPATH=$PYTHONPATH:$(find /usr/local/lib -name "gmsh-*-sdk")/lib
-
-Additionally **gmsh** needs from some libraries that you may not have
-been installed.
-
-.. code-block:: console
-
-    $ sudo apt-get update
-    $ sudo apt-get install libglu1-mesa-dev libxcursor-dev libxinerama-dev
-
-To test if the installation is complete, run a simple test (within the tests folder).
-
-.. code-block:: console
-
-    $ pytest -m "quicktest"
+Additionally, some extra libraries are needed for the use of **gmsh** meshes 
+to create P3D/P4D meshes as described in :doc:`Install with conda </installing/install_from_mamba>`.
